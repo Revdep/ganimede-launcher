@@ -39,7 +39,8 @@ setting() { emu_only "settings put $1 $2" && keep "$1" "$2" && A shell settings 
 A shell input keyevent KEYCODE_WAKEUP; A shell wm dismiss-keyguard
 if is_emulator; then
   for s in window_animation_scale transition_animation_scale animator_duration_scale; do setting global $s "${ANIM:-0}"; done
-  for s in "secure enabled_notification_listeners" "system accelerometer_rotation" "system user_rotation" "system font_scale"; do keep $s; done
+  for s in "secure enabled_notification_listeners" "system accelerometer_rotation" "system user_rotation"; do keep $s; done
+  setting system font_scale 1.0 # a run killed mid font test leaves 1.15: List mode's clock then has no room to move up
 else echo "SKIP: $SERIAL is not an emulator: destructive sections and every settings change are left out."; fi
 A logcat -b crash -c
 PASS=0; FAIL=0; SKIPS=0
