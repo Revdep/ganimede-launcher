@@ -41,6 +41,7 @@ final class SettingsPages {
     private final Runnable restart;
     private final Runnable restored; // what a successful restore does on the page showing now
     private final SettingsBackup backup;
+    private Uri confirming; // the file the open "Restore backup?" asks about
     private FileJob job; // the backup or restore this page shows the end of, while it runs
 
     /** restart: runs the setup wizard again, from its first step. */
@@ -157,14 +158,27 @@ final class SettingsPages {
         if (req == REQ_SAVE) {
             fileJob(() -> { b.save(u); return null; }, "Backup created", "Could not write the backup", null);
         } else if (req == REQ_LOAD) {
-            Ui.dialog(kit.activity())
-                    .setTitle(kit.ui.tr("Restore backup?"))
-                    .setMessage(kit.ui.tr("This replaces your current setup and can't be undone."))
-                    .setPositiveButton(kit.ui.tr("Restore"), (d, w) -> fileJob(() -> { b.restore(u); return null; },
-                            "Backup restored", "That file isn't a Ganimede backup", p -> p.restored.run()))
-                    .setNegativeButton(kit.ui.tr("Cancel"), null).show();
+            confirmRestore(u);
         }
     }
+
+    /** The restore confirmation; the file it asks about is kept in confirming so a rebuilt screen can ask again. */
+    void confirmRestore(Uri u) {
+        SettingsBackup b = backup;
+        confirming = u;
+        Ui.dialog(kit.activity())
+                .setTitle(kit.ui.tr("Restore backup?"))
+                .setMessage(kit.ui.tr("This replaces your current setup and can't be undone."))
+                .setPositiveButton(kit.ui.tr("Restore"), (d, w) -> {
+                    confirming = null;
+                    fileJob(() -> { b.restore(u); return null; }, "Backup restored", "That file isn't a Ganimede backup", p -> p.restored.run());
+                })
+                .setNegativeButton(kit.ui.tr("Cancel"), (d, w) -> confirming = null)
+                .setOnCancelListener(d -> confirming = null).show();
+    }
+
+    /** The file whose restore is being confirmed, or null. */
+    Uri confirming() { return confirming; }
 
     /** A backup or restore still running, for the screen Android builds in place of this one (rotation); null if none. */
     Object running() { return job; }
