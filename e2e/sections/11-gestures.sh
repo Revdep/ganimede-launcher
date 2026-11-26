@@ -1,0 +1,162 @@
+# gestures: classic pages (swipe, create/delete, edge turn while dragging, drawer off), the drawer following the finger, home gestures.
+# Local helpers (could move to lib.sh): texts, pages_n, swipe_h, hold_drag.
+texts() { dump | grep -o ' text="[^"]\+"' | sort -u; }
+pages_n() { pref grid_pages; }
+pages_is() { [ "$(pages_n)" = "$1" ]; }
+pages_ge2() { [ "$(pages_n)" -ge 2 ] 2>/dev/null; }
+# horizontal swipe in the empty middle of the grid, then wait for the pager to stop
+swipe_h() { A shell input swipe "$1" "$((H / 2))" "$2" "$((H / 2))" 250; wait_until 5 settled; }
+# a held drag by hand: long-press at x1,y1, glide to x2,y2, (drift: then straight on down by $6 px, as a real finger)
+# stay there $5 s, lift (input draganddrop cannot hold at the end)
+hold_drag() {
+  local x1=$1 y1=$2 x2=$3 y2=$4 hold=$5 drift=${6:-0} i
+  A shell input motionevent DOWN "$x1" "$y1"; sleep 0.9
+  for i in 1 2 3 4 5 6 7 8; do A shell input motionevent MOVE $((x1 + (x2 - x1) * i / 8)) $((y1 + (y2 - y1) * i / 8)); done
+  for i in 1 2 3 4; do [ "$drift" = 0 ] || A shell input motionevent MOVE "$x2" $((y2 + drift * i / 4)); done
+  sleep "$hold"
+  A shell input motionevent MOVE "$x2" $((y2 + drift)); A shell input motionevent UP "$x2" $((y2 + drift))
+}
+# the app list (drawer) is open: its search field is on screen
+listed() { has "Cerca" || hasd "Cerca"; }
+
+step "Gestures: classic page swipe (drawer off puts apps on pages 2+)"
+seed classic; setp boolean drawer false
+wait_until 10 pages_ge2; n=$(pages_n)
+[ "${n:-1}" -ge 2 ] && ok "drawer off made $n pages" || { ko "drawer off left ${n:-1} page(s)"; n=2; }
+wait_until 5 has Calendar
+p1=$(texts)
+swipe_h $((W - $(dp 40))) $(dp 40)
+hasnt Calendar && ok "swipe left: page 1 icons are gone" || ko "Calendar still shown after swiping left"
+p2=$(texts); [ "$p2" != "$p1" ] && [ -n "$(echo "$p2" | grep -v 'Orologio')" ] && ok "swipe left shows a different page of apps" || ko "page 2 looks like page 1"
+shot 40-page2
+for _ in $(seq 2 "$n"); do swipe_h $((W - $(dp 40))) $(dp 40); done # to the last page
+last=$(texts)
+swipe_h $((W - $(dp 40))) $(dp 40)
+[ "$(texts)" = "$last" ] && ok "swipe left at the last page stays" || ko "the last page moved on a swipe left"
+for _ in $(seq 2 "$n"); do swipe_h $(dp 40) $((W - $(dp 40))); done
+wait_until 5 has Calendar && ok "swipes right come back to page 1" || ko "no way back to page 1"
+
+step "Gestures: drawer off, swipe up opens no drawer"
+A shell input swipe $((W / 2)) $((H * 6 / 10)) $((W / 2)) $((H / 5)) 300
+wait_until 5 settled
+listed && ko "swipe up opened the drawer with it switched off" || ok "swipe up opens nothing"
+has Calendar && ok "home screen still in front" || ko "home screen gone after the swipe up"
+
+step "Gestures: Home on a side page goes to page 1, back from an app keeps the page"
+seed classic; setp boolean drawer false; wait_until 10 pages_ge2; wait_until 5 has Calendar
+swipe_h $((W - $(dp 40))) $(dp 40); wait_until 5 hasnt Calendar
+side_app=$(texts | grep -E 'text="[A-Za-z]' | head -1 | sed 's/ text="//; s/"$//')
+A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+wait_until 5 has Calendar && ok "Home on page 2: page 1 again" || ko "Home on page 2 stayed on page 2"
+swipe_h $((W - $(dp 40))) $(dp 40); wait_until 5 hasnt Calendar
+tap "$side_app"; wait_until 10 eval '! focus'
+A shell input keyevent KEYCODE_HOME; wait_until 10 focus; wait_until 5 settled
+has "$side_app" && hasnt Calendar && ok "back from “$side_app”: still on page 2" || ko "back from “$side_app”: page 2 lost"
+# (Home mid-swipe is not testable here: with an injected finger held down, Home recreates the activity on page 1)
+# Home while resizing the clock ends the resizing, as a touch outside or Back does
+seed classic
+read -r x1 y1 x2 y2 <<<"$(bounds "desc:Orologio, tocca per le sveglie")"
+A shell input swipe $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) 1300
+tap "Ridimensiona"; wait_until 5 hasd "Ridimensiona bordo destro" && ok "resizing the clock" || ko "no resize handles"
+A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+wait_until 5 nod "Ridimensiona bordo destro" && ok "Home ends the resizing" || ko "Home left the resize handles"
+
+step "Gestures: page create / delete with confirm"
+# page 2 gets apps through drawer off, then the drawer comes back on: deleting the page then takes its icons off the home screen
+seed classic; setp boolean drawer false; wait_until 10 pages_ge2; setp boolean drawer true
+n=$(pages_n); [ "${n:-1}" -ge 2 ] && ok "page 2 holds apps ($n pages)" || ko "no page 2 ($n)"
+swipe_h $((W - $(dp 40))) $(dp 40)
+gone_app=$(texts | grep -E 'text="[A-Za-z]' | head -1 | sed 's/ text="//; s/"$//')
+[ -n "$gone_app" ] && ok "page 2 shows “$gone_app”" || ko "page 2 shows no app"
+read -r dx dy <<<"$(cx "desc:Regola pagine")"; A shell input tap "$dx" "$dy"
+expect "Pagina 2"
+read -r nx ny <<<"$(cx "desc:Nuova pagina")"; A shell input tap "$nx" "$ny"
+wait_until 5 pages_is $((n + 1)) && ok "New page: pages $n → $((n + 1))" || ko "New page: pages $(pages_n), expected $((n + 1))"
+shot 41-arrange
+read -r xx xy <<<"$(cx "desc:Elimina pagina")"; A shell input tap "$xx" "$xy"   # the cross of page 2
+expect "Eliminare questa pagina?"
+tap "Elimina"
+wait_until 5 hasnt "Eliminare questa pagina?"
+wait_until 5 pages_is "$n" && ok "Delete page (confirmed): pages back to $n" || ko "Delete page: pages $(pages_n), expected $n"
+tap "Fatto"; wait_until 5 hasnt "Pagina 2"
+seen=0
+for _ in $(seq 1 "$n"); do has "$gone_app" && seen=1; swipe_h $((W - $(dp 40))) $(dp 40); done
+[ $seen = 0 ] && ok "“$gone_app” is gone from every page" || ko "“$gone_app” still on a page after deleting its page"
+# an empty page goes without a question
+seed classic; setp int grid_pages 3
+read -r dx dy <<<"$(cx "desc:Regola pagine")"; A shell input tap "$dx" "$dy"; expect "Pagina 3"
+read -r xx xy <<<"$(cx "desc:Elimina pagina")"; A shell input tap "$xx" "$xy"
+wait_until 5 pages_is 2 && ok "an empty page is deleted without asking (3 → 2)" || ko "empty page: pages $(pages_n), expected 2"
+has "Eliminare questa pagina?" && ko "asked to delete an empty page" || ok "no confirm for an empty page"
+tap "Fatto"
+
+step "Gestures: edge page-turn while dragging an icon"
+seed classic; setp int grid_pages 2
+wait_until 5 has Calendar
+read -r ax ay <<<"$(cx Calendar)"
+hold_drag "$ax" "$ay" $((W - $(dp 16))) "$ay" 1.5
+wait_until 6 hasnt Clock
+hasnt Clock && ok "the grid turned to page 2 (page 1 icons gone)" || ko "held at the right edge: still on page 1"
+hasnt Clock && has Calendar && ok "Calendar dropped on page 2" || ko "Calendar not on page 2"
+shot 42-edge-turn
+swipe_h $(dp 40) $((W - $(dp 40)))
+has Clock && ok "page 1 again: Clock there" || ko "page 1 lost Clock"
+hasnt Calendar && ok "Calendar left page 1" || ko "Calendar still on page 1"
+# a real finger at the edge drifts: going down into the next cell must not cancel the turn
+seed classic; setp int grid_pages 2
+wait_until 5 has Calendar
+read -r ax ay <<<"$(cx Calendar)"
+# from the label's middle (low in its cell) 60 dp down: into the next row, still above the dots and dock (bottom 200 dp)
+[ $((ay + $(dp 60))) -lt $((H - $(dp 200))) ] && ok "the drift ends inside the grid" || ko "the drift would reach the dots or dock (y $((ay + $(dp 60))))"
+hold_drag "$ax" "$ay" $((W - $(dp 16))) "$ay" 1 "$(dp 60)"
+wait_until 6 hasnt Clock
+hasnt Clock && has Calendar && ok "drifting at the edge: turned to page 2, Calendar dropped there" || ko "drifting at the edge: no page turn"
+
+step "Gestures: drawer follows the finger"
+for handed in false true; do
+  seed classic; setp boolean left_handed "$handed"; wait_until 5 settled
+  [ "$handed" = true ] && edge=$((W - $(dp 29))) || edge=$(dp 29)
+  A shell input swipe "$edge" $((H * 6 / 10)) "$edge" $((H / 5)) 1500 # slow enough that no fling fallback can open it
+  wait_until 5 listed \
+    && ok "left-handed=$handed: a slow pull from the opposite edge opens the drawer" \
+    || ko "left-handed=$handed: the opposite edge blocked the slow drawer pull"
+done
+setp del left_handed
+seed classic
+swipe_up() { A shell input swipe $((W / 2)) "$1" $((W / 2)) "$2" "$3"; }
+swipe_up $((H * 6 / 10)) $((H / 5)) 200
+wait_until 5 listed && ok "swipe up opens the drawer" || ko "swipe up: no drawer"
+wait_until 5 settled
+shot 43-drawer-open
+A shell input swipe $((W / 2)) $((H / 2)) $((W / 2)) $((H / 2 + $(dp 70))) 1500 # a slow short pull down: springs back
+wait_until 5 settled
+listed && ok "short slow drag down: the drawer springs back open" || ko "short drag down closed the drawer"
+A shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 600
+wait_until 5 has Calendar && ok "drag down closes the drawer: home again" || ko "drag down did not close the drawer"
+wait_until 5 settled
+swipe_up $((H * 6 / 10)) $((H * 6 / 10 - $(dp 120))) 400 # short, below the flick speed: springs back to home
+wait_until 5 settled
+has Calendar && ok "short slow drag up: the drawer springs back shut" || ko "short drag up opened the drawer"
+listed && ko "drawer shows after a short drag" || ok "no drawer after the short drag"
+
+step "Gestures: swipe down shows the shade"
+seed classic
+A shell input swipe $((W / 2)) $((H * 4 / 10)) $((W / 2)) $((H * 8 / 10)) 200
+shade() { A shell dumpsys window | grep -q "mCurrentFocus.*NotificationShade"; }
+wait_until 5 shade && ok "swipe down: the notification shade has the focus" || ko "swipe down: no shade"
+shot 44-shade
+A shell input keyevent KEYCODE_BACK
+wait_until 5 focus && ok "Back closes the shade: home again" || ko "shade still up after Back"
+
+step "Gestures: a sheet pulled a quarter closes, a short pull springs back"
+seed classic
+read -r cx0 cy0 <<<"$(cx Calendar)"
+A shell input swipe "$cx0" "$cy0" "$cx0" "$cy0" 1300
+expect "Rinomina"
+b=$(bounds "Rinomina"); set -- $b; ry=$((($2 + $4) / 2))
+sheet_h=$((H - ry + $(dp 160))) # about the sheet: from its title to the screen bottom
+A shell input swipe $((W / 2)) "$ry" $((W / 2)) $((ry + sheet_h / 10)) 1500 # a tenth: short, slow
+wait_until 5 settled
+has "Rinomina" && ok "short slow pull: the sheet springs back" || ko "short pull closed the sheet"
+A shell input swipe $((W / 2)) "$ry" $((W / 2)) $((ry + sheet_h * 4 / 10)) 1500 # beyond a quarter, slow
+wait_until 5 hasnt "Rinomina" && ok "pulled past a quarter: the sheet closes" || ko "the sheet stayed after a long pull"

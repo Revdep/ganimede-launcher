@@ -1,0 +1,13 @@
+pluginManagement {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement {
+    repositories { google(); mavenCentral() }
+}
+rootProject.name = "GanimedeLauncher"
+
+// Test-only app for the e2e (e2e/fixture), only with -Pe2e: never built, installed or shipped otherwise.
+if (providers.gradleProperty('e2e').present) {
+    include ':fixture'
+    project(':fixture').projectDir = file('e2e/fixture')
+}

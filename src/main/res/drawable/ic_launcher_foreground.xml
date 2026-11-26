@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ganimede's layers: ice crust, salt ocean, ice mantle, rock mantle, iron core. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#8C96A3" android:pathData="M22,54a32,32 0 1,0 64,0a32,32 0 1,0 -64,0z" />
+    <path android:fillColor="#5EE6F7" android:pathData="M25,54a29,29 0 1,0 58,0a29,29 0 1,0 -58,0z" />
+    <path android:fillColor="#4F86C9" android:pathData="M27,54a27,27 0 1,0 54,0a27,27 0 1,0 -54,0z" />
+    <path android:fillColor="#5B3A2C" android:pathData="M34.5,54a19.5,19.5 0 1,0 39,0a19.5,19.5 0 1,0 -39,0z" />
+    <path android:fillColor="#E8672D" android:pathData="M43,54a11,11 0 1,0 22,0a11,11 0 1,0 -22,0z" />
+</vector>

@@ -1,0 +1,49 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with: { fetch-depth: 0 } # the previous tags are needed below
+      - name: Tag matches versionName
+        run: .github/check-tag.sh "$GITHUB_REF_NAME"
+      - name: versionCode is higher than at the previous tag
+        run: .github/check-versioncode.sh
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+      - name: Signing key from the repository secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          [ -n "$KEYSTORE_B64" ] || { echo "KEYSTORE_B64 secret missing: never publish a debug-signed APK"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > release.jks
+          printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+      - run: ./gradlew assembleRelease
+      - name: APK is signed by the release key
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          apk=Ganimede-Launcher-release.apk
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          got=$("$apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          want=$(keytool -exportcert -keystore release.jks -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | sha256sum | cut -d' ' -f1)
+          [ -n "$got" ] && [ "$got" = "$want" ] || { echo "APK not signed by the release key"; exit 1; }
+          sha256sum "$apk" > "$apk.sha256"
+      - name: Publish the APK
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh release create "$GITHUB_REF_NAME" Ganimede-Launcher-release.apk Ganimede-Launcher-release.apk.sha256 \
+            --title "Ganimede $GITHUB_REF_NAME" --generate-notes
+      - if: always()
+        run: rm -f release.jks keystore.properties

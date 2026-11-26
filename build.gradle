@@ -1,0 +1,89 @@
+plugins { id 'com.android.application' version '8.9.1' }
+
+android {
+    namespace 'org.ganimede.launcher'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'org.ganimede.launcher'
+        minSdk 26
+        targetSdk 35
+        versionCode 4
+        versionName '0.0.10'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    // Release builds are signed with your own key when keystore.properties exists
+    // (storeFile, storePassword, keyAlias, keyPassword). Without it they use this computer's own debug key (made for
+    // each computer by the SDK), so the small optimised APK still installs over the debug one.
+    def ksFile = rootProject.file('keystore.properties')
+    if (ksFile.exists()) {
+        def ks = new Properties()
+        ksFile.withInputStream { ks.load(it) }
+        signingConfigs {
+            release {
+                storeFile rootProject.file(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+        }
+        buildTypes { release { signingConfig signingConfigs.release } }
+    } else {
+        // No key of your own yet: the small optimised build is signed like the debug one, so it installs over it.
+        buildTypes { release { signingConfig signingConfigs.debug } }
+        gradle.taskGraph.whenReady { graph ->
+            if (graph.allTasks.any { it.name.contains('Release') })
+                logger.quiet('WARNING: keystore.properties not found, so the release APK is signed with this computer\'s ' +
+                        'DEBUG key. Fine for your own phone; never publish it.')
+        }
+    }
+    // R8 on every build: drops unused code and resources and shortens names, so the installed APK is the smallest.
+    buildTypes.configureEach {
+        minifyEnabled true
+        shrinkResources true
+        proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+    // Framework only: no Google Play Services, no AndroidX, no trackers.
+    dependenciesInfo { includeInApk false; includeInBundle false }
+    lint {
+        checkReleaseBuilds false // its tools aren't available offline
+        baseline file("lint-baseline.xml") // known issues; anything new fails
+    }
+}
+
+// The APKs keep Android's standard names in build/ (where tools look for them); a copy named
+// Ganimede-Launcher-<debug|release>.apk goes right in this folder, ready to install on the phone.
+base { archivesName = 'app' } // build/outputs/apk/<variant>/app-<variant>.apk, the name Android tools expect
+def apkTarget = projectDir
+tasks.configureEach { t ->
+    if (t.name == 'assembleDebug' || t.name == 'assembleRelease') t.doLast {
+        String v = t.name == 'assembleDebug' ? 'debug' : 'release'
+        layout.buildDirectory.dir('outputs/apk/' + v).get().asFile.listFiles().findAll { it.name.endsWith('.apk') }.each { f ->
+            java.nio.file.Files.copy(f.toPath(), new File(apkTarget, "Ganimede-Launcher-${v}.apk").toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+}
+
+// Tests: every *Test class under src/test runs before each build, against the pure-Java code in the core package
+// (no Android there, so it runs on the computer). A failing test stops the build. No test libraries needed.
+def testOut = layout.buildDirectory.dir('coretest')
+tasks.register('coreTestCompile', JavaCompile) {
+    source = fileTree('src/main/java/org/ganimede/launcher/core') + fileTree('src/test/java')
+    classpath = files()
+    destinationDirectory = testOut
+    options.encoding = 'UTF-8' // test literals include accents
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
+}
+tasks.register('coreTest', JavaExec) {
+    dependsOn 'coreTestCompile'
+    classpath = files(testOut)
+    mainClass = 'org.ganimede.launcher.TestRunner'
+    jvmArgs '-ea'
+    args fileTree('src/test/java').matching { include '**/*Test.java' }.files.collect {
+        file('src/test/java').toPath().relativize(it.toPath()).toString().replace('.java', '').replace(File.separator, '.')
+    }.sort()
+}
+tasks.named('preBuild') { dependsOn 'coreTest' }

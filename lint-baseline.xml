@@ -1,0 +1,587 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.9.1" type="baseline" client="gradle" dependencies="false" name="AGP (8.9.1)" variant="all" version="8.9.1">
+
+    <issue
+        id="ExifInterface"
+        message="Avoid using `android.media.ExifInterface`; use `androidx.exifinterface.media.ExifInterface` instead"
+        errorLine1="import android.media.ExifInterface;"
+        errorLine2="       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/ButtonIcon.java"
+            line="14"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 28 (current min is 26): `android.accessibilityservice.AccessibilityService#GLOBAL_ACTION_LOCK_SCREEN`"
+        errorLine1="        return global(GLOBAL_ACTION_LOCK_SCREEN);"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/LockService.java"
+            line="33"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 30 (current min is 26): `android.view.HapticFeedbackConstants#CONFIRM`"
+        errorLine1="            if (ui.haptics()) performHapticFeedback(HapticFeedbackConstants.CONFIRM);"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Notices.java"
+            line="525"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 28 (current min is 26): `android.app.Notification#CATEGORY_NAVIGATION`"
+        errorLine1="            Notification.CATEGORY_REMINDER, Notification.CATEGORY_EVENT, Notification.CATEGORY_NAVIGATION,"
+        errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/NotifService.java"
+            line="38"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 31 (current min is 26): `android.app.Notification#CATEGORY_STOPWATCH`"
+        errorLine1="            Notification.CATEGORY_STOPWATCH, Notification.CATEGORY_PROGRESS);"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/NotifService.java"
+            line="40"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 28 (current min is 26): `android.provider.Settings#ACTION_DATA_USAGE_SETTINGS`"
+        errorLine1="            {&quot;Night Light&quot;, &quot;android.settings.NIGHT_DISPLAY_SETTINGS&quot;}, {&quot;Data usage&quot;, Settings.ACTION_DATA_USAGE_SETTINGS}};"
+        errorLine2="                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Sunflower.java"
+            line="55"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.service.notification.NotificationListenerService.Ranking#isConversation`"
+        errorLine1="                        Notification.CATEGORY_MESSAGE.equals(n.category) || (known &amp;&amp; Build.VERSION.SDK_INT >= 30 &amp;&amp; r.isConversation()),"
+        errorLine2="                                                                                                                       ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/NotifService.java"
+            line="95"
+            column="120"/>
+    </issue>
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1="        targetSdk 35"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="build.gradle"
+            line="9"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.9.1 is available: 9.5.3. (There is also a newer version of 8.9.𝑥 available, if upgrading to 9.5.3 is difficult: 8.9.3)"
+        errorLine1="plugins { id &apos;com.android.application&apos; version &apos;8.9.1&apos; }"
+        errorLine2="                                               ~~~~~~~">
+        <location
+            file="build.gradle"
+            line="1"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
+        errorLine1="        int id = r.getIdentifier(&quot;appfilter&quot;, &quot;xml&quot;, pack);"
+        errorLine2="                   ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Icons.java"
+            line="115"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
+        errorLine1="        int id = pack.resources.getIdentifier(name, &quot;drawable&quot;, pack.name);"
+        errorLine2="                                ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Icons.java"
+            line="178"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
+        errorLine1="            int id = r.getIdentifier(pp[1], &quot;drawable&quot;, pp[0]);"
+        errorLine2="                       ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Icons.java"
+            line="206"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
+        errorLine1="            int id = Resources.getSystem().getIdentifier(&quot;config_recentsComponentName&quot;, &quot;string&quot;, &quot;android&quot;);"
+        errorLine2="                                           ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Landing.java"
+            line="99"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="UnsafeProtectedBroadcastReceiver"
+        message="This broadcast receiver declares an intent-filter for a protected broadcast action string, which can only be sent by the system, not third-party applications. However, the receiver&apos;s `onReceive` method does not appear to call `getAction` to ensure that the received Intent&apos;s action string matches the expected value, potentially making it possible for another actor to send a spoofed intent with no action string or a different action string and cause undesired behavior."
+        errorLine1="    public void onReceive(Context context, Intent intent) {"
+        errorLine2="                ~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/UpgradeReceiver.java"
+            line="12"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ExportedReceiver"
+        message="Exported receiver does not require permission"
+        errorLine1="        &lt;receiver"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="91"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="DrawAllocation"
+        message="Avoid object allocations during draw/layout operations (preallocate and reuse instead)"
+        errorLine1="            paint.setPathEffect(on ? null : new DashPathEffect(new float[]{on(5), on(4)}, 0));"
+        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/BrickOverlay.java"
+            line="194"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="DrawAllocation"
+        message="Avoid object allocations during draw/layout operations (preallocate and reuse instead)"
+        errorLine1="            paint.setPathEffect(on ? null : new DashPathEffect(new float[]{on(5), on(4)}, 0));"
+        errorLine2="                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/BrickOverlay.java"
+            line="194"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="DrawAllocation"
+        message="Avoid object allocations during draw/layout operations (preallocate and reuse instead)"
+        errorLine1="        RectF drawnDate = new RectF();"
+        errorLine2="                          ~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/ClockView.java"
+            line="150"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `Build.VERSION.SDK_INT >= 28` is never true here"
+        errorLine1="                    || (aids &amp;&amp; Build.VERSION.SDK_INT >= 28 &amp;&amp; t == AudioDeviceInfo.TYPE_HEARING_AID)) on = true;"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/MediaRows.java"
+            line="136"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `Import` which has field `context` pointing to `Context`); this is a memory leak"
+        errorLine1="    private static Import next;"
+        errorLine2="            ~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/BreezyReceiver.java"
+            line="13"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ViewConstructor"
+        message="Custom view `BrickOverlay` is missing constructor used by tools: `(Context)` or `(Context,AttributeSet)` or `(Context,AttributeSet,int)`"
+        errorLine1="final class BrickOverlay extends View {"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/BrickOverlay.java"
+            line="26"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ViewConstructor"
+        message="Custom view `SettingsZoom` is missing constructor used by tools: `(Context)` or `(Context,AttributeSet)` or `(Context,AttributeSet,int)`"
+        errorLine1="final class SettingsZoom extends ViewGroup {"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/SettingsZoom.java"
+            line="8"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view `AlphabetView` overrides `onTouchEvent` but not `performClick`"
+        errorLine1="    public boolean onTouchEvent(MotionEvent e) {"
+        errorLine2="                   ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/AlphabetView.java"
+            line="128"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view `BrickOverlay` overrides `onTouchEvent` but not `performClick`"
+        errorLine1="    public boolean onTouchEvent(MotionEvent e) {"
+        errorLine2="                   ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/BrickOverlay.java"
+            line="92"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view ``HorizontalScrollView`` has `setOnTouchListener` called on it but does not override `performClick`"
+        errorLine1="        pager.setOnTouchListener((v, e) -> {"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/ClassicHome.java"
+            line="84"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        pager.setOnTouchListener((v, e) -> {"
+        errorLine2="                                 ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/ClassicHome.java"
+            line="84"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="            handle.setOnTouchListener((v, e) -> {"
+        errorLine2="                                      ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/ClassicHome.java"
+            line="391"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view `ClockView` overrides `onTouchEvent` but not `performClick`"
+        errorLine1="    public boolean onTouchEvent(MotionEvent e) {"
+        errorLine2="                   ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/ClockView.java"
+            line="86"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        c.setOnTouchListener((v, e) -> {"
+        errorLine2="                             ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/DragDrop.java"
+            line="151"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        row.setOnTouchListener((v, e) -> {"
+        errorLine2="                               ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/DragDrop.java"
+            line="224"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view ``LinearLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
+        errorLine1="        home.setOnTouchListener((v, e) -> {"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/HomeScreen.java"
+            line="93"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        home.setOnTouchListener((v, e) -> {"
+        errorLine2="                                ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/HomeScreen.java"
+            line="93"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view `Pull` overrides `onTouchEvent` but not `performClick`"
+        errorLine1="        public boolean onTouchEvent(MotionEvent e) {"
+        errorLine2="                       ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Motion.java"
+            line="239"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view ``LinearLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
+        errorLine1="        bubble.setOnTouchListener(swipeOpens(it.pkg));"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Notices.java"
+            line="102"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        return (v, e) -> {"
+        errorLine2="               ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/Notices.java"
+            line="118"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view `SwipeCard` overrides `onTouchEvent` but not `performClick`"
+        errorLine1="        public boolean onTouchEvent(MotionEvent e) {"
+        errorLine2="                       ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Notices.java"
+            line="484"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view ``TextView`` has `setOnTouchListener` called on it but does not override `performClick`"
+        errorLine1="        view.setOnTouchListener((v, e) -> {"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/QuickButton.java"
+            line="62"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        view.setOnTouchListener((v, e) -> {"
+        errorLine2="                                ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/QuickButton.java"
+            line="62"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        button.setOnTouchListener((v, ev) -> {"
+        errorLine2="                                  ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/SettingsKit.java"
+            line="79"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="Custom view ``HorizontalScrollView`` has `setOnTouchListener` called on it but does not override `performClick`"
+        errorLine1="        strip.setOnTouchListener((v, e) -> {"
+        errorLine2="        ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/Widgets.java"
+            line="68"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ClickableViewAccessibility"
+        message="`onTouch` lambda should call `View#performClick` when a click is detected"
+        errorLine1="        strip.setOnTouchListener((v, e) -> {"
+        errorLine2="                                 ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/Widgets.java"
+            line="68"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        t.setText(&quot;♪ &quot; + (title == null ? &quot;&quot; : title) + (artist == null ? &quot;&quot; : &quot; · &quot; + artist));"
+        errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/MediaRows.java"
+            line="105"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        when.setText((count > 1 ? &quot;+&quot; + (count - 1) + &quot; · &quot; : &quot;&quot;) + ago(sbn.getPostTime()));"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Notices.java"
+            line="87"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="                } else title.setText(ui.tr(&quot;Notifications&quot;) + &quot;  ·  &quot; + remaining[0]);"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Notices.java"
+            line="288"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        app.setText(appName.toUpperCase(T.locale(ui.a)) + &quot;  ·  &quot; + ago(s.getPostTime()));"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Notices.java"
+            line="312"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        now.setText(Wx.sym(k) + &quot; &quot; + Wx.temp(w.optDouble(&quot;t&quot;), f) + &quot;  &quot; + ui.tr(Wx.txt(k)));"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Outlook.java"
+            line="117"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="                cell.setText(hf.format(new Date(h.optLong(&quot;ts&quot;))) + &quot;\n&quot; + Wx.sym(h.optInt(&quot;k&quot;, 3)) + &quot;\n&quot;"
+        errorLine2="                             ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/Outlook.java"
+            line="140"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="            t.setText((i == today ? ui.tr(&quot;Today&quot;) : dayName.format(c.getTime())) + &quot;     &quot; + Wx.sym(d.optInt(&quot;k&quot;, 3)) + &quot;     &quot;"
+        errorLine2="                      ^">
+        <location
+            file="src/main/java/org/ganimede/launcher/Outlook.java"
+            line="158"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="                h.setText((off == 0 ? ui.tr(&quot;Today&quot;) : off == 1 ? ui.tr(&quot;Tomorrow&quot;) : day) + wx);"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/Outlook.java"
+            line="283"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        status.setText(Prefs.time(c, System.currentTimeMillis()) + (battery > 0 ? &quot;        &quot; + battery + &quot;%&quot; : &quot;&quot;));"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/SettingsPreview.java"
+            line="296"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        lineEvent.setText(&quot;● &quot; + T.t(c, &quot;Next event&quot;));"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/SettingsPreview.java"
+            line="308"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders."
+        errorLine1="        lineMedia.setText(&quot;▶  &quot; + T.t(c, &quot;Media player&quot;));"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/SettingsPreview.java"
+            line="311"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="String literal in `setText` can not be translated. Use Android resources instead."
+        errorLine1="                name.setText(&quot;Ganimede&quot;);"
+        errorLine2="                             ~~~~~~~~~~">
+        <location
+            file="src/main/java/org/ganimede/launcher/SettingsPreview.java"
+            line="424"
+            column="30"/>
+    </issue>
+
+</issues>

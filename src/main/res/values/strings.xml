@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lock_service_description">Lets Ganimede turn the screen off when you double-tap the home screen, and run the system actions of the Ganimede button (screenshot, recent apps, power menu, notification shade, quick settings). It only uses these actions and never reads what is on screen.</string>
+</resources>
