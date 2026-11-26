@@ -303,7 +303,7 @@ final class Widgets {
         if (req != REQ_BIND && req != REQ_CONF) return;
         if (pending < 0) pending = ui.prefs.getInt("pending_widget", -1); // the home was recreated meanwhile
         if (pending < 0) return;
-        if (res != Activity.RESULT_OK) { host.deleteAppWidgetId(pending); pending = -1; ui.prefs.edit().remove("pending_widget").apply(); return; }
+        if (res != Activity.RESULT_OK) { host.deleteAppWidgetId(pending); pending = -1; ui.prefs.edit().remove("pending_widget").remove("pending_widget_for").apply(); return; }
         if (req == REQ_BIND) configure(pending); else add(pending);
     }
 }

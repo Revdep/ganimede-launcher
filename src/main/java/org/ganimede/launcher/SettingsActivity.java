@@ -11,6 +11,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -136,6 +137,7 @@ public class SettingsActivity extends Activity {
             for (String page : b.getStringArray("stack")) stack.addLast(Page.valueOf(page));
             scrolls.putAll(b.getBundle("scrolls"));
             bricks.pick(b.getString("brick", Brick.SCREEN));
+            if (b.getString("restore") != null) pages.confirmRestore(Uri.parse(b.getString("restore"))); // the dialog turned with the screen
         }
     }
 
@@ -146,6 +148,7 @@ public class SettingsActivity extends Activity {
         scrolls.putInt(shown, sv.getScrollY());
         out.putBundle("scrolls", scrolls);
         out.putString("brick", bricks.picked());
+        if (pages.confirming() != null) out.putString("restore", pages.confirming().toString());
     }
 
     /** Android rebuilds this screen (rotation): a running backup or restore goes on to the new one, as a ViewModel would. */
@@ -229,6 +232,7 @@ public class SettingsActivity extends Activity {
         boolean canBack = step > 0 && stack.size() > 1; // a wizard started at W_HOME by a restore has no step behind it
         wizPrev.setText(canBack ? kit.ui.tr("Back") : "");
         wizPrev.setEnabled(canBack);
+        wizPrev.setVisibility(canBack ? View.VISIBLE : View.INVISIBLE); // keeps its place, not reachable by focus
         wizNext.setText(kit.ui.tr(page == Page.W_DONE ? "Start" : "Next"));
         wizNext.setTextColor(Colors.on(kit.ui.accent));
         wizNext.setBackground(new RippleDrawable(ColorStateList.valueOf(0x55FFFFFF), kit.round(kit.ui.accent, 26), null));
@@ -283,8 +287,10 @@ public class SettingsActivity extends Activity {
     private void padBottom() { sv.setPadding(0, 0, 0, wizBar.getVisibility() == View.VISIBLE ? 0 : bottomInset); }
 
     @Override
-    public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
-        if (req == SettingsPerms.REQ_PERM) render();
+    public void onRequestPermissionsResult(int req, String[] names, int[] res) {
+        if (req != SettingsPerms.REQ_PERM) return;
+        perms.result(names, res);
+        render();
     }
 
     @Override

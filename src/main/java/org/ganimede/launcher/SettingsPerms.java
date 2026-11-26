@@ -125,7 +125,17 @@ final class SettingsPerms {
             Ui.appInfo(kit.activity());
             return;
         }
-        kit.save("asked:" + perm, true);
         kit.activity().requestPermissions(new String[]{perm}, REQ_PERM);
+    }
+
+    /**
+     * The answer to a permission window. Only a real refusal counts toward "stop asking": it leaves the rationale on, whereas
+     * a window closed with Back (Android 11+) is reported as denied but changes nothing, so the next tap asks again.
+     * Accepted limit: a first answer that is already a permanent denial is not recorded, so one more tap asks (and is refused at once) before App info.
+     */
+    void result(String[] asked, int[] results) {
+        for (int i = 0; i < asked.length; i++)
+            if (results[i] != PackageManager.PERMISSION_GRANTED && kit.activity().shouldShowRequestPermissionRationale(asked[i]))
+                kit.save("asked:" + asked[i], true);
     }
 }

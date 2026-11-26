@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.FolderLook;
+import org.ganimede.launcher.core.Preferences;
 import org.ganimede.launcher.core.Safe;
 
 import android.content.ClipData;
@@ -38,10 +39,6 @@ final class SettingsLook {
     private static final int[] ACCENTS = {Colors.ACCENT, 0xFF8AB4F8, 0xFF9FD3C7, 0xFFA8D672, 0xFFF6C177, 0xFFF28B82, 0xFFE01010, 0xFFF0F0F0};
     private static final String[] ACCENT_NAMES = {"Lavender", "Sky", "Mint", "Leaf", "Amber", "Coral", "Red", "White"};
     private static final int[] BUTTON_ICONS = {0, R.drawable.ganimede_gray, R.drawable.ganimede_colour, 0}; // 0: star, own image
-    /** Settings that make up a theme (shared with "copy theme"). */
-    private static final String[] THEME_KEYS = {"clock_style", "font", "text_color", "accent", "icon_shape", "themed_shape", "icon_size",
-            "hide_labels", "show_battery", "show_date", "alpha_home", "fab", "dim", "dim_home", "hide_status_bar",
-            FolderLook.BACKGROUND_KEY, FolderLook.ALPHA_KEY, FolderLook.COLUMNS_KEY};
     /** Theme presets: name, description, then setting/value pairs. */
     private static final Object[][] PRESETS = {
             {"Lavender wave", "Overlapping clock, round tinted icons", "clock_style", "overlap", "font", "sans-serif",
@@ -342,7 +339,7 @@ final class SettingsLook {
         try {
             JSONObject o = new JSONObject().put("ganimede_theme", 1);
             Map<String, ?> all = kit.prefs().getAll();
-            for (String k : THEME_KEYS) if (all.containsKey(k)) o.put(k, all.get(k));
+            for (String k : Preferences.THEME_KEYS) if (all.containsKey(k)) o.put(k, all.get(k));
             kit.activity().getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("Ganimede theme", o.toString()));
             kit.ui.toast(kit.ui.tr("Theme copied: paste it in a message to share it"));
         } catch (Exception e) {
@@ -356,7 +353,7 @@ final class SettingsLook {
             JSONObject o = new JSONObject(String.valueOf(c.getItemAt(0).coerceToText(kit.activity())));
             if (o.optInt("ganimede_theme") != 1) throw new Exception();
             List<Object> kv = new ArrayList<>();
-            for (String k : THEME_KEYS) {
+            for (String k : Preferences.THEME_KEYS) {
                 if (!o.has(k)) continue;
                 Object v = o.get(k);
                 // A theme comes from other people: only values of the right type and size are taken.
