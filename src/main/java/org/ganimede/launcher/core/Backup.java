@@ -62,7 +62,6 @@ public final class Backup {
     /** The type a setting must have; per-app and per-folder keys by their prefix; null for one we don't know. */
     public static String typeOf(String k) {
         if (k.startsWith("rn:") || k.startsWith("icon:") || k.startsWith("folder:")) return "s";
-        if (k.startsWith("use:")) return "i";
         return TYPES.get(k);
     }
 
@@ -80,7 +79,6 @@ public final class Backup {
         if (!typed) return false; // unknown key or wrong type: the screen that reads it would crash
         int[] r = RANGES.get(k);
         if (r != null && ((Integer) v < r[0] || (Integer) v > r[1])) return false;
-        if (k.startsWith("use:") && ((Integer) v < 0 || (Integer) v > 1_000_000)) return false;
         if (v instanceof Float && !(((Float) v) >= 0 && ((Float) v) <= 1)) return false; // fab_y, a fraction of the height; rejects NaN too
         if (k.startsWith("icon:") && !((String) v).matches("[\\w.]+\\|\\w+")) return false; // "pack|drawable", as the picker saves it
         if (v instanceof String && ((String) v).length() > 64 * 1024) return false; // a real setting is far smaller
@@ -108,7 +106,8 @@ public final class Backup {
             Object v = old.get(k);
             if ((k.equals("stack") || k.equals(WEATHER)) && v instanceof String || k.equals("summary_last") && v instanceof Long
                     || k.equals("summary_count") && v instanceof Integer || k.startsWith("asked:") && v instanceof Boolean
-                    || k.equals("summary_held") && v instanceof Set)
+                    || k.equals("summary_held") && v instanceof Set
+                    || k.startsWith("use:") && v instanceof Integer) // how often each app is opened stays on this phone
                 keep.put(k, v);
         }
         return keep;
