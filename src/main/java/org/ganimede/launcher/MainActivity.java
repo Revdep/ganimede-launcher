@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.Favourites;
 import org.ganimede.launcher.core.Gestures;
 import org.ganimede.launcher.core.Morph;
 import org.ganimede.launcher.core.Search;
@@ -29,7 +30,6 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -282,28 +282,23 @@ public class MainActivity extends Activity implements Actions.Home {
         screen.favBox.removeAllViews();
         List<String> favs = layout.favourites();
         Set<String> hidden = apps.hidden();
-        for (int i = 0; i < favs.size(); i++) {
-            String key = favs.get(i);
-            View r = null;
+        List<String> shown = Favourites.shown(favs, hidden, entries::exists);
+        for (int i = 0; i < shown.size(); i++) {
+            String key = shown.get(i);
+            View r;
             if (key.startsWith("f:")) r = entries.folderRow(key.substring(2), true);
             else if (key.startsWith("s:")) r = entries.shortcutRow(key);
-            else {
-                Item it = apps.find(key);
-                if (it != null && !hidden.contains(key)) r = entries.favouriteRow(it);
-            }
-            if (r == null) continue;
+            else r = entries.favouriteRow(apps.find(key));
             drag.favourite(r, key, i);
             if (!cl) landing.track(key, r); // in classic the grid slots own the keys; this column is hidden
             screen.favBox.addView(r);
         }
         List<Item> visible = apps.visible();
         if (prefs.getBoolean("suggest", false)) {
-            Set<String> unsuggested = prefs.getStringSet("unsuggested", Set.of());
-            List<Item> often = new ArrayList<>(visible);
-            often.removeIf(it -> favs.contains(it.key) || unsuggested.contains(it.key) || apps.uses(it) < 3);
-            often.sort((a, b) -> Integer.compare(apps.uses(b), apps.uses(a)));
-            for (int i = 0; i < Math.min(2, often.size()); i++) {
-                View r = entries.appRow(often.get(i), true);
+            List<String> visibleKeys = visible.stream().map(it -> it.key).collect(java.util.stream.Collectors.toList());
+            for (String key : Favourites.suggested(visibleKeys, favs, prefs.getStringSet("unsuggested", Set.of()),
+                    k -> apps.uses(apps.find(k)))) {
+                View r = entries.appRow(apps.find(key), true);
                 r.setAlpha(0.6f);
                 screen.favBox.addView(r);
             }
@@ -314,9 +309,7 @@ public class MainActivity extends Activity implements Actions.Home {
             hint.setAlpha(0.8f);
             screen.favBox.addView(hint);
         }
-        LinkedHashSet<String> letters = new LinkedHashSet<>();
-        for (Item it : visible) letters.add(Search.letter(apps.label(it)));
-        screen.alpha.setLetters(letters);
+        screen.alpha.setLetters(Search.sections(visible.stream().map(apps::label).collect(java.util.stream.Collectors.toList())));
         widgets.rebuild();
         media.updateMedia();
         media.updateMusic();

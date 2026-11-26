@@ -25,6 +25,12 @@ final class ItSettings {
         it("My shortcuts", "Le mie scorciatoie");
         it("Preview of your home screen", "Anteprima della tua schermata Home");
         it("Preview of your app pages", "Anteprima delle pagine delle app");
+        it("Preview: favourites", "Anteprima: preferiti");
+        it("Preview: clock", "Anteprima: orologio");
+        it("Preview: grid", "Anteprima: griglia");
+        it("Placeholder: Next event", "Segnaposto: Prossimo evento");
+        it("Placeholder: Media player", "Segnaposto: Lettore musicale");
+        it("Placeholder: Music apps", "Segnaposto: App musicali");
 
         // Settings home
         it("Finish setting up", "Completa la configurazione");

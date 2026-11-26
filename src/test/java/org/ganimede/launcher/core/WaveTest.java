@@ -40,4 +40,17 @@ public class WaveTest {
         near(121, Wave.amplitude(50, 1080, 0.5f, 3, 3), "grows with progress");
         near(0, Wave.amplitude(-300, 1080, 1, 3, 3), "never negative");
     }
+
+    // The home alphabet and the Settings preview both ask this one function: 27 rows (the star and 26 letters).
+    public static void testPreviewAndHomeShareAlphabetGeometry() {
+        float[] g = Wave.geometry(27, 48, 2000, 3);
+        near(48, g[0], "text size");
+        near(57, g[1], "row step");
+        near(269, g[2], "top: 64dp above the bottom, not at 64% of the height");
+        float[] short_ = Wave.geometry(27, 48, 1500, 3);
+        near(42, short_[0], "a short column shrinks the text");
+        near(50.4f, short_[1], "and its rows");
+        float[] few = Wave.geometry(5, 48, 2000, 3);
+        near(1280 - 5 * 57 / 2f, few[2], "few letters sit at 64% of the height");
+    }
 }

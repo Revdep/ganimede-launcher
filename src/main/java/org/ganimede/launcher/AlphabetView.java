@@ -71,21 +71,19 @@ public class AlphabetView extends View {
         return getLayoutDirection() == LAYOUT_DIRECTION_RTL;
     }
 
-    private float textSize() {
-        return Wave.textSize(letters.length, sizeSp * sp, getHeight(), d);
+    /** {text size, row step, column top}: the same numbers the Settings preview draws with. */
+    private float[] geometry() {
+        return Wave.geometry(letters.length, sizeSp * sp, getHeight(), d);
     }
 
-    private float step() {
-        return Wave.step(textSize(), sizeSp * sp);
-    }
+    private float textSize() { return geometry()[0]; }
 
-    private float height() {
-        return step() * letters.length;
-    }
+    private float step() { return geometry()[1]; }
 
-    private float top() {
-        return Wave.top(getHeight(), height(), d);
-    }
+    /** Where the letters start and end (px in this view), for the Settings preview's brick. */
+    float top() { return geometry()[2]; }
+
+    float height() { return step() * letters.length; }
 
     /** Distance of the letters' centre from the edge they sit on: half the 58dp column plus the theme offset. */
     private float centre() {
@@ -126,6 +124,7 @@ public class AlphabetView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (!isEnabled()) return false; // the Settings preview draws this view, it doesn't use it
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 boolean onLetters = inColumn(e.getX());

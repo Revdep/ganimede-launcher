@@ -165,10 +165,15 @@ final class Apps {
 
     /** Apps not hidden, A to Z by section letter; with smart sorting the most used first within each letter. */
     List<Item> visible() {
-        Set<String> hidden = hidden();
+        return visible(all, prefs);
+    }
+
+    /** The same for any list of apps (the Settings preview has its own). */
+    static List<Item> visible(List<Item> all, SharedPreferences p) {
+        Set<String> hidden = p.getStringSet("hidden", Set.of());
         List<Item> shown = new ArrayList<>();
         for (Item it : all) if (!hidden.contains(it.key)) shown.add(it);
-        return Search.order(shown, this::label, this::uses, prefs.getBoolean("smart_sort", false));
+        return Search.order(shown, it -> label(p, it), it -> p.getInt("use:" + it.key, 0), p.getBoolean("smart_sort", false));
     }
 
     /** An app's own shortcuts (dynamic and from its manifest); empty when this isn't the default home app. */

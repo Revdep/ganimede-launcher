@@ -1,15 +1,15 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
-import org.ganimede.launcher.core.Gestures;
+import org.ganimede.launcher.core.Favourites;
+import org.ganimede.launcher.core.HomeColumn;
+import org.ganimede.launcher.core.Search;
 import org.ganimede.launcher.core.Grid;
 import org.ganimede.launcher.core.Blocks;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Canvas;
 import android.graphics.Outline;
-import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -18,6 +18,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewOutlineProvider;
 import android.view.ViewTreeObserver;
+import android.view.WindowInsets;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -25,6 +26,7 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -38,15 +40,20 @@ final class SettingsPreview extends FrameLayout {
     private final float dp;
     private final int screenW, screenH;
     private final ClockView clock;
-    private final TextView status, line, lineEvent, lineMedia, lineMusic, fab;
+    private final TextView status, line, fab;
+    /** Blocks switched on but with nothing to show (next event, media player, music apps): dashed outlines over the miniature that take no room. */
+    private final TextView[] holders = new TextView[3];
+    /** See-through views over the miniature that name its parts: it is hidden from accessibility, they are not (the e2e reads their bounds). */
+    private final Map<View, View> marks = new LinkedHashMap<>();
     private final LinearLayout home, favs, dock, dots;
     private final PreviewGrid grid;
     private final TextView widget;
     private final FrameLayout stage;
     private final SettingsZoom zoom;
-    private final Letters letters;
+    private final AlphabetView alpha;
     private final Layout layout;
     private final Map<String, Apps.Item> all = new HashMap<>();
+    private final List<Apps.Item> items = new ArrayList<>();
     private String pack;
     private boolean classic;
     /** Which page of the classic grid shows: 0 the home, 1 the first app page (drawer off). */
@@ -83,12 +90,13 @@ final class SettingsPreview extends FrameLayout {
         status.setTextSize(13);
         status.setGravity(Gravity.CENTER_VERTICAL);
         status.setPadding(px(40), 0, px(40), 0); // clear of the rounded corners, as a real status bar
-        stage.addView(status, new FrameLayout.LayoutParams(-1, px(36)));
+        int[] in = insets();
+        stage.addView(status, new FrameLayout.LayoutParams(-1, in[0]));
         home = new LinearLayout(c);
         home.setOrientation(LinearLayout.VERTICAL);
         FrameLayout.LayoutParams hl = new FrameLayout.LayoutParams(-1, -1);
-        hl.topMargin = px(36);
-        hl.bottomMargin = px(24);
+        hl.topMargin = in[0];
+        hl.bottomMargin = in[1];
         stage.addView(home, hl);
         widget = new TextView(c);
         widget.setGravity(Gravity.CENTER);
@@ -102,21 +110,6 @@ final class SettingsPreview extends FrameLayout {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
         lp.setMargins(px(4), px(6), 0, px(6));
         home.addView(line, lp);
-        lineEvent = new TextView(c);
-        lineEvent.setTextSize(15);
-        lineEvent.setPaddingRelative(px(4), px(2), 0, px(6));
-        home.addView(lineEvent);
-        lineMedia = new TextView(c);
-        lineMedia.setTextSize(15);
-        lineMedia.setPaddingRelative(px(4), px(6), 0, px(6));
-        lineMedia.setMinHeight(px(46)); // the real row's 22 sp controls and outer padding
-        home.addView(lineMedia);
-        lineMusic = new TextView(c);
-        lineMusic.setTextSize(15);
-        lineMusic.setGravity(Gravity.CENTER_VERTICAL);
-        lineMusic.setPaddingRelative(0, px(4), 0, px(4));
-        lineMusic.setMinHeight(px(54)); // the real row holds 46 dp app icons plus this padding
-        home.addView(lineMusic);
         favs = new LinearLayout(c) { // as tall as its apps, up to the chosen share of the screen (then it scrolls)
             @Override
             protected void onMeasure(int w, int h) {
@@ -140,8 +133,24 @@ final class SettingsPreview extends FrameLayout {
         LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-1, -2);
         dl.topMargin = px(12);
         home.addView(dock, dl);
-        letters = new Letters(c);
-        stage.addView(letters, new FrameLayout.LayoutParams(px(58), -1, Gravity.END));
+        alpha = new AlphabetView(c); // the home's own alphabet, drawn with the home's own geometry
+        alpha.setEnabled(false);
+        alpha.setContentDescription(null);
+        FrameLayout.LayoutParams al = new FrameLayout.LayoutParams(-1, -1);
+        al.topMargin = in[0];
+        al.bottomMargin = in[1];
+        stage.addView(alpha, al);
+        for (int i = 0; i < holders.length; i++) {
+            holders[i] = new TextView(c);
+            holders[i].setGravity(Gravity.CENTER_VERTICAL);
+            holders[i].setPadding(px(12), 0, px(12), 0);
+            holders[i].setTextSize(15);
+            stage.addView(holders[i], new FrameLayout.LayoutParams(-2, px(32), Gravity.TOP | Gravity.LEFT));
+            marks.put(holders[i], new View(c));
+        }
+        marks.put(favs, new View(c));
+        marks.put(clock, new View(c));
+        marks.put(grid, new View(c));
         fab = new TextView(c);
         fab.setText("✳");
         fab.setTextSize(24);
@@ -165,6 +174,7 @@ final class SettingsPreview extends FrameLayout {
         zoom.setForeground(frame);
         setHeight(heightPx > 0 ? heightPx : screenH / 2);
         addView(zoom, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER_HORIZONTAL));
+        for (View m : marks.values()) addView(m, new FrameLayout.LayoutParams(0, 0, Gravity.TOP | Gravity.LEFT));
         setPadding(0, px(4), 0, px(8));
         loadApps(c);
         refresh();
@@ -240,7 +250,7 @@ final class SettingsPreview extends FrameLayout {
 
     private void loadApps(Context c) {
         try {
-            for (Apps.Item a : Apps.named(c)) all.put(a.key, a);
+            for (Apps.Item a : Apps.named(c)) { all.put(a.key, a); items.add(a); }
         } catch (Exception ignored) {
             // No launcher service: the miniature shows no icons.
         }
@@ -304,16 +314,23 @@ final class SettingsPreview extends FrameLayout {
         line.setPaddingRelative(0, showWeather ? px(4) : 0, 0, showWeather ? px(4) : 0);
         line.setText(s.length() == 0 ? " " : s); // keep an otherwise empty line brick pickable
         line.setVisibility(classic ? GONE : VISIBLE);
-        style(lineEvent, fg, face, false);
-        lineEvent.setText("● " + T.t(c, "Next event"));
-        lineEvent.setVisibility(!classic && p.getBoolean("event_preview", true) ? VISIBLE : GONE);
-        style(lineMedia, fg, face, false);
-        lineMedia.setText("▶  " + T.t(c, "Media player"));
-        lineMedia.setVisibility(!classic && p.getBoolean("media_player", true) ? VISIBLE : GONE);
-        style(lineMusic, fg, face, false);
-        lineMusic.setText(T.t(c, "Music apps"));
-        lineMusic.setVisibility(!classic && p.getBoolean("music_on_headset", true)
-                && !p.getStringSet("music_apps", java.util.Set.of()).isEmpty() ? VISIBLE : GONE);
+        String[][] blocks = {{"Next event", "● "}, {"Media player", "▶  "}, {"Music apps", ""}};
+        boolean[] on = {p.getBoolean("event_preview", true), p.getBoolean("media_player", true),
+                p.getBoolean("music_on_headset", true) && !p.getStringSet("music_apps", java.util.Set.of()).isEmpty()};
+        for (int i = 0; i < holders.length; i++) {
+            style(holders[i], fg, face, false);
+            holders[i].setText(blocks[i][1] + T.t(c, blocks[i][0]));
+            GradientDrawable outline = new GradientDrawable();
+            outline.setCornerRadius(px(8));
+            outline.setStroke(px(1.5f), Colors.alpha(fg, 0x66), px(6), px(4));
+            holders[i].setBackground(outline);
+            holders[i].setAlpha(0.5f);
+            holders[i].setVisibility(!classic && on[i] ? VISIBLE : GONE);
+            marks.get(holders[i]).setContentDescription(T.t(c, "Placeholder: " + blocks[i][0]));
+        }
+        marks.get(favs).setContentDescription(T.t(c, "Preview: favourites"));
+        marks.get(clock).setContentDescription(T.t(c, "Preview: clock"));
+        marks.get(grid).setContentDescription(T.t(c, "Preview: grid"));
 
         // Widgets: a placeholder of the chosen height when the home screen has any.
         widget.setVisibility(classic || p.getString("stack", "").isEmpty() ? GONE : VISIBLE);
@@ -330,7 +347,7 @@ final class SettingsPreview extends FrameLayout {
         boolean below = p.getBoolean("widget_below", false);
         if (!classic && below != home.indexOfChild(widget) > home.indexOfChild(clock)) {
             home.removeView(widget);
-            home.addView(widget, below ? home.indexOfChild(lineMusic) + 1 : 0);
+            home.addView(widget, below ? home.indexOfChild(line) + 1 : 0);
         }
 
         boolean labels = !p.getBoolean("hide_labels", false);
@@ -350,31 +367,32 @@ final class SettingsPreview extends FrameLayout {
         if (!classic) dock.setVisibility(GONE);
         dots.setVisibility(classic && p.getInt("grid_pages", 1) > 1 ? VISIBLE : GONE);
 
-        // Same paddings and edge distances as MainActivity.applyLook.
-        int edge = Gestures.alphabetEndPaddingDp(p.getInt("alpha_offset", 0));
+        // Same paddings and edge distances as HomeLook.apply.
+        int[] col = HomeColumn.list(p.getInt("alpha_offset", 0), p.getInt("home_bottom", 64),
+                p.getInt("clock_offset", 40), p.getInt("line_offset", 40), p.getInt("apps_offset", 40));
         if (classic) {
             home.setGravity(Gravity.TOP);
             home.setPadding(px(p.getInt("classic_pad_l", 8)), px(p.getInt("classic_pad_t", 16)),
                     px(p.getInt("classic_pad_r", 8)), px(p.getInt("classic_pad_b", 16)));
         } else {
             home.setGravity(Gravity.BOTTOM);
-            home.setPaddingRelative(0, 0, px(edge), px(p.getInt("home_bottom", 64)));
+            home.setPaddingRelative(0, 0, px(col[0]), px(col[1]));
         }
-        int clockStart = classic ? 8 : p.getInt("clock_offset", 40);
+        int clockStart = classic ? 8 : col[2];
         startMargin(clock, px(clockStart));
-        for (View v : lineViews()) startMargin(v, px(classic ? clockStart : p.getInt("line_offset", 40)));
+        startMargin(line, px(classic ? clockStart : col[3]));
         startMargin(widget, px(classic ? 0 : clockStart)); // the widget strip stays aligned to the clock
-        for (View v : new View[]{clock, line, lineEvent, lineMedia, lineMusic, widget}) v.setTranslationX(0);
-        startMargin(favs, px(Gestures.effectiveAppsOffsetDp(p.getInt("apps_offset", 40))));
+        for (View v : new View[]{clock, line, widget}) v.setTranslationX(0);
+        startMargin(favs, px(col[4]));
 
         int tint = p.getInt("alpha_tint", 0);
-        letters.color = tint == 0 ? fg : tint;
-        letters.sizeSp = p.getInt("alpha_size", 16);
-        letters.setVisibility(p.getBoolean("alpha_home", true) && !classic ? VISIBLE : GONE);
-        FrameLayout.LayoutParams llp = (FrameLayout.LayoutParams) letters.getLayoutParams();
-        llp.setMarginEnd(px(p.getInt("alpha_offset", 0)));
-        letters.setTranslationY(px(p.getInt("alpha_y", 0)));
-        letters.invalidate();
+        alpha.color = tint == 0 ? fg : tint;
+        alpha.accent = accent;
+        alpha.sizeSp = p.getInt("alpha_size", 16);
+        alpha.offsetDp = p.getInt("alpha_offset", 0);
+        alpha.setLetters(Search.sections(Apps.visible(items, p).stream().map(ap -> Apps.label(p, ap)).collect(java.util.stream.Collectors.toList())));
+        alpha.setVisibility(p.getBoolean("alpha_home", true) && !classic ? VISIBLE : GONE);
+        alpha.setTranslationY(px(p.getInt("alpha_y", 0)));
         // Left-hand use mirrors the whole preview, like the home screen.
         stage.setLayoutDirection(p.getBoolean("left_handed", false) ? LAYOUT_DIRECTION_RTL : LAYOUT_DIRECTION_LTR);
         stage.setBackgroundColor(Colors.veil(p.getInt("dim_home", 0), dark)); // the home wallpaper darkened as on the phone
@@ -382,7 +400,6 @@ final class SettingsPreview extends FrameLayout {
         fab.setVisibility(p.getBoolean("fab", false) ? VISIBLE : GONE);
         setContentDescription(T.t(c, page > 0 ? "Preview of your app pages" : "Preview of your home screen"));
         home.requestLayout();
-        letters.requestLayout();
         invalidate();
     }
 
@@ -393,8 +410,37 @@ final class SettingsPreview extends FrameLayout {
         v.setLayoutParams(lp);
     }
 
+    /** The status bar's and navigation bar's room, as the home screen's own insets (the system's, or its dimensions before attach). */
+    private int[] insets() {
+        android.content.res.Resources r = getResources();
+        int top = r.getDimensionPixelSize(r.getIdentifier("status_bar_height", "dimen", "android")),
+                bottom = r.getDimensionPixelSize(r.getIdentifier("navigation_bar_height", "dimen", "android"));
+        WindowInsets w = getRootWindowInsets();
+        if (w != null && android.os.Build.VERSION.SDK_INT >= 30) {
+            top = Math.max(w.getInsets(WindowInsets.Type.systemBars()).top,
+                    w.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars() | WindowInsets.Type.displayCutout()).top);
+            bottom = w.getInsets(WindowInsets.Type.systemBars()).bottom;
+        }
+        return new int[]{top, bottom};
+    }
+
+    private void applyInsets() {
+        int[] in = insets();
+        for (View v : new View[]{home, alpha}) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) v.getLayoutParams();
+            if (lp.topMargin == in[0] && lp.bottomMargin == in[1]) continue;
+            lp.topMargin = in[0];
+            lp.bottomMargin = in[1];
+            v.setLayoutParams(lp);
+        }
+        if (status.getLayoutParams().height != in[0]) {
+            status.getLayoutParams().height = in[0];
+            status.requestLayout();
+        }
+    }
+
     private View[] lineViews() {
-        return new View[]{line, lineEvent, lineMedia, lineMusic};
+        return new View[]{line};
     }
 
     private ImageView iconView(Apps.Item a, String shape, String themedShape, int fg, int accent, int size) {
@@ -408,44 +454,63 @@ final class SettingsPreview extends FrameLayout {
     private void buildList(int fg, int accent, Typeface face, String shape, String themedShape, boolean labels) {
         Context c = getContext();
         int size = px(p.getInt("icon_size", 54)), gap = px(p.getInt("fav_gap", 8));
-        List<Apps.Item> shown = new ArrayList<>();
-        for (String k : layout.favourites()) if (all.containsKey(k) && shown.size() < 30) shown.add(all.get(k));
-        if (shown.isEmpty()) { // nothing chosen yet: Ganimede's own icon shows the look, not random apps
-            LinearLayout row = new LinearLayout(c);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPaddingRelative(0, gap, 0, gap);
-            ImageView icon = new ImageView(c);
-            Icons.apply(icon, c.getDrawable(R.drawable.ic_launcher), false, shape, themedShape, fg, accent, size);
-            row.addView(icon, new LinearLayout.LayoutParams(size + px(4), size + px(2)));
-            if (labels) {
-                TextView name = new TextView(c);
-                name.setTextSize(22 * p.getInt("label_scale", 100) / 100f);
-                style(name, fg, face, true);
-                name.setText("Ganimede");
-                name.setPaddingRelative(px(22), 0, 0, 0);
-                row.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
-            }
-            favs.addView(row);
+        List<String> favourites = layout.favourites();
+        List<String> shown = Favourites.shown(favourites, p.getStringSet("hidden", java.util.Set.of()), k -> layout.entryExists(k, all::containsKey));
+        List<String> faint = new ArrayList<>();
+        if (p.getBoolean("suggest", false))
+            faint = Favourites.suggested(Apps.visible(items, p).stream().map(ap -> ap.key).collect(java.util.stream.Collectors.toList()),
+                    favourites, p.getStringSet("unsuggested", java.util.Set.of()), k -> p.getInt("use:" + k, 0));
+        if (shown.isEmpty() && faint.isEmpty()) { // as the home: say how to fill the column
+            TextView hint = new TextView(c);
+            hint.setTextSize(15);
+            style(hint, fg, face, false);
+            hint.setAlpha(0.8f);
+            hint.setText(T.t(c, "Long-press any app in the list to add it here.\nSwipe up or touch the letters to see all apps."));
+            favs.addView(hint);
             return;
         }
-        for (int i = 0; i < shown.size(); i++) {
-            Apps.Item a = shown.get(i);
-            LinearLayout row = new LinearLayout(c);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPaddingRelative(0, gap, 0, gap);
-            row.addView(iconView(a, shape, themedShape, fg, accent, size), new LinearLayout.LayoutParams(size + px(4), size + px(2)));
-            if (labels) {
-                TextView name = new TextView(c);
-                name.setTextSize(22 * p.getInt("label_scale", 100) / 100f);
-                name.setSingleLine(true);
-                name.setEllipsize(TextUtils.TruncateAt.END);
-                style(name, fg, face, true);
-                name.setText(Apps.label(p, a));
-                name.setPaddingRelative(px(22), 0, 0, 0);
-                row.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
-            }
-            favs.addView(row);
+        for (String k : shown) favs.addView(row(k, size, gap, fg, accent, face, shape, themedShape, labels));
+        for (String k : faint) {
+            View r = row(k, size, gap, fg, accent, face, shape, themedShape, labels);
+            r.setAlpha(0.6f);
+            favs.addView(r);
         }
+    }
+
+    private View row(String entry, int size, int gap, int fg, int accent, Typeface face, String shape, String themedShape, boolean labels) {
+        Context c = getContext();
+        LinearLayout row = new LinearLayout(c);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPaddingRelative(0, gap, 0, gap);
+        Apps.Item a = all.get(entry);
+        row.addView(a != null ? iconView(a, shape, themedShape, fg, accent, size) : tile(entry, size, fg),
+                new LinearLayout.LayoutParams(size + px(4), size + px(2)));
+        if (labels) {
+            TextView name = new TextView(c);
+            name.setTextSize(22 * p.getInt("label_scale", 100) / 100f);
+            name.setSingleLine(true);
+            name.setEllipsize(TextUtils.TruncateAt.END);
+            style(name, fg, face, true);
+            name.setText(a != null ? Apps.label(p, a) : entryName(entry));
+            name.setPaddingRelative(px(22), 0, 0, 0);
+            row.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+        return row;
+    }
+
+    private String entryName(String entry) {
+        return entry.startsWith("s:") ? Entries.shortcutName(entry) : layout.folder(entry.substring(2)).optString("name", T.t(getContext(), "Folder"));
+    }
+
+    /** A folder's or shortcut's icon: a soft tile with its mark. */
+    private View tile(String entry, int icon, int fg) {
+        View v = new View(getContext());
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(icon / 3f);
+        bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
+        v.setBackground(new android.graphics.drawable.LayerDrawable(new Drawable[]{bg,
+                new android.graphics.drawable.InsetDrawable(new Glyph(entry.startsWith("f:") ? "folder" : "link", fg), icon / 4)}));
+        return v;
     }
 
     /** The first page of the real grid (its saved cells, or the favourites before anything was placed) and the dock. */
@@ -552,14 +617,9 @@ final class SettingsPreview extends FrameLayout {
         if (a != null) {
             iv = iconView(a, shape, themedShape, fg, accent, icon);
             name = Apps.label(p, a);
-        } else if (entry.startsWith("f:")) {
-            iv = new View(c);
-            GradientDrawable bg = new GradientDrawable();
-            bg.setCornerRadius(icon / 3f);
-            bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
-            iv.setBackground(new android.graphics.drawable.LayerDrawable(new Drawable[]{bg,
-                    new android.graphics.drawable.InsetDrawable(new Glyph("folder", fg), icon / 4)}));
-            name = layout.folder(entry.substring(2)).optString("name", T.t(c, "Folder"));
+        } else if (layout.entryExists(entry, k -> false)) { // a folder that is kept, or a shortcut
+            iv = tile(entry, icon, fg);
+            name = entryName(entry);
         }
         if (iv == null) { // empty slot: a faint outline, so rows, columns and dock size show even on an empty grid
             View slot = new View(c);
@@ -587,6 +647,7 @@ final class SettingsPreview extends FrameLayout {
 
     /** Positions, exactly as MainActivity.fitMoves does them. */
     private void fit() {
+        applyInsets();
         if (home.getHeight() == 0) return;
         List<View[]> blocks = new ArrayList<>();
         List<String> keys = new ArrayList<>();
@@ -617,16 +678,53 @@ final class SettingsPreview extends FrameLayout {
                 case "apps": box(b, favs); break;
                 case "grid": box(b, grid); break;
                 case "dock": box(b, dock); break;
-                default: // the alphabet: only as tall as its letters
-                    b.shown = letters.getVisibility() == VISIBLE;
-                    b.at.set(letters.getLeft(), letters.top() + letters.getTranslationY(), letters.getRight(), letters.bottom() + letters.getTranslationY());
+                default: { // the alphabet: only as tall as its letters, in its 58 dp column
+                    b.shown = alpha.getVisibility() == VISIBLE;
+                    boolean rtl = alpha.getLayoutDirection() == LAYOUT_DIRECTION_RTL;
+                    float column = px(58), edge = px(p.getInt("alpha_offset", 0)), left = rtl ? edge : alpha.getWidth() - edge - column;
+                    float top = alpha.getTop() + alpha.top() + alpha.getTranslationY();
+                    b.at.set(left, top, left + column, top + alpha.height());
+                }
             }
         }
         // Sideways, List mode's column ends before the alphabet; Classic's parts may go 4 dp from the screen's sides.
         edit.area.set(classic ? px(4) : Math.max(px(4), home.getPaddingLeft()), home.getTop() + px(4),
                 screenW - (classic ? px(4) : Math.max(px(4), home.getPaddingRight())), home.getBottom() - px(4));
         edit.invalidate();
+        placeHolders();
         if (afterFit != null) afterFit.run();
+    }
+
+    /** The favourites panel keeps its chosen height whatever it holds; the rows end where the last one does. */
+    private static int contentHeight(LinearLayout panel) {
+        int n = panel.getChildCount();
+        return n == 0 ? panel.getHeight() : Math.min(panel.getHeight(), panel.getChildAt(n - 1).getBottom());
+    }
+
+    /** The empty blocks' outlines hang under the text line over whatever is below: they never move another part. */
+    private void placeHolders() {
+        float y = home.getTop() + line.getBottom() + line.getTranslationY();
+        for (TextView h : holders) {
+            if (h.getVisibility() != VISIBLE) continue;
+            h.setTranslationX(home.getLeft() + line.getLeft());
+            h.setTranslationY(y);
+            y += px(36);
+        }
+        float s = zoom.getScaleOf();
+        for (Map.Entry<View, View> e : marks.entrySet()) {
+            View t = e.getKey(), m = e.getValue();
+            boolean on = t.getVisibility() == VISIBLE && t.getHeight() > 0;
+            m.setVisibility(on ? VISIBLE : GONE);
+            if (!on) continue;
+            boolean inHome = t.getParent() == home;
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) m.getLayoutParams();
+            int l = zoom.getLeft() + Math.round(((inHome ? home.getLeft() : 0) + t.getLeft() + t.getTranslationX()) * s),
+                    tp = zoom.getTop() + Math.round(((inHome ? home.getTop() : 0) + t.getTop() + t.getTranslationY()) * s),
+                    w = Math.round(t.getWidth() * s), h = Math.round((t == favs ? contentHeight(favs) : t.getHeight()) * s);
+            if (lp.leftMargin == l && lp.topMargin == tp && lp.width == w && lp.height == h) continue;
+            lp.leftMargin = l; lp.topMargin = tp; lp.width = w; lp.height = h;
+            m.setLayoutParams(lp);
+        }
     }
 
     private void box(Brick b, View... vs) {
@@ -645,36 +743,9 @@ final class SettingsPreview extends FrameLayout {
             if (v == clock) {
                 int w = Math.round(clock.drawnWidth());
                 if (clock.getLayoutDirection() == LAYOUT_DIRECTION_RTL) l = r - w; else r = l + w;
-            } else if (v == lineEvent || v == lineMedia || v == lineMusic) continue;
+            }
             a = Math.min(a, l + home.getLeft()); b = Math.max(b, r + home.getLeft());
         }
         return a == Integer.MAX_VALUE ? null : new int[]{a, b};
-    }
-
-    /** The alphabet strip along the right edge, as on the home screen. */
-    private static final class Letters extends View {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int color = 0xFFFFFFFF;
-        float sizeSp = 16;
-
-        Letters(Context c) {
-            super(c);
-            paint.setTextAlign(Paint.Align.CENTER);
-        }
-
-        private float step() {
-            return sizeSp * getResources().getDisplayMetrics().scaledDensity * 1.45f;
-        }
-
-        /** Where the letters start and end: centred on the screen's height, as the real alphabet. */
-        float top() { return getHeight() / 2f - step() * 12.7f; }
-        float bottom() { return getHeight() / 2f + step() * 13.2f; }
-
-        @Override
-        protected void onDraw(Canvas c) {
-            paint.setColor(Colors.alpha(color, 0xCC));
-            paint.setTextSize(step() / 1.45f);
-            for (int i = 0; i < 26; i++) c.drawText(String.valueOf((char) ('A' + i)), getWidth() / 2f, getHeight() / 2f + step() * (i - 12), paint);
-        }
     }
 }

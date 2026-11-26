@@ -104,6 +104,13 @@ public final class Search {
         return ch >= 'A' && ch <= 'Z' ? String.valueOf(ch) : "#";
     }
 
+    /** The alphabet's letters for these names: each section letter once, "#" first. */
+    public static java.util.SortedSet<String> sections(java.util.Collection<String> names) {
+        java.util.SortedSet<String> out = new java.util.TreeSet<>();
+        for (String n : names) out.add(letter(n));
+        return out;
+    }
+
     /** The A–Z list: by section letter ("#" first); with smart sorting the most used first within a letter; then by name. */
     public static <T> List<T> order(List<T> items, Function<T, String> name, ToIntFunction<T> uses, boolean smart) {
         Map<T, String> names = new HashMap<>(), letters = new HashMap<>();
