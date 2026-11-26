@@ -1,6 +1,6 @@
 # Ganimede Launcher
 
-**Versione 0.0.10 · beta**
+**Versione 0.0.11 · beta**
 
 Un launcher Android libero, senza Google e completamente offline. Ha due modi di mostrare la Home, che condividono
 tutto il resto: **Lista** (orologio, preferiti in colonna, alfabeto a onda sul bordo) e **Classica** (griglia a pagine,
