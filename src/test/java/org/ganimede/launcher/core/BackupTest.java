@@ -17,7 +17,6 @@ public class BackupTest {
         eq("s", Backup.typeOf("rn:com.a/.Main"), "a renamed app");
         eq("s", Backup.typeOf("icon:f:12"), "a picked icon");
         eq("s", Backup.typeOf("folder:12"), "a folder");
-        eq("i", Backup.typeOf("use:com.a/.Main"), "a launch count");
         eq("s", Backup.typeOf("blocks"), "portable block geometry");
         eq("s", Backup.typeOf("themed_shape"), "the tinted icon plate travels with the theme");
         eq("b", Backup.typeOf("drawer_follow"), "drawer follows home");
@@ -88,9 +87,9 @@ public class BackupTest {
                 "a folder has from one to five columns");
     }
 
-    public static void testLaunchCountsStayInTheirRange() {
-        yes(Backup.fits("use:com.a/.Main", 0) && Backup.fits("use:com.a/.Main", 1_000_000), "the edges");
-        yes(!Backup.fits("use:com.a/.Main", -1) && !Backup.fits("use:com.a/.Main", 1_000_001), "past the edges");
+    public static void testLaunchCountsStayOnThePhone() {
+        yes(!Backup.travels("use:com.a/.Main") && !Backup.restorable("use:com.a/.Main"), "how often each app is opened never leaves the phone");
+        yes(Backup.kept(java.util.Map.of("use:com.a/.Main", 7)).get("use:com.a/.Main").equals(7), "a restore keeps this phone's own counts");
     }
 
     public static void testLayoutNumbersStayInTheRangesSettingsOffer() {
@@ -195,6 +194,6 @@ public class BackupTest {
         yes(!Backup.travels("asked:android.permission.X") && !Backup.travels("pending_widget_1") && !Backup.travels("icon_pack_loaded")
                 && !Backup.travels("return_to_settings") && !Backup.travels("summary_last") && !Backup.travels("summary_count"),
                 "this phone's bookkeeping stays home");
-        yes(Backup.travels("fab_y") && Backup.travels("use:com.a/.Main"), "settings and launch counts travel");
+        yes(Backup.travels("fab_y"), "settings travel");
     }
 }
