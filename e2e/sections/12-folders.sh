@@ -357,6 +357,28 @@ clear_text; A shell input text AgendaZz; tap "Salva"
 wait_until 5 in_card AgendaZz && ok "renamed from the in-folder menu: the open pop-up shows AgendaZz" || ko "the open pop-up still shows the old name"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "AgendaZz"
 
+step "Folders: another app's update neither rebuilds the open pop-up nor breaks a drag in progress (082)"
+FIXAPK="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" # e2e/fixture: an app with a launcher activity, ours to reinstall
+"$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 && [ -s "$FIXAPK" ] \
+  && ok "fixture app built" || ko "fixture app not built (./gradlew -Pe2e :fixture:assembleDebug): the checks below can't pass"
+update_other() { A install -r "$FIXAPK" >/dev/null; } # a package event (added/changed): Ganimede reloads its app list
+popwin() { A shell dumpsys window windows | grep -o "Window{[0-9a-f]* u0 [^}]*$PK[^}]*}" | sort | paste -sd' ' -; } # its windows
+seed classic
+setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
+setp string fav 'f:ord'
+setp del grid
+tap Ordine; expect "Contacts"; wait_until 5 settled
+before=$(popwin)
+update_other
+sleep 2 # the reload: 250 ms debounce, then the load thread; nothing on screen marks its end, the point is that nothing changes
+[ -n "$before" ] && [ "$(popwin)" = "$before" ] && ok "the pop-up is the same window after another app's update" || ko "the pop-up was rebuilt: windows $(popwin), were $before"
+has "Contacts" && ok "the pop-up is still open" || ko "the pop-up closed"
+read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Contacts)"
+A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 6000 &
+sleep 2; update_other; wait # the update lands mid-drag: input holds for the long-press timeout, then moves for 6 s
+wait_until 5 reordered && ok "a drag during another app's update still saves its order" || ko "the drag was lost: order $(order)"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
+
 step "Folders: Choose apps lists the folder's pinned shortcuts; unchecking one takes it out, the order stays (082)"
 seed classic
 setp string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}'

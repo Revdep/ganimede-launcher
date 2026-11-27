@@ -3,6 +3,7 @@ package org.ganimede.launcher.core;
 import static org.ganimede.launcher.Expect.eq;
 
 import java.util.List;
+import java.util.Map;
 
 public class FolderOrderTest {
     // a 2-column grid of 5 icons, 100 wide and 80 tall each: slots 0..4 have top-left corners at
@@ -54,5 +55,17 @@ public class FolderOrderTest {
         eq(List.of("b", "a", "c"), FolderOrder.chosen(stored, List.of("a", "b", "c")),
                 "the unchecked shortcut leaves, the kept ones keep their order, a new one goes last");
         eq(stored, FolderOrder.chosen(stored, List.of("s:pkg|id|Mail", "a", "b")), "nothing changed: the same order");
+    }
+
+    public static void testAPopUpLooksTheSameUnlessWhatItDrawsChanges() {
+        Map<String, String> names = Map.of("a", "Mail", "b", "Maps"), icons = Map.of("a", "", "b", "arcticons|maps");
+        var before = FolderOrder.looks(List.of("a", "b"), names::get, icons::get);
+        eq(before, FolderOrder.looks(List.of("b", "a"), names::get, icons::get), "reordered: the same look");
+        Map<String, String> renamed = Map.of("a", "Posta", "b", "Maps");
+        eq(false, before.equals(FolderOrder.looks(List.of("a", "b"), renamed::get, icons::get)), "renamed: rebuilt");
+        Map<String, String> picked = Map.of("a", "arcticons|okay", "b", "arcticons|maps");
+        eq(false, before.equals(FolderOrder.looks(List.of("a", "b"), names::get, picked::get)), "a new icon: rebuilt");
+        eq(false, before.equals(FolderOrder.looks(List.of("a", "b"), names::get, Map.of("b", "arcticons|maps")::get)),
+                "an entry no longer drawn (uninstalled): rebuilt");
     }
 }

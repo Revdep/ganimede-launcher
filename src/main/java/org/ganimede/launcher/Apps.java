@@ -30,6 +30,8 @@ final class Apps {
         final String key, pkg, label, notifGroup;
         Drawable icon;
         boolean fromPack;
+        /** The icon picked for it when this Item was made ("" for none): what its icon shows, as a stable key. */
+        String picked = "";
 
         Item(LauncherActivityInfo info, String key) {
             this.info = info;
@@ -103,6 +105,7 @@ final class Apps {
                                 + (user.equals(Process.myUserHandle()) ? "" : "#" + um.getSerialNumberForUser(user)));
                         // An icon picked for this one app wins over the pack's and the app's own.
                         Drawable packed = Icons.picked(c, prefs, it.key);
+                        it.picked = prefs.getString("icon:" + it.key, "");
                         if (packed == null) packed = Icons.fromPack(info.getComponentName());
                         it.fromPack = packed != null;
                         it.icon = packed != null ? packed : info.getBadgedIcon(0);

@@ -1,7 +1,10 @@
 package org.ganimede.launcher.core;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
 
 /** The order of a folder's entries: which slot a finger is over, moving one icon, and the list after choosing apps. */
 public final class FolderOrder {
@@ -43,6 +46,19 @@ public final class FolderOrder {
         List<String> out = new ArrayList<>(stored);
         out.retainAll(checked);
         for (String k : checked) if (!out.contains(k)) out.add(k);
+        return out;
+    }
+
+    /**
+     * What an open pop-up draws, order aside: each stored entry with its name and icon (icon: a stable key of the icon
+     * drawn, null for an entry not drawn). Equal looks: nothing to rebuild; a reorder alone keeps the look.
+     */
+    public static Set<String> looks(List<String> stored, Function<String, String> name, Function<String, String> icon) {
+        Set<String> out = new HashSet<>();
+        for (String k : stored) {
+            String drawn = icon.apply(k);
+            if (drawn != null) out.add(k + "\n" + name.apply(k) + "\n" + drawn);
+        }
         return out;
     }
 

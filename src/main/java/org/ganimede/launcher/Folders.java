@@ -22,7 +22,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,7 +45,8 @@ final class Folders {
     private final BiConsumer<String, String> entryMenu;
     private Dialog popup;          // the pop-up last opened
     private String popupId;        // its folder
-    private Set<List<Object>> popupLook; // what it shows of each entry (see looks)
+    private Set<String> popupLook; // what it shows of each entry (see looks)
+    private FolderDrag popupDrag;  // its icons' touch handling: no rebuild under a finger
 
     Folders(Ui ui, Sheets sheets, Layout layout, Apps apps, Entries entries, Launcher launcher, Widgets widgets,
             IconPicker icons, ClassicHome classic, Runnable refresh, BiConsumer<String, String> entryMenu) {
@@ -69,30 +69,33 @@ final class Folders {
     }
 
     /**
-     * What a pop-up shows of each of its entries, order aside: which ones, their names and icons. An app's icon is the
-     * one its Item carries, so the Item itself stands for it (Apps.load makes new ones, Item has no equals): a picked
-     * icon shows only once that load is done. A shortcut draws its picked icon straight from the setting.
+     * What a pop-up draws (FolderOrder.looks). An app's icon is the one its Item was made with (Item.picked): a newly
+     * picked icon counts once Apps.load has made the new Item, and other apps' updates change nothing here. A shortcut
+     * draws its picked icon straight from the setting.
      */
-    private Set<List<Object>> looks(String id) {
-        Set<List<Object>> out = new HashSet<>();
-        for (String k : Layout.strings(layout.folder(id).optJSONArray("apps"))) {
-            Object icon = k.startsWith("s:") ? ui.prefs.getString("icon:" + k, "") : apps.find(k);
-            if (icon != null) out.add(List.of(k, entries.name(k), icon));
-        }
-        return out;
+    private Set<String> looks(String id) {
+        return FolderOrder.looks(Layout.strings(layout.folder(id).optJSONArray("apps")), entries::name, k -> {
+            if (k.startsWith("s:")) return ui.prefs.getString("icon:" + k, "");
+            Item it = apps.find(k);
+            return it == null ? null : it.picked;
+        });
     }
 
     /**
      * After any change (MainActivity.refreshAll) and whenever the open pop-up comes back in front (a menu, dialog or
      * other app on top closed): if its entries now look different (an entry taken out or uninstalled, renamed, a new icon) it
      * is built again. A reorder alone changes nothing here, the pop-up already shows it; an open menu or dialog is
-     * waited for, so the new pop-up never covers it.
+     * waited for, so the new pop-up never covers it, and so is a finger on an icon (FolderDrag calls back once it
+     * lifts).
+     * The entry TalkBack was on keeps its focus.
      */
     void reshowIfChanged() {
         if (popup == null || !popup.isShowing() || !popup.getWindow().getDecorView().hasWindowFocus()) return;
-        if (looks(popupId).equals(popupLook)) return;
+        if (popupDrag.busy() || looks(popupId).equals(popupLook)) return;
+        String focused = popupDrag.focused();
         popup.dismiss();
         show(popupId);
+        if (focused != null) popupDrag.focus(focused);
     }
 
     private void save(String id, JSONObject f) {
@@ -297,7 +300,8 @@ final class Folders {
         }
         Dialog[] dlg = new Dialog[1];
         List<View> appViews = new ArrayList<>();
-        FolderDrag drag = new FolderDrag(ui, entry -> entryMenu.accept(entry, id), sheets::dismissLast, shown -> {
+        FolderDrag drag = new FolderDrag(ui, entry -> entryMenu.accept(entry, id), sheets::dismissLast,
+                this::reshowIfChanged, shown -> {
             layout.editFolderApps(id, a -> { List<String> sorted = FolderOrder.reorderShown(a, shown); a.clear(); a.addAll(sorted); });
             refresh.run();
         });
@@ -353,6 +357,7 @@ final class Folders {
         popup = dlg[0];
         popupId = id;
         popupLook = looks(id);
+        popupDrag = drag;
         dlg[0].getWindow().getDecorView().getViewTreeObserver()
                 .addOnWindowFocusChangeListener(has -> { if (has) reshowIfChanged(); });
     }

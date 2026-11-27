@@ -30,6 +30,7 @@ final class FolderDrag {
     private final Consumer<List<String>> save;           // the keys in their new order
     private final Consumer<String> menu;                 // opens an entry's long-press menu
     private final Runnable closeMenu;                    // closes it again when the icon is picked up
+    private final Runnable lifted;                       // the finger is off the icons again (see busy)
     private float[] sx, sy;                              // top-left of each layout slot on screen
     private List<String> committed;                      // the keys as last saved
     private List<View> before;                         // the order when the drag began, to go back to on cancel
@@ -38,11 +39,32 @@ final class FolderDrag {
     private boolean dragging;
     private float downX, downY, baseX, baseY;
 
-    FolderDrag(Ui ui, Consumer<String> menu, Runnable closeMenu, Consumer<List<String>> save) {
+    FolderDrag(Ui ui, Consumer<String> menu, Runnable closeMenu, Runnable lifted, Consumer<List<String>> save) {
         this.ui = ui;
         this.menu = menu;
         this.closeMenu = closeMenu;
+        this.lifted = lifted;
         this.save = save;
+    }
+
+    /** A finger is on one of the icons (pressed, held or dragging): the pop-up must not be rebuilt under it. */
+    boolean busy() {
+        return touched != null || held != null;
+    }
+
+    /** The entry whose icon has TalkBack's focus, or null. */
+    String focused() {
+        for (int i = 0; i < views.size(); i++) if (views.get(i).isAccessibilityFocused()) return keys.get(i);
+        return null;
+    }
+
+    /** TalkBack's focus back on this entry's icon, once it is laid out (after the pop-up was built again under it). */
+    void focus(String key) {
+        int i = keys.indexOf(key);
+        if (i < 0) return;
+        View v = views.get(i);
+        //noinspection AccessibilityFocus: the focus the user had before the pop-up was rebuilt, on the same entry
+        v.post(() -> v.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null));
     }
 
     private List<String> keysInOrder() {
@@ -105,7 +127,7 @@ final class FolderDrag {
             return false;
         }
         if (held == null) {
-            if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) touched = null;
+            if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) { touched = null; lifted.run(); }
             return false;
         }
         if (a == MotionEvent.ACTION_POINTER_DOWN) return true; // a second finger on the held icon doesn't take it
@@ -132,6 +154,7 @@ final class FolderDrag {
         held = touched = null;
         dragging = false;
         if (wasDragging) drop(v, a == MotionEvent.ACTION_UP);
+        lifted.run();
         return true;
     }
 
