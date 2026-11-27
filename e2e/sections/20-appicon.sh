@@ -3,8 +3,7 @@
 
 button_page() {
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus || return 1
-  A shell input swipe 540 1900 540 1900 1500
-  tap "Impostazioni Ganimede" || return 1 # not pg_settings: Settings may come back on the button page
+  home_menu || return 1; tap "Impostazioni Ganimede" || return 1 # not pg_settings: Settings may come back on the button page
   stap "Pulsante Ganimede" || return 1
   wait_until 5 has "Mostra il pulsante Ganimede"
 }

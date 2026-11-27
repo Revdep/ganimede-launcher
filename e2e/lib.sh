@@ -178,17 +178,24 @@ settled() { local a; a=$(dump); [ -n "$a" ] && [ "$a" = "$(dump)" ]; } # two scr
 # it re-arms the timers it saved, so a 15-minute timer of an earlier run rings mid-run and its heads-up over the screen
 # top takes the taps meant for the home.
 noclock() { is_emulator || return 0; A shell pm clear com.google.android.deskclock >/dev/null 2>&1; }
+# home_menu [row]: long-presses an empty spot (1900) until the home menu shows that row (default Impostazioni Ganimede).
+# Issue 067: in the appicon run of 27 Nov, both emulators loaded by parallel runs, `setp` → HOME → `focus` → long-press
+# lost the press 3 of 3 times, in a classic seed; the same sequence later passed 3/3 in list and classic, and the whole
+# section passed in both modes, so the cause is the load-dependent timing after a restart, not one home mode.
+home_menu() { # one place for the retry (pg_settings uses it too); the WARN lets lost presses be counted across runs
+  local n; for n in 1 2 3; do
+    A shell input swipe 540 1900 540 1900 1500; rm -f "$SCR"; wait_until 3 has "${1:-Impostazioni Ganimede}" && return 0
+    echo "  WARN: long press $n lost (section ${CUR:-?}): the home menu did not open"
+  done; return 1; }
+# open_drawer: swipes up from an empty spot until the search shows, for steps that need the drawer open; a step that
+# tests the swipe itself (02-drawer's first ones, 17-anim) keeps its single swipe. Same lost-input cause as home_menu.
+open_drawer() { local _; for _ in 1 2; do A shell input swipe 540 1900 540 600 150; wait_until 3 has "Cerca app" && return 0; done; A shell input swipe 540 1900 540 600 150; expect "Cerca app"; }
 # pg_settings [menu row] [hint]: the classic home's long-press menu (1900 is an empty spot) → Ganimede settings, which
 # shows its hint (Italian by default). For a fresh start (after seed or setp): a running Settings comes back on its last page.
 pg_settings() {
   local hint="${2:-}"
   [ -n "$hint" ] || hint="Tocca una parte dell'anteprima per regolarla"
-  local n row="${1:-Impostazioni Ganimede}"
-  for n in 1 2 3; do # a long press sent while the home is still settling after a restart is lost: press again
-    A shell input swipe 540 1900 540 1900 1500; rm -f "$SCR"; wait_until 3 has "$row" && break
-    echo "  WARN: pg_settings: long press $n lost (section ${CUR:-?}): the home menu did not open" # count them across runs
-  done
-  tap "$row"
+  home_menu "${1:-}"; tap "${1:-Impostazioni Ganimede}"
   expect "$hint"
 }
 # one node (the dialog message is one) whose text holds all the fragments in order (the dump wraps a text holding " in single quotes)

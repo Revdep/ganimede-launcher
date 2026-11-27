@@ -61,7 +61,7 @@ for n in "${names[@]}"; do # a raw contact of the e2e account with a name and a 
 done
 A shell pm grant $PK android.permission.READ_CONTACTS
 seed classic; setp boolean contacts_search true
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"
+open_drawer
 typ "Zz Prova"
 expect "Zz Prova A"
 calls() { [ "$(screen | grep -o 'text="✆"' | wc -l)" -eq "$1" ]; } # call buttons: one per contact shown with a number
@@ -77,7 +77,7 @@ for n in "${names[@]}"; do see "$n"; done
 typ "o"; A shell input keyevent KEYCODE_DEL # Show all holds only for the text it was tapped for
 wait_until 5 has "Mostra tutti (8)" && ok "another text and back: five again, with Show all" || ko "another text and back: still all, no Show all"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"' # keyboard, then search
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "Zz Prova"
+open_drawer; typ "Zz Prova"
 wait_until 5 has "Mostra tutti (8)" && ok "search reopened: five again, with Show all" || ko "search reopened: still all, no Show all"
 
 step "Search: a chat contact (WhatsApp, Telegram) that did not merge with the phone contact is not a second row"
@@ -91,7 +91,7 @@ for acct in org.ganimede.e2e org.ganimede.e2e.chat; do
   [ "$mode" = 3 ] || A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:555010$id --bind data2:i:2"
 done
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"'
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "Chat"
+open_drawer; typ "Chat"
 expect "Zz Prova Chat"
 rows() { [ "$(screen | grep -o 'text="Zz Prova Chat"' | wc -l)" -eq "$1" ]; }
 wait_until 5 rows 1 && ok "the person is listed once" || ko "the person is listed $(screen | grep -o 'text="Zz Prova Chat"' | wc -l) times"

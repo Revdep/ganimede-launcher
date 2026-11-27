@@ -7,7 +7,7 @@ OLD=/sdcard/Download/ganimede-old-backup.json
 sval() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | cut -d'>' -f2-; } # a string pref's raw text
 backup_page() { # home screen → Settings → Backup & restore
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-  A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede" # not pg_settings: Settings may come back on a sub-page
+  home_menu; tap "Impostazioni Ganimede" # not pg_settings: Settings may come back on a sub-page
   wait_until 5 has "Personalizza"; wait_until 5 settled # a swipe sent while the page still opens is lost
   A shell input swipe 150 2120 150 600 300 # one long scroll near the end of the list, as for “App nascoste”
   tapn "Backup e ripristino" 6
