@@ -60,6 +60,9 @@ final class SettingsKit {
 
     void render() { render.run(); }
 
+    /** Redraws the preview only, leaving the page (and its focus) as it is. */
+    void refresh() { refresh.run(); }
+
     void open(Page page) { open.accept(page); }
 
     /**

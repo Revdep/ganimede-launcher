@@ -35,6 +35,17 @@ step "Wizard: customise now"
 expect "Personalizza adesso" && tap "Personalizza adesso"
 expect "Le tue app preferite" && shot 04-favs
 for app in Calendar Clock Contacts; do stap "$app" >/dev/null; done # not in the preview, so the list row is hit
+# A tick changes its own row, not the whole page (issue 062): the keyboard focus stays on the row and its state flips.
+A shell input keyevent KEYCODE_DPAD_DOWN; A shell input keyevent KEYCODE_DPAD_DOWN
+row_focus() { screen | grep -o 'checkable="true" checked="[a-z]*"[^>]*focused="true"[^>]*bounds="[^"]*"' | head -1 | sed 's/^checkable="true" //; s/ clickable.*bounds=/ /'; }
+f0=$(row_focus)   # checked="true|false" "[l,t][r,b]"
+flipped() { local f; f=$(row_focus); [ -n "$f" ] && [ "${f#* }" = "${f0#* }" ] && [ "${f%% *}" != "${f0%% *}" ]; }
+if [ -z "$f0" ]; then ko "no app row took the keyboard focus"
+else
+  A shell input keyevent KEYCODE_ENTER
+  wait_until 3 flipped && ok "a tick keeps the focus on its row and flips it ($f0)" || ko "a tick lost the row's focus or state (was $f0, now $(row_focus))"
+  A shell input keyevent KEYCODE_ENTER # back as it was: the three favourites above stay
+fi
 tap "Avanti"
 expect "Stile delle icone" && shot 05-icons
 tap "Squircle"; tap "Avanti"
