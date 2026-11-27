@@ -30,6 +30,7 @@ final class FolderDrag {
     private List<String> committed;                      // the keys as last saved
     private List<View> before;                         // the order when the drag began, to go back to on cancel
     private View touched, held; // the icon the last finger went down on; the one picked up by a long-press
+    private int active; // the id of the finger that holds the icon (Android's "active pointer")
     private boolean dragging;
     private float downX, downY, baseX, baseY;
 
@@ -87,12 +88,26 @@ final class FolderDrag {
         int a = e.getActionMasked();
         // while one icon is held, a second finger or the palm on another icon is ignored: it must not reset this drag
         if (held != null && v != held) return true;
-        if (a == MotionEvent.ACTION_DOWN) { touched = v; dragging = false; downX = e.getRawX(); downY = e.getRawY(); return false; }
+        if (a == MotionEvent.ACTION_DOWN) {
+            touched = v; dragging = false; active = e.getPointerId(0); downX = e.getRawX(); downY = e.getRawY();
+            return false;
+        }
         if (held == null) return false;
-        // a second finger on the held icon itself neither ends nor moves the drag
-        if (a == MotionEvent.ACTION_POINTER_DOWN || a == MotionEvent.ACTION_POINTER_UP) return true;
+        if (a == MotionEvent.ACTION_POINTER_DOWN) return true; // a second finger on the held icon doesn't take it
+        if (a == MotionEvent.ACTION_POINTER_UP) { // the holding finger lifts: the other one carries on from where it is
+            int up = e.getActionIndex();
+            if (e.getPointerId(up) == active) {
+                int keep = up == 0 ? 1 : 0;
+                downX += rawX(e, keep) - rawX(e, up); // re-based, so dx and dy (and the icon) don't jump
+                downY += rawY(e, keep) - rawY(e, up);
+                active = e.getPointerId(keep);
+            }
+            return true;
+        }
         if (a == MotionEvent.ACTION_MOVE) {
-            float dx = e.getRawX() - downX, dy = e.getRawY() - downY;
+            int i = e.findPointerIndex(active);
+            if (i < 0) return true;
+            float dx = rawX(e, i) - downX, dy = rawY(e, i) - downY;
             if (!dragging && Math.hypot(dx, dy) < ui.slop()) return true;
             if (!dragging) lift(v);
             follow(v, dx, dy);
@@ -104,6 +119,11 @@ final class FolderDrag {
         if (wasDragging) drop(v, a == MotionEvent.ACTION_UP);
         return true;
     }
+
+    /** Pointer i's screen position (MotionEvent.getRawX(int) needs API 29): its local one plus the view's offset. */
+    private static float rawX(MotionEvent e, int i) { return e.getX(i) + e.getRawX() - e.getX(); }
+
+    private static float rawY(MotionEvent e, int i) { return e.getY(i) + e.getRawY() - e.getY(); }
 
     private void lift(View v) {
         dragging = true;
