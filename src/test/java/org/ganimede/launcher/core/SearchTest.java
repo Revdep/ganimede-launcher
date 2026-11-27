@@ -55,6 +55,9 @@ public class SearchTest {
         eq(Search.score("Meteo", "meteo"), Search.score("Meteo", "méteo"), "accent in the query");
         yes(Search.score("Caffè", "caffe") > 0, "a grave accent");
         eq(Search.score("Calc ulator", "calc"), Search.score("Calc ulator", "c a l c"), "spaces in the query are ignored");
+        eq(Search.score("Cafe", "cafe"), Search.score("Cafe\u0301", "cafe"), "an accent already split off the letter");
+        yes(Search.score("Ølstue", "øl") > 0 && Search.score("日本語", "本") > 0, "letters with no accent to strip still match");
+        eq(0, Search.score("Ølstue", "ol"), "a letter that is not an accented o is not an o");
         eq("E", Search.letter("élan"), "a lower-case accented first letter sorts under its base letter");
         eq("#", Search.letter(""), "an empty name sorts under #");
     }
