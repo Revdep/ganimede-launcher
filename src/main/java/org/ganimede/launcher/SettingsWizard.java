@@ -106,7 +106,8 @@ final class SettingsWizard {
                 hero(page, kit.ui.tr("Icons"), kit.ui.tr("How app icons look. The preview above changes as you choose."));
                 c = kit.card();
                 look.iconChoices(c);
-                if (!Icons.packs(kit.activity()).isEmpty()) { kit.sub(c, kit.ui.tr("Icon pack")); look.iconPacks(c); }
+                kit.sub(c, kit.ui.tr("Icon pack"));
+                look.iconPacks(c);
                 break;
             case W_FONT:
                 hero(page, kit.ui.tr("Font"), kit.ui.tr("Each one is shown in its own letters."));

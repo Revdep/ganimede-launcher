@@ -25,4 +25,18 @@ public class LimitedInputStreamTest {
         eq(0L, in.skip(1), "nothing more can be skipped");
         eq(-1, in.read(), "and nothing more can be read");
     }
+
+    public static void testReadAllTakesEveryByteUpToTheCap() throws IOException {
+        eq(100, LimitedInputStream.readAll(new ByteArrayInputStream(new byte[100]), 100).length, "exactly the cap");
+        eq(0, LimitedInputStream.readAll(new ByteArrayInputStream(new byte[0]), 100).length, "an empty stream");
+    }
+
+    public static void testReadAllRefusesMoreThanTheCap() {
+        try {
+            LimitedInputStream.readAll(new ByteArrayInputStream(new byte[101]), 100);
+            throw new AssertionError("101 bytes with a cap of 100 must be refused");
+        } catch (IOException expected) {
+            // too big: the caller gives up instead of reading on
+        }
+    }
 }

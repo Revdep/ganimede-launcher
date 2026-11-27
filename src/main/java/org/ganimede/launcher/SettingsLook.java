@@ -198,15 +198,12 @@ final class SettingsLook {
     }
 
     void iconPacks(LinearLayout c) {
-        Map<String, String> packs = Icons.packs(kit.activity());
-        if (packs.isEmpty()) {
-            kit.para(c, kit.ui.tr("No icon packs installed. Install one (for example from F-Droid) and it shows up here."), 15, SettingsKit.SUB);
-            return;
-        }
         List<String> ids = new ArrayList<>(), names = new ArrayList<>();
         ids.add("");
         names.add(kit.ui.tr("None (apps' own icons)"));
-        for (Map.Entry<String, String> e : packs.entrySet()) { ids.add(e.getKey()); names.add(e.getValue()); }
+        ids.add(Icons.BUILTIN);
+        names.add(kit.ui.tr("Arcticons (built-in)"));
+        for (Map.Entry<String, String> e : Icons.packs(kit.activity()).entrySet()) { ids.add(e.getKey()); names.add(e.getValue()); }
         kit.radios(c, names.toArray(new String[0]), Math.max(0, ids.indexOf(kit.prefs().getString("icon_pack", ""))), null, null,
                 i -> kit.put("icon_pack", ids.get(i)));
     }

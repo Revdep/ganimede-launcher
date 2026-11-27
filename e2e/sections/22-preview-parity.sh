@@ -35,7 +35,7 @@ for mode in list classic; do
   else
     h_apps_top=$(top_of "desc:Orologio, tocca per le sveglie"); h_apps_left=$(left_of "desc:Orologio, tocca per le sveglie") # the clock block sits in the grid's first cell
   fi
-  A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"; stap "Personalizza"
+  pg_settings; stap "Personalizza"
   wait_until 10 settled
   preview_frame || ko "no preview"
   if [ $mode = list ]; then

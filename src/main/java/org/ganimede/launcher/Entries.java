@@ -118,7 +118,7 @@ final class Entries {
             LinearLayout line = new LinearLayout(ui.a);
             for (int k = r * 2; k < Math.min(inside.size(), r * 2 + 2); k++) {
                 ImageView iv = new ImageView(ui.a);
-                iv.setImageDrawable(Icons.copy(inside.get(k)));
+                iv.setImageDrawable(Icons.plain(inside.get(k), Colors.lineIcon(ui.accent, ui.fg))); // the tile sits on the home's backdrop
                 LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(mini, mini);
                 if (k % 2 == 1) ml.setMarginStart(pad);
                 line.addView(iv, ml);

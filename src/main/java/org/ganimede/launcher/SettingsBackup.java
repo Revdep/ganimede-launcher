@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Backup;
 import org.ganimede.launcher.core.Blocks;
+import org.ganimede.launcher.core.LimitedInputStream;
 import org.ganimede.launcher.core.Safe;
 
 import android.appwidget.AppWidgetHost;
@@ -12,7 +13,6 @@ import android.net.Uri;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -65,13 +65,8 @@ final class SettingsBackup {
     /** Replaces the settings with a backup file's; called on a background thread. */
     void restore(Uri uri) throws Exception {
         try (InputStream in = context.getContentResolver().openInputStream(uri)) {
-            ByteArrayOutputStream b = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            for (int n; (n = in.read(buf)) > 0; ) {
-                b.write(buf, 0, n);
-                if (b.size() > 4 << 20) throw new Exception("too big"); // a real backup is a few KB
-            }
-            JSONObject o = new JSONObject(b.toString("UTF-8"));
+            byte[] b = LimitedInputStream.readAll(in, 4 << 20); // a real backup is a few KB
+            JSONObject o = new JSONObject(new String(b, java.nio.charset.StandardCharsets.UTF_8));
             if (!"ganimede-launcher".equals(o.optString("app")) || o.optInt("version") > 1) throw new Exception("not ours");
             JSONObject vals = o.getJSONObject("values");
             Map<String, Object> restored = new HashMap<>();

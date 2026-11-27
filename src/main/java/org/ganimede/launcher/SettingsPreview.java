@@ -274,11 +274,6 @@ final class SettingsPreview extends FrameLayout {
         }).start();
     }
 
-    private Drawable iconOf(Apps.Item a) {
-        Drawable d = Icons.fromPack(a.info.getComponentName());
-        return d != null ? d : a.info.getBadgedIcon(0);
-    }
-
     private void style(TextView t, int fg, Typeface face, boolean bold) {
         t.setTextColor(fg);
         t.setTypeface(Typeface.create(face, bold ? Typeface.BOLD : Typeface.NORMAL));
@@ -448,8 +443,8 @@ final class SettingsPreview extends FrameLayout {
     private ImageView iconView(Apps.Item a, String shape, String themedShape, int fg, int accent, int size) {
         ImageView icon = new ImageView(getContext());
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        Icons.apply(icon, iconOf(a), Icons.fromPack(a.info.getComponentName()) != null,
-                shape, themedShape, fg, accent, size);
+        Drawable packed = Icons.fromPack(a.info.getComponentName()); // once: it decodes the built-in icon
+        Icons.apply(icon, packed != null ? packed : a.info.getBadgedIcon(0), packed != null, shape, themedShape, fg, accent, size);
         return icon;
     }
 

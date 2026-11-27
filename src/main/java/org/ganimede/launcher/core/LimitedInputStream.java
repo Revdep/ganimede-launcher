@@ -10,6 +10,17 @@ public final class LimitedInputStream extends FilterInputStream {
 
     public LimitedInputStream(InputStream in, long limit) { super(in); remaining = limit; }
 
+    /** Every byte of the stream; a stream longer than max is refused, not read on. */
+    public static byte[] readAll(InputStream in, int max) throws IOException {
+        java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        for (int n; (n = in.read(buf)) > 0; ) {
+            b.write(buf, 0, n);
+            if (b.size() > max) throw new IOException("more than " + max + " bytes");
+        }
+        return b.toByteArray();
+    }
+
     @Override public int read() throws IOException {
         if (remaining == 0) return -1;
         int value = super.read();

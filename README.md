@@ -50,6 +50,19 @@ Serve l'SDK Android (compileSdk 35) e Java 17:
 I test del nucleo (`coreTest`) girano prima di ogni build. Gli APK finiscono nella cartella principale; senza
 `keystore.properties` la release è firmata con la chiave di debug.
 
+## Icone integrate
+
+`src/main/assets/icons.bin` contiene le icone di [Arcticons](https://github.com/Arcticons-Team/Arcticons)
+(Donnnno e collaboratori, licenza [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), vedi
+[LICENSE-ARCTICONS](LICENSE-ARCTICONS)), convertite da
+`tools/icons/pack.py` dal commit `da2fa5694ccfea800a9b88f556131a20908e95c1`. Per rigenerarle, da un clone di
+Arcticons a quel commit:
+
+```
+python3 -I tools/icons/pack.py <Arcticons> src/main/assets/icons.bin
+python3 -I tools/icons/test_pack.py
+```
+
 ## Licenza
 
 Copyright (C) 2026 Revdep

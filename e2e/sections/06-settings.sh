@@ -3,8 +3,7 @@
 # mode a brick is also dragged in the preview, and Undo takes that back.
 step "Settings: only the chosen mode's controls"
 seed classic
-A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"
-expect "Tocca una parte dell'anteprima per regolarla"
+pg_settings
 stap "Personalizza"
 wait_until 5 has "Griglia delle app" && has "Dock" && ok "classic bricks offered by name" || ko "classic bricks missing"
 has "Alfabeto" && ko "list bricks shown in classic" || ok "no list-only bricks in classic"
@@ -57,7 +56,7 @@ else ko "Calendar cell missing from the five-column home"; cal0=0; fi
 chrome0=$(chrome_h); [ "$chrome0" -gt 0 ] && ok "an app page shows Chrome" || ko "no Chrome on the app pages"
 # back in the settings, the drawer stops following the home and gets bigger icons
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"; tap "Personalizza"
+A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"; tap "Personalizza" # not pg_settings: Settings comes back on the page it was left on
 pill "Cassetto"; tap "Cassetto"
 tap "Segui home"
 wait_until 5 bpref drawer_follow false && ok "the drawer stops following home" || ko "drawer_follow was not saved false"
@@ -83,7 +82,7 @@ near "$(chrome_h)" "$chrome0" "$(dp 2)" && ok "following home again: app pages b
 
 settings_home() { # open Settings → Customize from the home screen ($1: y of an empty spot)
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-  A shell input swipe 540 "$1" 540 "$1" 1500
+  A shell input swipe 540 "$1" 540 "$1" 1500 # not pg_settings: Settings comes back on the page it was left on
   tap "Impostazioni Ganimede"; tap "Personalizza"
 }
 
@@ -98,7 +97,11 @@ for mode in classic list; do
     name="${part%%:*}"; rest="${part#*:}"; key="${rest%%:*}"; dir="${rest##*:}"; sg=1; [ "$dir" = su ] && sg=-1
     tap "$name"                                                   # its name under the preview picks the brick
     xy=$(find_desc "$name: Sposta $dir") || { ko "$name: no arrows"; continue; }
+    early() { [ $((10#$(A shell date +%S | tr -d '\r'))) -lt 30 ]; }
+    wait_until 35 early # the preview draws the time: a minute turning between the two pictures would change it too
     A exec-out screencap -p > "$OUT/set-$key-before.png"
+    read -r px1 py1 px2 py2 <<<"$(bounds "desc:Anteprima della tua schermata Home")"
+    pcrop="$((px2 - px1))x$((py2 - py1))+$px1+$py1" # only the preview: the status-bar clock changes too
     set -- $xy; A shell input tap "$1" "$2"
     set1() { [ -n "$(pref "$key")" ]; }; wait_until 5 set1; v1=$(pref "$key")
     A shell input tap "$1" "$2"
@@ -108,7 +111,8 @@ for mode in classic list; do
     held() { local x; x=$(pref "$key"); [ $((${x:-0} * sg)) -gt $((${v:-0} * sg + 8)) ]; }; wait_until 3 held
     v2=$(pref "$key"); [ $((${v2:-0} * sg)) -gt $((${v:-0} * sg + 8)) ] && ok "$name held: $key $v → $v2 dp" || ko "$name hold did nothing ($v → $v2)"
     A exec-out screencap -p > "$OUT/set-$key-after.png"
-    cmp -s "$OUT/set-$key-before.png" "$OUT/set-$key-after.png" && ko "$name: preview unchanged" || ok "$name: preview changed"
+    d=$(fdiff "$OUT/set-$key-before.png" "$OUT/set-$key-after.png" "$pcrop")
+    [ "${d:-0}" -gt 0 ] && ok "$name: preview changed ($d px)" || ko "$name: preview unchanged (${d:-no} px differ in $pcrop)"
     xy=$(find_desc "$name: Ripristina posizione"); set -- $xy; A shell input tap "$1" "$2"
     restored() { [ "$(pref "$key")" != "$v2" ]; }; wait_until 5 restored
   done
@@ -216,7 +220,7 @@ step "Settings: a stored value no choice matches (e.g. from a backup) marks no c
 seed classic
 setp int accent -16744320; setp int dim_home 50                  # teal and 50 %: no named colour, no tile
 wait_until 10 drawn                                             # touches sent before the first frame are lost
-A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"
+pg_settings
 lookline() { dump | grep -q 'text="Classica · Sovrapposto · Predefinito"'; }  # mode · clock · font, and no colour name
 wait_until 5 lookline && ok "custom accent: the summary names no colour" || ko "custom accent: summary names a colour"
 stap "Personalizza"; tap "Tutto lo schermo"; see "✓ Medio"     # dim behind the list: 60, its default

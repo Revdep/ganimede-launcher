@@ -1,0 +1,16 @@
+The built-in icons in src/main/assets/icons.bin are Arcticons
+(https://github.com/Arcticons-Team/Arcticons), by Donnnno and the Arcticons contributors,
+taken from commit da2fa5694ccfea800a9b88f556131a20908e95c1 of that repository.
+
+They are licensed under the Creative Commons Attribution-ShareAlike 4.0 International
+licence (CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
+(full legal code: https://creativecommons.org/licenses/by-sa/4.0/legalcode)
+
+Changes: the SVG icons were converted to Ganimede's own vector format by tools/icons/pack.py
+(transforms and styles applied, arcs turned into curves, coordinates rounded to 1/32 of a unit)
+and are drawn algorithmically restyled by Ganimede. The converted icons stay under CC BY-SA 4.0;
+the rest of Ganimede is under GPL-3.0-or-later (see LICENSE).
+
+No warranties are given. The licence may not give you all of the permissions necessary for
+your intended use: other rights such as publicity, privacy or moral rights may limit how you
+use the material.

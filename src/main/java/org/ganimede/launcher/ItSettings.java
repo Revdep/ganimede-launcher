@@ -117,6 +117,7 @@ final class ItSettings {
         it("Tinted plate", "Piastra delle icone colorate");
         it("Hide app names of favourites", "Nascondi i nomi delle app preferite");
         it("None (apps' own icons)", "Nessuno (icone delle app)");
+        it("Arcticons (built-in)", "Arcticons (integrato)");
         it("Change wallpaper", "Cambia sfondo");
         it("Pick one that suits your theme", "Scegline uno adatto al tuo tema");
 
@@ -273,6 +274,8 @@ final class ItSettings {
         it("A free, minimalist home screen without Google: no ads, no tracking, no internet.",
                 "Una schermata Home libera e minimalista, senza Google: niente pubblicità, niente tracciamento, niente internet.");
         it("Weather by Breezy Weather, sent from your own phone.", "Meteo di Breezy Weather, inviato dal tuo stesso telefono.");
+        it("Built-in icons: Arcticons by Donnnno and contributors (github.com/Arcticons-Team/Arcticons), CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), converted and algorithmically restyled.",
+                "Icone integrate: Arcticons di Donnnno e collaboratori (github.com/Arcticons-Team/Arcticons), CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), convertite e ridisegnate in modo algoritmico.");
         // Home screen: per-mode positions, edges and sizes
         it("Home screen pages", "Pagine della schermata Home");
         it("Grid sizes start from a size that suits your screen. On the home screen, long-press an icon and drag it to any cell, onto another app to make a folder, into the dock, or to Remove at the top.",

@@ -22,10 +22,6 @@ setset() {
   start_home
   drawn2() { dump | grep -q "package=\"$PK\""; }; wait_until 10 drawn2 # touches sent before the first frame are lost
 }
-pg_settings() { # the home screen's long-press menu → Ganimede settings (classic: 1900 is an empty spot)
-  A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"
-  expect "Tocca una parte dell'anteprima per regolarla"
-}
 pg_back() { # one level up, to the settings home
   A shell input keyevent KEYCODE_BACK
   wait_until 5 has 'Impostazioni"' && ok "back on the settings home" || ko "Back did not return to the settings home" # its title (the hint may be scrolled off)
