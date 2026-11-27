@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import org.ganimede.launcher.core.IconSet.Cap;
+import org.ganimede.launcher.core.IconSet.Join;
 import org.ganimede.launcher.core.IconSet.Op;
 import org.ganimede.launcher.core.IconSet.PathData;
 
@@ -113,6 +115,16 @@ public class IconSetTest {
         yes(stroke.stroke() && !stroke.fill(), "then the stroke");
         eq(1f, stroke.alpha(), "the stroke stays opaque");
         eq(fill.ops(), stroke.ops(), "same outline");
+    }
+
+    public static void testCapsAndJoinsAsDeclared() {
+        List<PathData> paths = icon("caps");
+        eq(Cap.BUTT, paths.get(0).cap(), "no stroke-linecap declared: SVG's default butt");
+        eq(Join.MITER, paths.get(0).join(), "no stroke-linejoin declared: SVG's default miter");
+        eq(Cap.ROUND, paths.get(1).cap(), "round declared");
+        eq(Join.ROUND, paths.get(1).join(), "round declared");
+        eq(Cap.SQUARE, paths.get(2).cap(), "square declared");
+        eq(Join.BEVEL, paths.get(2).join(), "bevel declared");
     }
 
     public static void testRealAssetDecodesAll() {

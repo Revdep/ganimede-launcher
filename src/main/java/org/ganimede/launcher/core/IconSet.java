@@ -14,11 +14,18 @@ public final class IconSet {
     /** The file's op codes are the ordinals of the first five; MOVE_CLOSED is a MOVE whose subpath closes. */
     public enum Op { MOVE, LINE, CUBIC, CLOSE, OVAL, MOVE_CLOSED }
 
+    /** Stroke ends and corners as the SVG declares them; the names are Android's Paint.Cap and Paint.Join. */
+    public enum Cap { ROUND, BUTT, SQUARE }
+    public enum Join { ROUND, MITER, BEVEL }
+
     /** One SVG shape; {@code points} holds x, y pairs in grid units: 1 per move or line, 3 per cubic, 2 per oval (its box). */
-    public record PathData(boolean stroke, boolean fill, boolean evenOdd, float width, float alpha, Op[] ops, float[] points) {}
+    public record PathData(boolean stroke, boolean fill, boolean evenOdd, Cap cap, Join join, float width, float alpha,
+                           Op[] ops, float[] points) {}
 
     private static final int MAGIC = 'I' | 'C' << 8 | 'N' << 16 | '1' << 24, HEADER = 40, Q = 32;
     private static final Op[] OPS = Op.values();
+    private static final Cap[] CAPS = Cap.values();
+    private static final Join[] JOINS = Join.values();
     private static final int[] POINTS = {1, 1, 3, 0, 2};
 
     private final ByteBuffer data;
@@ -97,7 +104,8 @@ public final class IconSet {
             if (move >= 0 && closes(q, first, used, z)) ops[move] = Op.MOVE_CLOSED;
             float[] points = new float[used];
             for (int i = 0; i < used; i++) points[i] = q[i] / (float) Q;
-            paths.add(new PathData((style & 1) != 0, (style & 2) != 0, (style & 4) != 0, width, alpha, ops, points));
+            paths.add(new PathData((style & 1) != 0, (style & 2) != 0, (style & 4) != 0, CAPS[style >> 3 & 3],
+                    JOINS[style >> 5 & 3], width, alpha, ops, points));
         }
         return paths;
     }

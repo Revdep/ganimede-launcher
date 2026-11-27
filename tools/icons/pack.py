@@ -6,7 +6,8 @@ It reads <checkout>/icons/white/*.svg and <checkout>/app/src/main/assets/appfilt
 Format (little endian), all geometry on Arcticons' 48x48 grid:
   header   'ICN1' (format 1), 20 B Arcticons commit (SHA-1), u32 iconCount, u32 indexCount, u32 namesOff, u32 indexOff
   offsets  u32[iconCount + 1], icon i is data[off[i]:off[i+1]], data starts right after this table
-  icon     varint pathCount; per path: u8 style (1 stroke, 2 fill, 4 evenodd), u8 stroke width * 16, u8 alpha * 255,
+  icon     varint pathCount; per path: u8 style (1 stroke, 2 fill, 4 evenodd, bits 3-4 cap 0 round 1 butt 2 square,
+           bits 5-6 join 0 round 1 miter 2 bevel), u8 stroke width * 16, u8 alpha * 255,
            varint opCount, then ops: u8 op (0 M, 1 L, 2 C, 3 Z, 4 OVAL x0 y0 x1 y1) followed by its points, each
            x and y a zigzag varint delta from the previous point of the icon, in 1/32 of a unit
   names    per icon, ids in name order: varint length + UTF-8
@@ -28,6 +29,7 @@ NS = "{http://www.w3.org/2000/svg}"
 Q = 32  # coordinates are stored in 1/32 of a unit
 OPS = {"M": 0, "L": 1, "C": 2, "Z": 3, "O": 4}
 STROKE, FILL, EVEN_ODD = 1, 2, 4
+CAPS, JOINS = {"round": 0, "butt": 1, "square": 2}, {"round": 0, "miter": 1, "bevel": 2}  # style bits 3-4 and 5-6
 
 
 def css(text):
@@ -59,7 +61,8 @@ def style_of(el, classes, inherited):
     opacity is not inherited: collect multiplies it down the tree.
     """
     s = {k: v for k, v in inherited.items() if k != "opacity"}
-    for k in ("fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity"):
+    for k in ("fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity", "stroke-linecap",
+              "stroke-linejoin"):
         if el.get(k) is not None:
             s[k] = el.get(k)
     for c in (el.get("class") or "").split():
@@ -300,9 +303,13 @@ def collect(el, classes, inherited, m, alpha, out):
         return
     if st.get("fill-rule") == "evenodd":
         style |= EVEN_ODD
+    ends = 0
+    if stroked:  # SVG's defaults are butt and miter; unknown values (miter-clip, arcs) draw as miter
+        ends = CAPS.get(st.get("stroke-linecap"), 1) << 3 | JOINS.get(st.get("stroke-linejoin"), 1) << 5
+    style |= ends
     fill_alpha, stroke_alpha = alpha * num(st.get("fill-opacity"), 1.0), alpha * num(st.get("stroke-opacity"), 1.0)
     if style & FILL and stroked and fill_alpha != stroke_alpha:
-        parts = [(style & ~STROKE, fill_alpha), (STROKE, stroke_alpha)]  # SVG paints the fill, then the stroke
+        parts = [(style & (FILL | EVEN_ODD), fill_alpha), (STROKE | ends, stroke_alpha)]  # SVG paints the fill, then the stroke
     else:
         parts = [(style, stroke_alpha if stroked else fill_alpha)]
     rigid = abs(m[1]) < 1e-9 and abs(m[2]) < 1e-9
