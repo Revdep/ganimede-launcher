@@ -151,7 +151,7 @@ tre_override_pixel=$(folder_pixel Tre)
   || ko "Tre override background pixel is missing"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt Calendar
 
-# Change every default again through Settings. Tre must stay put; Altra must follow all three.
+# Change every default again through Settings: Altra must follow all three.
 folder_settings
 if xy=$(last_desc_center "Automatico"); then set -- $xy; A shell input tap "$1" "$2"; else ko "no folder Automatico control"; fi
 press_desc "Opacità dello sfondo (%): Aumenta" 7
@@ -161,14 +161,8 @@ wait_until 5 second_defaults && ok "Settings controls changed the defaults to Au
   || ko "changed defaults: bg=$(pref folder_bg), alpha=$(pref folder_alpha), cols=$(pref folder_cols)"
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 
-tap Tre; wait_until 5 hasd Calendar
-wait_until 5 folder_columns 1 && ok "Tre keeps its one-column override after defaults change" \
-  || ko "Tre followed the changed default columns"
-pixel=$(folder_pixel Tre)
-[ "$pixel" = "$tre_override_pixel" ] && ok "Tre keeps its Sky 92% background after defaults change" \
-  || ko "Tre background pixel changed $tre_override_pixel → ${pixel:-missing}"
-A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt Calendar
-
+# Tre keeping its own look over changed defaults is FolderLook.resolve (FolderLookTest.testFolderValuesWinAndMissingValuesUseDefaults);
+# the home already drew Tre from its own values above.
 tap Altra; wait_until 5 hasd Calendar
 wait_until 5 folder_columns 2 && ok "Altra follows the changed two-column default" \
   || ko "Altra did not follow the changed default columns"

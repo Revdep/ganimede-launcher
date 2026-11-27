@@ -4,7 +4,6 @@ emu_only "backup: uninstalls the launcher and turns the screen" || return 0
 BK=/sdcard/Download/ganimede-backup.json
 BAD=/sdcard/Download/ganimede-bad.json
 OLD=/sdcard/Download/ganimede-old-backup.json
-INDEPENDENT=/sdcard/Download/ganimede-independent-backup.json
 sval() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | cut -d'>' -f2-; } # a string pref's raw text
 backup_page() { # home screen → Settings → Backup & restore
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
@@ -80,13 +79,8 @@ old_positions() { [ "$(pref clock_offset)" = 76 ] && [ "$(pref line_offset)" = 7
 wait_until 10 old_positions && ok "old backup copied both clock axes to the line" \
   || ko "old restore: clock_offset=$(pref clock_offset), line_offset=$(pref line_offset), list_clock_y=$(pref list_clock_y), list_line_y=$(pref list_line_y)"
 
-backup_with clock_offset=76 list_clock_y=-28 line_offset=120 list_line_y=44 > "$OUT/independent-backup.json"
-A push "$OUT/independent-backup.json" "$INDEPENDENT" >/dev/null
-restore_file ganimede-independent-backup.json
-independent_positions() { [ "$(pref line_offset)" = 120 ] && [ "$(pref list_line_y)" = 44 ]; }
-wait_until 10 independent_positions && ok "restore preserves independently stored line axes" \
-  || ko "independent restore: line_offset=$(pref line_offset), list_line_y=$(pref list_line_y)"
-A shell rm -f "$OLD" "$INDEPENDENT"
+# a line already stored on its own is kept: PreferencesTest.testLineMigrationNeverOverwritesItsOwnPosition (same restore path)
+A shell rm -f "$OLD"
 
 step "Backup: a file that is not a backup is refused and changes nothing"
 setp int fav_gap 20
