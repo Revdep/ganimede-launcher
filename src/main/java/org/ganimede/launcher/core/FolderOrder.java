@@ -5,7 +5,10 @@ import java.util.List;
 
 /** Reordering the icons of an open folder: which slot a finger is over, and the list after moving one icon. */
 public final class FolderOrder {
-    /** The slot whose centre (xs[i], ys[i]) is nearest the finger; a finger outside the folder lands on an edge slot. */
+    /**
+     * The slot whose top-left corner (xs[i], ys[i]) is nearest (x, y), the dragged icon's own top-left corner; an icon
+     * dragged outside the folder lands on an edge slot.
+     */
     public static int nearest(float x, float y, float[] xs, float[] ys) {
         int best = 0;
         double bestDistance = Double.MAX_VALUE;

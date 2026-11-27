@@ -72,8 +72,9 @@ final class FolderDrag {
                 if (to < 0 || to >= order.size()) return true;
                 measure();
                 place(host, to);
-                settle(null);
                 saved();
+                reparent();
+                host.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null); // detaching dropped it
                 host.announceForAccessibility(ui.f("Position %1$d of %2$d", to + 1, order.size()));
                 return true;
             }
@@ -119,9 +120,45 @@ final class FolderDrag {
 
     private void drop(View v, boolean commit) {
         raise(v, 0);
-        if (!commit) { order.clear(); order.addAll(before); }
-        settle(null);
-        if (commit) saved();
+        if (!commit) { order.clear(); order.addAll(before); settle(null); return; }
+        saved();
+        v.post(this::reparent); // not while v is still dispatching its own touch event
+    }
+
+    /**
+     * Every icon moves into the parent slot it now shows in, gliding there from where it is drawn: shown by translation
+     * alone, an icon stays a child of its old row, where a tap or long-press can't reach it and TalkBack reads it in the
+     * old order. The slots themselves (sx, sy) don't move.
+     */
+    private void reparent() {
+        int n = views.size();
+        ViewGroup[] parent = new ViewGroup[n];
+        int[] index = new int[n];
+        ViewGroup.LayoutParams[] params = new ViewGroup.LayoutParams[n];
+        float[] tx = new float[n], ty = new float[n];
+        for (int i = 0; i < n; i++) {
+            View slot = views.get(i), w = order.get(i);
+            parent[i] = (ViewGroup) slot.getParent();
+            index[i] = parent[i].indexOfChild(slot);
+            params[i] = slot.getLayoutParams();
+            w.animate().cancel();
+            int home = views.indexOf(w);
+            tx[i] = sx[home] + w.getTranslationX() - sx[i];
+            ty[i] = sy[home] + w.getTranslationY() - sy[i];
+        }
+        List<String> shown = keysInOrder();
+        for (int i = 0; i < n; i++) parent[i].removeView(views.get(i));
+        for (int i = 0; i < n; i++) { // ascending, so each recorded index is valid again when its turn comes
+            View w = order.get(i);
+            parent[i].addView(w, index[i], params[i]);
+            w.setTranslationX(tx[i]);
+            w.setTranslationY(ty[i]);
+            w.animate().translationX(0).translationY(0).setDuration(150);
+        }
+        views.clear();
+        views.addAll(order);
+        keys.clear();
+        keys.addAll(shown);
     }
 
     /** The icon, and its row if it has one, drawn above their neighbours (not the card, which holds everything). */

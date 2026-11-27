@@ -251,6 +251,11 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
 step "Folders: long-press and drag reorders the icons inside the pop-up, never out of it (082)"
 order() { pstr "folder:ord" | grep -o '\(calendar\|deskclock\|contacts\)[\\/]' | tr -d '\\/' | paste -sd, -; } # the stored order, short names
+shown() { # the pop-up's icons in view-tree order (the dump's, TalkBack's), same short names: what follows the card's ScrollView
+  screen | awk -v RS='class="android.widget.ScrollView"' 'END { printf "%s", $0 }' | grep -o 'text="\(Calendar\|Clock\|Contacts\)"' \
+    | cut -d'"' -f2 | sed 's/Clock/deskclock/' | tr 'A-Z' 'a-z' | paste -sd, -
+}
+calendar_up() { A shell dumpsys window | grep mCurrentFocus | grep -q calendar; }
 for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and Contacts are on different rows
   mode=${variant%:*}; cols=${variant#*:}; mode="$mode/$cols col"
   seed ${variant%:*}
@@ -265,24 +270,37 @@ for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and 
   wait_until 5 reordered
   [ "$(order)" = "deskclock,contacts,calendar" ] && ok "$mode: dragging Calendar onto Contacts' place saved the new order" || ko "$mode: order after drag $(order)"
   has "Contacts" && ok "$mode: the pop-up stays open after the drop" || ko "$mode: the pop-up closed"
+  wait_until 5 settled
+  [ "$(shown)" = "$(order)" ] && ok "$mode: the pop-up's views (TalkBack's reading order) follow the saved order" || ko "$mode: views in the order $(shown), saved $(order)"
   shot 131-folder-reordered-$mode
+  # the moved icons still answer: in 2 columns Calendar changed row, and a view moved only by translation can't be touched
+  read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Clock)"
+  A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 1500
+  back() { [ "$(order)" = "calendar,deskclock,contacts" ]; }
+  wait_until 5 back && ok "$mode: the moved Calendar answers a long-press: dragged back first" || ko "$mode: the moved Calendar ignored the long-press drag, order $(order)"
+  wait_until 5 settled
+  [ "$(shown)" = "$(order)" ] && ok "$mode: views follow the saved order again" || ko "$mode: views in the order $(shown), saved $(order)"
+  tap Calendar
+  wait_until 10 calendar_up && ok "$mode: a tap on the moved Calendar opens it" || ko "$mode: a tap on the moved Calendar did nothing"
+  A shell input keyevent KEYCODE_HOME; wait_until 10 has Ordine
+  tap Ordine; wait_until 5 has "Contacts"; wait_until 5 settled
   read -r ax ay <<<"$(cx Clock)"
   A shell input draganddrop "$ax" "$ay" $((W - 4)) $((H - 4)) 1500
-  sleep 1
+  wait_until 5 settled # input returns when the finger lifts; the icons then glide for 150 ms
   [ "$(order | tr , '\n' | sort | paste -sd, -)" = "calendar,contacts,deskclock" ] && ok "$mode: dragged to the screen corner, every app is still in the folder ($(order))" || ko "$mode: apps after drag to the corner: $(order)"
   has "Contacts" && has "Calendar" && ok "$mode: the icons are still in the open pop-up" || ko "$mode: the pop-up lost its icons"
   [ "$(pstr fav)" = 'f:ord' ] && ok "$mode: nothing dropped on the home" || ko "$mode: fav = $(pstr fav)"
   # a drag cut short (the pop-up closed under the finger) saves nothing and leaves no floating icon behind
   stored=$(order); read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Clock)"
   A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 5000 &
-  sleep 3; A shell input keyevent KEYCODE_BACK; wait
+  sleep 3; A shell input keyevent KEYCODE_BACK; wait # mid-gesture: input holds still for the long-press timeout, then moves for 5 s; there is no screen state to wait on (a dump takes ~2 s)
   wait_until 5 hasnt "Calendar"
   [ "$(order)" = "$stored" ] && ok "$mode: a cancelled drag keeps the stored order ($stored)" || ko "$mode: order after cancel $(order), was $stored"
   tap Ordine; wait_until 5 has "Calendar"; wait_until 5 settled # the pop-up opens with an animation
   read -r ax ay <<<"$(cx Calendar)"
   has "Clock" && has "Contacts" && [ -n "$ax" ] && ok "$mode: the pop-up opens again with all its icons, nothing left floating" || ko "$mode: the reopened pop-up lost an icon"
   # pressed and released in place: nothing happens, nothing is lost by hesitating
-  still=$(order); hold "$ax" "$ay"; sleep 1
+  still=$(order); hold "$ax" "$ay"; wait_until 5 settled
   [ "$(order)" = "$still" ] && ok "$mode: long-press without moving keeps the order ($still)" || ko "$mode: order after a still long-press $(order), was $still"
   has "Calendar" && has "Clock" && has "Contacts" && ok "$mode: all apps still in the open pop-up, no menu" || ko "$mode: the pop-up lost an icon or closed"
 done

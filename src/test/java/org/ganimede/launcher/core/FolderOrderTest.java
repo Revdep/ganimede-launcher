@@ -5,7 +5,8 @@ import static org.ganimede.launcher.Expect.eq;
 import java.util.List;
 
 public class FolderOrderTest {
-    // a 2-column grid of 5 icons, 100 wide and 80 tall each: slots 0..4 have centres (50,40) (150,40) (50,120) (150,120) (50,200)
+    // a 2-column grid of 5 icons, 100 wide and 80 tall each: slots 0..4 have top-left corners at
+    // (50,40) (150,40) (50,120) (150,120) (50,200)
     private static final float[] XS = {50, 150, 50, 150, 50}, YS = {40, 40, 120, 120, 200};
 
     public static void testTheSlotNearestTheFingerIsPicked() {
