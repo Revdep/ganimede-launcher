@@ -22,7 +22,7 @@ jobs:
   shard:
     needs: plan
     runs-on: ubuntu-26.04 # ImageMagick 7 (magick), as the scripts are written for
-    timeout-minutes: 60
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix: { only: "${{ fromJSON(needs.plan.outputs.shards) }}" }
@@ -33,7 +33,9 @@ jobs:
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
       - run: sudo apt-get update -q && sudo apt-get install -y -q imagemagick && magick -version | grep 'ImageMagick 7'
-      - run: ./gradlew assembleDebug assembleRelease # after the checkout: run.sh refuses an APK older than the sources; icons checks the release size
+      # after the checkout: run.sh refuses an APK older than the sources; icons checks the release size. The fixture is built
+      # here so that the sections' own gradle call finds it done: a build beside the emulator took adb offline
+      - run: ./gradlew assembleDebug assembleRelease && ./gradlew -Pe2e :fixture:assembleDebug
       - name: KVM for the runner's user
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -50,7 +52,12 @@ jobs:
           cores: 4
           ram-size: 3072M
           disable-animations: false # run.sh sets them, and puts them back
-          script: bash -o pipefail -c 'bash e2e/run.sh emulator-5554 2>&1 | tee e2e/out/emulator-5554/run.log'
+          # a first boot keeps the CPUs busy for a while and Pixel Launcher answers it with an "isn't responding" dialog
+          # over the screen: wait for the load to drop (3 minutes at most), then stop that launcher, which takes its dialog away
+          script: |
+            adb shell 'n=0; while [ $n -lt 36 ] && [ "$(cut -d. -f1 /proc/loadavg)" -ge 2 ]; do sleep 5; n=$((n + 1)); done; cat /proc/loadavg'
+            adb shell am force-stop com.google.android.apps.nexuslauncher
+            bash -o pipefail -c 'bash e2e/run.sh emulator-5554 2>&1 | tee e2e/out/emulator-5554/run.log'
       - if: always()
         run: cp ~/.cache/ganimede/e2e-times e2e/out/emulator-5554/times || true
       - if: always()
