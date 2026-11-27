@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!-- pkgA: every component draws the same icon, so the key is the package -->
+	<item component="ComponentInfo{pkgA/.X}" drawable="square"/>
+	<item component="ComponentInfo{pkgA/pkgA.Y}" drawable="square"/>
+	<!-- pkgB: components differ, so each component is its own key -->
+	<item component="ComponentInfo{pkgB/.X}" drawable="arc"/>
+	<item component="ComponentInfo{pkgB/.Y}" drawable="oval"/>
+	<!-- no such drawable: no key -->
+	<item component="ComponentInfo{pkgC/.X}" drawable="missing"/>
+	<!-- not a component: ignored -->
+	<item component=":BROWSER" drawable="square"/>
+	<calendar component="ComponentInfo{pkgD/.X}" prefix="calendar_"/>
+</resources>

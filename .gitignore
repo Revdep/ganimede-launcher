@@ -3,6 +3,7 @@ build/
 .gradle/
 target/
 *.apk
+__pycache__/
 
 # Test runs and screenshots
 e2e/out/
