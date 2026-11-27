@@ -46,6 +46,7 @@ public class WaveTest {
         float[] g = Wave.geometry(27, 48, 2000, 3);
         near(48, g[0], "text size");
         near(57, g[1], "row step");
+        // column 27 x 57 = 1539; 0.64 x 2000 - 1539 / 2 = 510.5; 2000 - 64 x 3 - 1539 = 269; max(144, min(510.5, 269)) = 269
         near(269, g[2], "top: 64dp above the bottom, not at 64% of the height");
         float[] short_ = Wave.geometry(27, 48, 1500, 3);
         near(42, short_[0], "a short column shrinks the text");

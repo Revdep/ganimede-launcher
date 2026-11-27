@@ -282,9 +282,8 @@ public class MainActivity extends Activity implements Actions.Home {
         screen.favBox.removeAllViews();
         List<String> favs = layout.favourites();
         Set<String> hidden = apps.hidden();
-        List<String> shown = Favourites.shown(favs, hidden, entries::exists);
-        for (int i = 0; i < shown.size(); i++) {
-            String key = shown.get(i);
+        for (int i : Favourites.positions(favs, hidden, entries::exists)) { // i: the place in the saved list, which drops index
+            String key = favs.get(i);
             View r;
             if (key.startsWith("f:")) r = entries.folderRow(key.substring(2), true);
             else if (key.startsWith("s:")) r = entries.shortcutRow(key);

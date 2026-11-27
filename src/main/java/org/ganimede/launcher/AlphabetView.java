@@ -83,6 +83,11 @@ public class AlphabetView extends View {
     /** Where the letters start and end (px in this view), for the Settings preview's brick. */
     float top() { return geometry()[2]; }
 
+    /** Where the 58dp touch column begins, from this view's left edge (the right side, or the left in left-hand mode). */
+    float columnStart() {
+        return mirrored() ? offsetDp * d : getWidth() - (58 + offsetDp) * d;
+    }
+
     float height() { return step() * letters.length; }
 
     /** Distance of the letters' centre from the edge they sit on: half the 58dp column plus the theme offset. */

@@ -8,10 +8,17 @@ import java.util.function.ToIntFunction;
 
 /** What the List home column lists: the chosen entries still there, then the often-used suggestions. */
 public final class Favourites {
-    /** The favourites to draw: hidden entries and entries that no longer exist drop out, the order stays. */
+    /** Where, in the saved list, the favourites to draw sit: hidden entries and entries that no longer exist drop out. */
+    public static List<Integer> positions(List<String> favs, Set<String> hidden, Predicate<String> exists) {
+        List<Integer> out = new ArrayList<>();
+        for (int i = 0; i < favs.size(); i++) if (exists.test(favs.get(i)) && !hidden.contains(favs.get(i))) out.add(i);
+        return out;
+    }
+
+    /** The favourites to draw, in order. */
     public static List<String> shown(List<String> favs, Set<String> hidden, Predicate<String> exists) {
         List<String> out = new ArrayList<>();
-        for (String k : favs) if (exists.test(k) && !hidden.contains(k)) out.add(k);
+        for (int i : positions(favs, hidden, exists)) out.add(favs.get(i));
         return out;
     }
 

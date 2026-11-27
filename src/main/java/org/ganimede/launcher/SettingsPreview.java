@@ -54,6 +54,7 @@ final class SettingsPreview extends FrameLayout {
     private final Layout layout;
     private final Map<String, Apps.Item> all = new HashMap<>();
     private final List<Apps.Item> items = new ArrayList<>();
+    private List<Apps.Item> visible = new ArrayList<>();
     private String pack;
     private boolean classic;
     /** Which page of the classic grid shows: 0 the home, 1 the first app page (drawer off). */
@@ -174,7 +175,10 @@ final class SettingsPreview extends FrameLayout {
         zoom.setForeground(frame);
         setHeight(heightPx > 0 ? heightPx : screenH / 2);
         addView(zoom, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER_HORIZONTAL));
-        for (View m : marks.values()) addView(m, new FrameLayout.LayoutParams(0, 0, Gravity.TOP | Gravity.LEFT));
+        for (View m : marks.values()) {
+            m.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO); // out of TalkBack's way; uiautomator still reads them
+            addView(m, new FrameLayout.LayoutParams(0, 0, Gravity.TOP | Gravity.LEFT));
+        }
         setPadding(0, px(4), 0, px(8));
         loadApps(c);
         refresh();
@@ -283,6 +287,7 @@ final class SettingsPreview extends FrameLayout {
 
     void refresh() {
         Context c = getContext();
+        visible = Apps.visible(items, p); // once per refresh: the alphabet and the suggestions both use it
         String want = p.getString("icon_pack", "");
         if (!want.equals(pack)) loadPack(want);
         boolean dark = Ui.darkText(p);
@@ -390,7 +395,7 @@ final class SettingsPreview extends FrameLayout {
         alpha.accent = accent;
         alpha.sizeSp = p.getInt("alpha_size", 16);
         alpha.offsetDp = p.getInt("alpha_offset", 0);
-        alpha.setLetters(Search.sections(Apps.visible(items, p).stream().map(ap -> Apps.label(p, ap)).collect(java.util.stream.Collectors.toList())));
+        alpha.setLetters(Search.sections(visible.stream().map(ap -> Apps.label(p, ap)).collect(java.util.stream.Collectors.toList())));
         alpha.setVisibility(p.getBoolean("alpha_home", true) && !classic ? VISIBLE : GONE);
         alpha.setTranslationY(px(p.getInt("alpha_y", 0)));
         // Left-hand use mirrors the whole preview, like the home screen.
@@ -439,9 +444,6 @@ final class SettingsPreview extends FrameLayout {
         }
     }
 
-    private View[] lineViews() {
-        return new View[]{line};
-    }
 
     private ImageView iconView(Apps.Item a, String shape, String themedShape, int fg, int accent, int size) {
         ImageView icon = new ImageView(getContext());
@@ -458,7 +460,7 @@ final class SettingsPreview extends FrameLayout {
         List<String> shown = Favourites.shown(favourites, p.getStringSet("hidden", java.util.Set.of()), k -> layout.entryExists(k, all::containsKey));
         List<String> faint = new ArrayList<>();
         if (p.getBoolean("suggest", false))
-            faint = Favourites.suggested(Apps.visible(items, p).stream().map(ap -> ap.key).collect(java.util.stream.Collectors.toList()),
+            faint = Favourites.suggested(visible.stream().map(ap -> ap.key).collect(java.util.stream.Collectors.toList()),
                     favourites, p.getStringSet("unsuggested", java.util.Set.of()), k -> p.getInt("use:" + k, 0));
         if (shown.isEmpty() && faint.isEmpty()) { // as the home: say how to fill the column
             TextView hint = new TextView(c);
@@ -657,7 +659,7 @@ final class SettingsPreview extends FrameLayout {
             blocks.add(new View[]{dots}); keys.add(null);
             blocks.add(new View[]{dock}); keys.add("classic_dock_y");
         } else {
-            Positions.listBlocks(blocks, keys, below, new View[]{widget}, new View[]{clock}, lineViews(),
+            Positions.listBlocks(blocks, keys, below, new View[]{widget}, new View[]{clock}, new View[]{line},
                     new View[]{favs});
         }
         List<int[]> spans = new ArrayList<>();
@@ -673,15 +675,14 @@ final class SettingsPreview extends FrameLayout {
         for (Brick b : edit.bricks) {
             switch (b.id) {
                 case "clock": box(b, clock); break;
-                case "line": box(b, lineViews()); break;
+                case "line": box(b, new View[]{line}); break;
                 case "widget": box(b, widget); break;
                 case "apps": box(b, favs); break;
                 case "grid": box(b, grid); break;
                 case "dock": box(b, dock); break;
                 default: { // the alphabet: only as tall as its letters, in its 58 dp column
                     b.shown = alpha.getVisibility() == VISIBLE;
-                    boolean rtl = alpha.getLayoutDirection() == LAYOUT_DIRECTION_RTL;
-                    float column = px(58), edge = px(p.getInt("alpha_offset", 0)), left = rtl ? edge : alpha.getWidth() - edge - column;
+                    float left = alpha.columnStart(), column = px(58);
                     float top = alpha.getTop() + alpha.top() + alpha.getTranslationY();
                     b.at.set(left, top, left + column, top + alpha.height());
                 }

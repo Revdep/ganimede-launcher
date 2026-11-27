@@ -13,6 +13,11 @@ public class FavouritesTest {
         eq(List.of("app.one", "f:7", "s:pkg|id|Zz Prova"), shown, "kept in order");
     }
 
+    public static void testShownEntriesKeepTheirPlaceInTheSavedList() {
+        List<String> favs = List.of("app.hidden", "app.one", "app.gone", "f:7");
+        eq(List.of(1, 3), Favourites.positions(favs, Set.of("app.hidden"), k -> !k.equals("app.gone")), "drag and drop index the saved list, not the drawn one");
+    }
+
     public static void testSuggestsTheTwoMostUsedAppsNotFavouriteNorRefused() {
         List<String> visible = List.of("a", "b", "c", "d", "e");
         java.util.Map<String, Integer> uses = java.util.Map.of("a", 9, "b", 2, "c", 5, "d", 7, "e", 6);
