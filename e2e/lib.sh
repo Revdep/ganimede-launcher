@@ -65,7 +65,7 @@ tap() { tapn "$1" 0; }
 stap() { tapn "$1" 3; } # in a scrolling page: scrolls down up to three times to find it
 _tb() { TB=$(screen | grep -o "text=\"$1\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]'); [ -n "$TB" ]; }
 _scroll() {
-  local from=2120 to=1920 ime top
+  local from=2120 to=1520 ime top # 600 px a step: a third of the screen, so nothing is skipped
   ime=$(A shell settings get secure default_input_method | tr -d '\r' | cut -d/ -f1)
   top=$(screen | grep -o "package=\"$ime\"[^>]*bounds=\"\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]\"" | head -1 \
     | sed -n 's/.*bounds="\[[0-9]*,\([0-9]*\)\].*/\1/p')
@@ -108,17 +108,21 @@ find_desc() {
   while [ $n -lt 40 ]; do
     b=$(dump | grep -o "content-desc=\"$want\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr -d '[' | tr ']' ' ' | tr ',' ' ')
     if [ -n "$b" ]; then set -- $b; [ "$4" -lt 2300 ] && { [ "$b" = "$prev" ] && { echo $((($1 + $3) / 2)) $((($2 + $4) / 2)); return 0; }; prev=$b; n=$((n + 1)); continue; }; fi
-    prev=; A shell input swipe 150 2250 150 2050 900; n=$((n + 1)) # slow: no fling past the row
+    prev=; A shell input swipe 150 2250 150 1750 900; n=$((n + 1)) # 500 px, slow: no fling past the row
   done
   return 1
 }
 # pill NAME: scroll Personalizza's pill strip until the pill is on screen (it grows with every pill added); then tap it as usual
 pill() {
-  local d n y from to
+  local d n y from to row prev
   for d in left right; do
+    prev=
     for n in 1 2 3 4 5 6; do
       has "$1" && return 0
-      y=$(screen | grep -oE "text=\"(Tutto lo schermo|Dock|Griglia delle app|Orologio|Temi|Cartelle|Data e meteo|Alfabeto|Drawer)\"[^>]*bounds=\"\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]" | head -1 | sed -E 's/.*\[[0-9]+,([0-9]+)\]\[[0-9]+,([0-9]+)\]/\1 \2/' | awk '{print int(($1+$2)/2)}')
+      row=$(screen | grep -oE "text=\"(Tutto lo schermo|Dock|Griglia delle app|Orologio|Temi|Cartelle|Data e meteo|Alfabeto|Drawer)\"[^>]*bounds=\"\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]")
+      [ "$row" = "$prev" ] && break # the strip did not move: that end is reached, go the other way
+      prev=$row
+      y=$(echo "$row" | head -1 | sed -E 's/.*\[[0-9]+,([0-9]+)\]\[[0-9]+,([0-9]+)\]/\1 \2/' | awk '{print int(($1+$2)/2)}')
       [ -n "$y" ] || return 1
       if [ $d = left ]; then from=900 to=150; else from=150 to=900; fi
       A shell input swipe $from "$y" $to "$y" 500

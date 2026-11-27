@@ -97,9 +97,9 @@ for mode in classic list; do
     name="${part%%:*}"; rest="${part#*:}"; key="${rest%%:*}"; dir="${rest##*:}"; sg=1; [ "$dir" = su ] && sg=-1
     tap "$name"                                                   # its name under the preview picks the brick
     xy=$(find_desc "$name: Sposta $dir") || { ko "$name: no arrows"; continue; }
-    early() { [ $((10#$(A shell date +%S | tr -d '\r'))) -lt 30 ]; }
-    wait_until 35 early # the preview draws the time: a minute turning between the two pictures would change it too
-    A exec-out screencap -p > "$OUT/set-$key-before.png"
+    early() { [ $((10#$(A shell date +%S | tr -d '\r'))) -lt 45 ]; } # the two pictures are ~6 s apart
+    wait_until 20 early # the preview draws the time: a minute turning between the two pictures would change it too
+    m0=$(A shell date +%H%M); A exec-out screencap -p > "$OUT/set-$key-before.png"
     read -r px1 py1 px2 py2 <<<"$(bounds "desc:Anteprima della tua schermata Home")"
     pcrop="$((px2 - px1))x$((py2 - py1))+$px1+$py1" # only the preview: the status-bar clock changes too
     set -- $xy; A shell input tap "$1" "$2"
@@ -110,9 +110,10 @@ for mode in classic list; do
     A shell input swipe "$1" "$2" "$1" "$2" 2000                  # held down two seconds: keeps going
     held() { local x; x=$(pref "$key"); [ $((${x:-0} * sg)) -gt $((${v:-0} * sg + 8)) ]; }; wait_until 3 held
     v2=$(pref "$key"); [ $((${v2:-0} * sg)) -gt $((${v:-0} * sg + 8)) ] && ok "$name held: $key $v → $v2 dp" || ko "$name hold did nothing ($v → $v2)"
-    A exec-out screencap -p > "$OUT/set-$key-after.png"
+    A exec-out screencap -p > "$OUT/set-$key-after.png"; m1=$(A shell date +%H%M)
     d=$(fdiff "$OUT/set-$key-before.png" "$OUT/set-$key-after.png" "$pcrop")
-    [ "${d:-0}" -gt 0 ] && ok "$name: preview changed ($d px)" || ko "$name: preview unchanged (${d:-no} px differ in $pcrop)"
+    if [ "$m0" != "$m1" ]; then ko "$name: the minute turned between the two pictures (proves nothing): $m0 → $m1"
+    else [ "${d:-0}" -gt 0 ] && ok "$name: preview changed ($d px)" || ko "$name: preview unchanged (${d:-no} px differ in $pcrop)"; fi
     xy=$(find_desc "$name: Ripristina posizione"); set -- $xy; A shell input tap "$1" "$2"
     restored() { [ "$(pref "$key")" != "$v2" ]; }; wait_until 5 restored
   done

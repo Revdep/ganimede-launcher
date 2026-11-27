@@ -53,7 +53,13 @@ tap "Cartelle" && see "Colore dello sfondo" && see "Opacità dello sfondo (%)" &
 pg_back
 stap "Personalizza"; pill "Temi" # pg_back lands on the settings home; the strip reopens scrolled to the last pill
 tap "Temi"; wait_until 5 has "TEMI"
-folders_in_themes() { local n=0; while [ $n -lt 25 ]; do has "Colonne" && return 0; has "Colore dello sfondo" && return 0; _scroll; n=$((n + 1)); done; return 1; }
+folders_in_themes() { # down to the page's end: a scroll that changes nothing on screen
+  local n=0 prev= cur
+  while [ $n -lt 25 ]; do
+    has "Colonne" && return 0; has "Colore dello sfondo" && return 0
+    cur=$(screen); [ -n "$cur" ] && [ "$cur" = "$prev" ] && return 1; prev=$cur
+    _scroll; n=$((n + 1))
+  done; return 1; }
 folders_in_themes && ko "Temi still shows the folder controls (Colore dello sfondo / Colonne)" || ok "Temi no longer shows the folder controls"
 pg_back
 for _ in 1 2 3 4; do A shell input swipe 540 700 540 2000 200; done # the settings home keeps the scroll of the Temi search above
