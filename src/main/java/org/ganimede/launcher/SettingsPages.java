@@ -35,14 +35,14 @@ import java.util.function.Consumer;
 
 /** The settings home, and the pages that only list switches and choices: weather, search, wellbeing, backup and the like. */
 final class SettingsPages {
-    private static final int REQ_SAVE = 21, REQ_LOAD = 22;
+    private static final int REQ_SAVE = 21, REQ_LOAD = 22, REQ_ICON = 25;
     private final SettingsKit kit;
     private final SettingsPerms perms;
     private final Runnable restart;
     private final Runnable restored; // what a successful restore does on the page showing now
     private final SettingsBackup backup;
     private Uri confirming; // the file the open "Restore backup?" asks about
-    private FileJob job; // the backup or restore this page shows the end of, while it runs
+    private FileJob job; // the backup, restore or icon import this page shows the end of, while it runs
 
     /** restart: runs the setup wizard again, from its first step. */
     SettingsPages(SettingsKit kit, SettingsPerms perms, Runnable restart, Runnable restored) {
@@ -150,7 +150,12 @@ final class SettingsPages {
                 .addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQ_LOAD));
     }
 
-    /** The file chosen for a backup (REQ_SAVE) or a restore (REQ_LOAD). */
+    /** The Ganimede button's own icon: an image the person picks, imported like a backup, one file job at a time. */
+    void pickButtonIcon() {
+        pick(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"), REQ_ICON);
+    }
+
+    /** The file chosen for a backup (REQ_SAVE), a restore (REQ_LOAD) or the button's icon (REQ_ICON). */
     void fileResult(int req, int res, Intent data) {
         if (res != Activity.RESULT_OK || data == null || data.getData() == null) return;
         Uri u = data.getData();
@@ -159,6 +164,8 @@ final class SettingsPages {
             fileJob(() -> { b.save(u); return null; }, "Backup created", "Could not write the backup", null);
         } else if (req == REQ_LOAD) {
             confirmRestore(u);
+        } else if (req == REQ_ICON) {
+            buttonIcon(u);
         }
     }
 
@@ -180,10 +187,10 @@ final class SettingsPages {
     /** The file whose restore is being confirmed, or null. */
     Uri confirming() { return confirming; }
 
-    /** A backup or restore still running, for the screen Android builds in place of this one (rotation); null if none. */
+    /** A file job still running, for the screen Android builds in place of this one (rotation); null if none. */
     Object running() { return job; }
 
-    /** Takes over the backup or restore of the screen this one replaces: its end now shows on this page. */
+    /** Takes over the file job of the screen this one replaces: its end now shows on this page. */
     void adopt(Object retained) {
         if (retained instanceof FileJob j) (job = j).owner = this;
     }
@@ -194,7 +201,7 @@ final class SettingsPages {
     }
 
     /** A picked image becomes the button's private icon; the page shows the result (or the refusal) when it ends. */
-    void buttonIcon(Uri uri) {
+    private void buttonIcon(Uri uri) {
         Context app = kit.activity().getApplicationContext();
         fileJob(() -> {
             ButtonIcon.save(app, uri);

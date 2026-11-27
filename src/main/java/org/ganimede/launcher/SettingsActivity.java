@@ -28,7 +28,6 @@ import java.util.ArrayDeque;
  */
 public class SettingsActivity extends Activity {
     private static final int SCRIM = 0x99000000;
-    private static final int REQ_BUTTON_ICON = 25;
 
     private SettingsKit kit;
     private SettingsPerms perms;
@@ -53,11 +52,11 @@ public class SettingsActivity extends Activity {
         kit = new SettingsKit(this, p, this::render, this::open, () -> preview.refresh());
         perms = new SettingsPerms(kit);
         SettingsSamples samples = new SettingsSamples(kit);
-        look = new SettingsLook(kit, perms, samples, this::pickButtonIcon);
         pages = new SettingsPages(kit, perms, () -> { start(Page.W_LANG); render(); },
                 this::restored);
+        look = new SettingsLook(kit, perms, samples, pages::pickButtonIcon);
         wizard = new SettingsWizard(kit, perms, look, pages);
-        pages.adopt(getLastNonConfigurationInstance()); // a backup or restore the screen before this one started
+        pages.adopt(getLastNonConfigurationInstance()); // a file job the screen before this one started
         if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
         else getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
@@ -151,7 +150,7 @@ public class SettingsActivity extends Activity {
         if (pages.confirming() != null) out.putString("restore", pages.confirming().toString());
     }
 
-    /** Android rebuilds this screen (rotation): a running backup or restore goes on to the new one, as a ViewModel would. */
+    /** Android rebuilds this screen (rotation): a running file job goes on to the new one, as a ViewModel would. */
     @Override
     public Object onRetainNonConfigurationInstance() { return pages.running(); }
 
@@ -297,17 +296,6 @@ public class SettingsActivity extends Activity {
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
         if (req == SettingsPerms.REQ_HOME) perms.homeResult(res); // onResume, next, shows the page again
-        else if (req == REQ_BUTTON_ICON) {
-            if (res == RESULT_OK && data != null && data.getData() != null) pages.buttonIcon(data.getData());
-        } else pages.fileResult(req, res, data);
-    }
-
-    private void pickButtonIcon() {
-        try {
-            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"),
-                    REQ_BUTTON_ICON);
-        } catch (RuntimeException e) {
-            kit.ui.toast(kit.ui.tr("No file picker on this phone"));
-        }
+        else pages.fileResult(req, res, data);
     }
 }
