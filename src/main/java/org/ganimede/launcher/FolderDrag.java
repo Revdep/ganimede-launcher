@@ -127,7 +127,10 @@ final class FolderDrag {
             return false;
         }
         if (held == null) {
-            if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) { touched = null; lifted.run(); }
+            if (a == MotionEvent.ACTION_CANCEL) { touched = null; lifted.run(); }
+            // a tap: its click (posted by onTouchEvent, after this) runs first; a click that closed the pop-up leaves
+            // nothing to rebuild, so the app never opens with a new pop-up left behind it
+            if (a == MotionEvent.ACTION_UP) { touched = null; v.post(() -> v.post(lifted)); }
             return false;
         }
         if (a == MotionEvent.ACTION_POINTER_DOWN) return true; // a second finger on the held icon doesn't take it

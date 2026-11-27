@@ -69,15 +69,15 @@ final class Folders {
     }
 
     /**
-     * What a pop-up draws (FolderOrder.looks). An app's icon is the one its Item was made with (Item.picked): a newly
-     * picked icon counts once Apps.load has made the new Item, and other apps' updates change nothing here. A shortcut
-     * draws its picked icon straight from the setting.
+     * What a pop-up draws (FolderOrder.looks). An app's icon is the one its Item was made with (Item.picked and
+     * Item.updated): a newly picked icon or an update of that app counts once Apps.load has made the new Item, and
+     * other apps' updates change nothing here. A shortcut draws its picked icon straight from the setting.
      */
     private Set<String> looks(String id) {
         return FolderOrder.looks(Layout.strings(layout.folder(id).optJSONArray("apps")), entries::name, k -> {
             if (k.startsWith("s:")) return ui.prefs.getString("icon:" + k, "");
             Item it = apps.find(k);
-            return it == null ? null : it.picked;
+            return it == null ? null : FolderOrder.drawnIcon(it.picked, it.updated);
         });
     }
 

@@ -68,4 +68,19 @@ public class FolderOrderTest {
         eq(false, before.equals(FolderOrder.looks(List.of("a", "b"), names::get, Map.of("b", "arcticons|maps")::get)),
                 "an entry no longer drawn (uninstalled): rebuilt");
     }
+
+    public static void testAnUpdateOfAnAppInTheFolderRedrawsItsIconOtherAppsUpdatesChangeNothing() {
+        List<String> stored = List.of("a", "b"); // c is installed but not in this folder
+        Map<String, String> names = Map.of("a", "Mail", "b", "Maps", "c", "Camera");
+        String a = FolderOrder.drawnIcon("", 1000), b = FolderOrder.drawnIcon("", 2000);
+        String c = FolderOrder.drawnIcon("", 3000);
+        Map<String, String> before = Map.of("a", a, "b", b, "c", c);
+        Map<String, String> otherUpdated = Map.of("a", a, "b", b, "c", FolderOrder.drawnIcon("", 3500));
+        Map<String, String> mailUpdated = Map.of("a", FolderOrder.drawnIcon("", 1500), "b", b, "c", c);
+        var look = FolderOrder.looks(stored, names::get, before::get);
+        eq(look, FolderOrder.looks(stored, names::get, otherUpdated::get), "Camera updated: same look");
+        eq(false, look.equals(FolderOrder.looks(stored, names::get, mailUpdated::get)),
+                "Mail, in the folder, updated: rebuilt (its own icon may have changed)");
+        eq(false, a.equals(FolderOrder.drawnIcon("arcticons|okay", 1000)), "a picked icon: another look");
+    }
 }

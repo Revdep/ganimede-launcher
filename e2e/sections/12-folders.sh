@@ -357,7 +357,7 @@ clear_text; A shell input text AgendaZz; tap "Salva"
 wait_until 5 in_card AgendaZz && ok "renamed from the in-folder menu: the open pop-up shows AgendaZz" || ko "the open pop-up still shows the old name"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "AgendaZz"
 
-step "Folders: another app's update neither rebuilds the open pop-up nor breaks a drag in progress (082)"
+step "Folders: another app's update doesn't rebuild the open pop-up; one of its apps removed mid-drag waits for the finger (082)"
 FIXAPK="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" # e2e/fixture: an app with a launcher activity, ours to reinstall
 "$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 && [ -s "$FIXAPK" ] \
   && ok "fixture app built" || ko "fixture app not built (./gradlew -Pe2e :fixture:assembleDebug): the checks below can't pass"
@@ -373,11 +373,25 @@ update_other
 sleep 2 # the reload: 250 ms debounce, then the load thread; nothing on screen marks its end, the point is that nothing changes
 [ -n "$before" ] && [ "$(popwin)" = "$before" ] && ok "the pop-up is the same window after another app's update" || ko "the pop-up was rebuilt: windows $(popwin), were $before"
 has "Contacts" && ok "the pop-up is still open" || ko "the pop-up closed"
-read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Contacts)"
-A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 6000 &
-sleep 2; update_other; wait # the update lands mid-drag: input holds for the long-press timeout, then moves for 6 s
-wait_until 5 reordered && ok "a drag during another app's update still saves its order" || ko "the drag was lost: order $(order)"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
+# An app IN the folder goes away while a finger drags an icon: the pop-up waits for the finger (FolderDrag.busy), the
+# drop is saved, and only then is it built again without that app. Rebuilt under the finger, the drag would be lost.
+setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity","org.ganimede.fixture/org.ganimede.fixture.Open"]}'
+tap Ordine; expect "Fixture"; wait_until 5 settled
+read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Contacts)"
+A shell input motionevent DOWN "$ax" "$ay"; sleep 0.9 # past the long-press timeout: the menu opens, the icon is held
+A shell input motionevent MOVE "$ax" $((ay + $(dp 16))) # past the touch slop: the menu closes, the drag starts
+A uninstall org.ganimede.fixture >/dev/null
+fixture_gone() { ! A shell pm path org.ganimede.fixture >/dev/null 2>&1; }
+wait_until 10 fixture_gone || ko "the fixture app is still installed"
+sleep 1 # Ganimede's reload: 250 ms debounce, then the load thread; under the finger nothing may change, so nothing to wait on
+dump | grep -q 'text="Fixture' && ok "while the finger is down the pop-up is not rebuilt (the removed app still shows)" || ko "the pop-up was rebuilt under the finger"
+A shell input motionevent MOVE "$tx" "$ty"; A shell input motionevent UP "$tx" "$ty"
+wait_until 5 reordered && ok "the drag held across the uninstall saved its order" || ko "the drag was lost: order $(order)"
+wait_until 5 hasnt "Fixture" && ok "after the lift the pop-up is built again without the removed app" || ko "the pop-up still shows the removed app"
+has "Contacts" && ok "the pop-up is open" || ko "the pop-up closed"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
+A install -r "$FIXAPK" >/dev/null || ko "the fixture app could not be reinstalled" # other sections use it
 
 step "Folders: Choose apps lists the folder's pinned shortcuts; unchecking one takes it out, the order stays (082)"
 seed classic

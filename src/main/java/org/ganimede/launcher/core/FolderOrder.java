@@ -62,5 +62,13 @@ public final class FolderOrder {
         return out;
     }
 
+    /**
+     * The stable key of the icon an app entry draws: the icon picked for it, and when the app was last updated (its own
+     * icon may have changed with it), both as they were when the drawn Item was made.
+     */
+    public static String drawnIcon(String picked, long updated) {
+        return picked + "@" + updated;
+    }
+
     private FolderOrder() { }
 }
