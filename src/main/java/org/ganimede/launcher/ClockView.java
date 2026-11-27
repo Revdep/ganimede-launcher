@@ -82,6 +82,7 @@ public class ClockView extends View {
         });
     }
 
+    //noinspection ClickableViewAccessibility: super.onTouchEvent performs the click; this only records where
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         // View posts performClick after ACTION_UP, so the point stays until the listener reads it or the next DOWN.

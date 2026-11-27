@@ -48,11 +48,13 @@ final class AppList {
     static final class Extra {
         final String label, glyph;
         final Runnable action;
-        final List<String> buttons = new ArrayList<>();       // small action buttons on the right (glyphs)
-        final List<Runnable> buttonActions = new ArrayList<>();
+        final List<Button> buttons = new ArrayList<>(); // small action buttons on the right
         Extra(String glyph, String label, Runnable action) { this.glyph = glyph; this.label = label; this.action = action; }
-        Extra button(String glyph, Runnable r) { buttons.add(glyph); buttonActions.add(r); return this; }
+        Extra button(String glyph, String description, Runnable r) { buttons.add(new Button(glyph, description, r)); return this; }
     }
+
+    /** A glyph-only button, so TalkBack reads its description ("Call Anna") instead of the glyph. */
+    private record Button(String glyph, String description, Runnable action) {}
 
     /** How many contacts match a query, and the rows read so far: the first few, or all of them after "Show all". */
     private static final class ContactHits {
@@ -281,14 +283,15 @@ final class AppList {
         List<Extra> people = new ArrayList<>();
         for (int i = 0; i < ids.size(); i++) {
             Uri look = looks.get(i);
-            Extra e = new Extra("☺", names.get(i), () -> ui.open(new Intent(Intent.ACTION_VIEW, look)));
+            String name = names.get(i);
+            Extra e = new Extra("☺", name, () -> ui.open(new Intent(Intent.ACTION_VIEW, look)));
             // Contact actions: call, message, email in one tap (the dialer opens; no calling permission).
             String phone = data.get(ids.get(i) + "|" + Phone.CONTENT_ITEM_TYPE), mail = data.get(ids.get(i) + "|" + Email.CONTENT_ITEM_TYPE);
             if (phone != null) {
-                e.button("✆", () -> ui.open(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone)))));
-                e.button("✉", () -> ui.open(new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))));
+                e.button("✆", ui.f("Call %s", name), () -> ui.open(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone)))));
+                e.button("✉", ui.f("Message %s", name), () -> ui.open(new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))));
             }
-            if (mail != null) e.button("@", () -> ui.open(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(mail, "@")))));
+            if (mail != null) e.button("@", ui.f("Email %s", name), () -> ui.open(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(mail, "@")))));
             people.add(e);
         }
         return new ContactHits(count, people);
@@ -386,12 +389,12 @@ final class AppList {
         t.setText(e.label);
         t.setPaddingRelative(ui.dp(20), 0, 0, 0);
         row.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
-        for (int i = 0; i < e.buttons.size(); i++) {
+        for (Button button : e.buttons) {
             TextView b = ui.text(20, false);
             b.setGravity(Gravity.CENTER);
-            b.setText(e.buttons.get(i));
-            Runnable r = e.buttonActions.get(i);
-            b.setOnClickListener(v -> r.run());
+            b.setText(button.glyph());
+            b.setContentDescription(button.description());
+            b.setOnClickListener(v -> button.action().run());
             row.addView(b, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
         }
         row.setOnClickListener(v -> e.action.run());

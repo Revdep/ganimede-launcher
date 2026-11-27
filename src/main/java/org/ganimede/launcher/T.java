@@ -360,6 +360,9 @@ final class T {
         it("Loading…", "Caricamento…");
         it("Can't play this voice message", "Impossibile riprodurre questo messaggio vocale");
         it("Open", "Apri");
+        it("Call %s", "Chiama %s");
+        it("Message %s", "Messaggio a %s");
+        it("Email %s", "Email a %s");
         it("The home screen is full: long-press an empty spot → Create page", "La Home è piena: tieni premuto un punto vuoto → Crea pagina");
         it("The home screen is full", "La Home è piena");
         it("Folder created: tap it to open, long-press to rename", "Cartella creata: toccala per aprirla, tienila premuta per rinominarla");
@@ -373,8 +376,6 @@ final class T {
         it("Icon…", "Icona…");
         it("All icon packs", "Tutti i pacchetti di icone");
         it("Search icons", "Cerca icone");
-        it("No icon packs installed. Install one (for example from F-Droid) and it shows up here.",
-                "Nessun pacchetto di icone installato. Installane uno (per esempio da F-Droid) e comparirà qui.");
         it("Left-hand use (mirrored)", "Uso con la mano sinistra (specchiato)");
         it("Alphabet on the left, everything aligned to the right", "Alfabeto a sinistra, tutto allineato a destra");
         it("Alphabet", "Alfabeto");

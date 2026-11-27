@@ -81,6 +81,7 @@ final class ClassicHome {
         // after its children had the press, so the swipe is measured from the first event it gets.
         float[] pageDown = new float[1];
         int[] pageFrom = new int[1];
+        //noinspection ClickableViewAccessibility: it only watches the swipe and consumes nothing; taps reach the icons
         pager.setOnTouchListener((v, e) -> {
             if (speed[0] == null) {
                 speed[0] = VelocityTracker.obtain();
@@ -388,6 +389,7 @@ final class ClassicHome {
                     : new FrameLayout.LayoutParams(-1, ui.dp(18), gravity[i]);
             Blocks.Item[] latest = {original};
             float[] down = new float[2];
+            //noinspection ClickableViewAccessibility: a drag-only handle, there is no tap to report
             handle.setOnTouchListener((v, e) -> {
                 int action = e.getActionMasked();
                 if (action == MotionEvent.ACTION_DOWN) {

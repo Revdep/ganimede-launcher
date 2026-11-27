@@ -3,8 +3,6 @@
 pstr() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | sed 's/^[^>]*>//'; } # a string pref, XML-escaped
 nfold() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -c 'name="folder:'; }                         # stored folders
 fid() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o 'name="folder:[0-9]*' | head -1 | grep -o '[0-9]*$'; }
-hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu (home or pop-up)
-clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
 APPS="Calendar:com.google.android.calendar Clock:com.google.android.deskclock Contacts:com.google.android.contacts"
 
 step "Folders: made by a drop, renamed, opened"
@@ -116,6 +114,12 @@ folder_value() { pstr "folder:$1" | sed 's/&quot;/"/g' | grep -q "\"$2\":$3"; }
 
 # First defaults: Lavender, 93% (one step below the 94% default with light text) and three columns, all through the Settings card.
 folder_settings
+# issue 064: the settings' pills, − / + buttons and slider rows are 48 dp touch targets
+target48 "Cartelle" && ok "Personalizza's pills are 48 dp high" || ko "Personalizza's pill “Cartelle” is under 48 dp"
+find_desc "Colonne: Diminuisci" >/dev/null
+target48 "desc:Colonne: Diminuisci" && target48 "desc:Colonne: Aumenta" && ok "− and + are 48 dp targets" || ko "− / + are under 48 dp"
+b=$(bounds "desc:Colonne"); set -- ${b:-0 0 0 0}
+[ $(($4 - $2)) -ge $(($(dp 48) - 1)) ] && ok "the Colonne slider row is 48 dp high" || ko "the Colonne slider is $(($4 - $2)) px high, under 48 dp"
 if xy=$(last_desc_center "Lavanda"); then set -- $xy; A shell input tap "$1" "$2"; else ko "no folder Lavender control"; fi
 press_desc "Opacità dello sfondo (%): Diminuisci"
 press_desc "Colonne: Aumenta" 2
