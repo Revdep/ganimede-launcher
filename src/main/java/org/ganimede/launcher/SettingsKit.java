@@ -75,7 +75,7 @@ final class SettingsKit {
             step.run();
             button.postDelayed(repeat[0], 60);
         };
-        button.setOnClickListener(v -> step.run()); // taps from accessibility services
+        button.setOnClickListener(v -> step.run()); // one tap, from the finger (below) or an accessibility service
         button.setOnTouchListener((v, ev) -> {
             switch (ev.getActionMasked()) {
                 case android.view.MotionEvent.ACTION_DOWN:
@@ -84,7 +84,7 @@ final class SettingsKit {
                     v.postDelayed(repeat[0], 380);
                     break;
                 case android.view.MotionEvent.ACTION_UP:
-                    if (!held[0]) step.run();
+                    if (!held[0]) v.performClick(); // the click listener steps once, as for accessibility services
                     // fall through
                 case android.view.MotionEvent.ACTION_CANCEL:
                     v.setPressed(false);
