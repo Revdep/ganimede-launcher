@@ -275,11 +275,12 @@ final class SettingsLook {
     }
 
     private void pickApp(java.util.function.Consumer<Apps.Item> then) {
-        List<Apps.Item> l = Apps.named(kit.activity());
-        String[] names = new String[l.size()];
-        for (int i = 0; i < names.length; i++) names[i] = l.get(i).label;
-        Ui.dialog(kit.activity()).setTitle(kit.ui.tr("Open an app…"))
-                .setItems(names, (d, w) -> then.accept(l.get(w))).show();
+        Apps.named(kit.activity(), l -> {
+            String[] names = new String[l.size()];
+            for (int i = 0; i < names.length; i++) names[i] = l.get(i).label;
+            Ui.dialog(kit.activity()).setTitle(kit.ui.tr("Open an app…"))
+                    .setItems(names, (d, w) -> then.accept(l.get(w))).show();
+        });
     }
 
     private void pickShortcut(String gesture, Apps.Item app) {
