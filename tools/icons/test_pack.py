@@ -25,6 +25,14 @@ class PackTest(unittest.TestCase):
             pack.index({"pkgA": 0, "pkgB": 1}, hash48=lambda key: 42)
         self.assertIn("collision", str(e.exception.code))
 
+    def test_dash_across_the_closing_point_is_one_dash(self):
+        # a closed outline's last dash runs on into its first: one subpath with a corner, not two ends at the start
+        square = pack.parse_d("M4 4 L44 4 L44 44 L4 44 Z")  # 160 units, "10 10" from 5 in: 9 ranges, 8 dashes
+        ops = pack.dashed(square, [10, 10], 5)
+        moves = [op for op in ops if op[0] == "M"]
+        self.assertEqual(8, len(moves))
+        self.assertEqual([("M", 4, 9), ("L", 4, 4), ("L", 9, 4)], [(o[0], round(o[1], 6), round(o[2], 6)) for o in ops[:3]])
+
     def test_fixture_is_current(self):
         with open(os.path.join(FIXTURE, "icons-fixture.bin"), "rb") as f:
             self.assertEqual(f.read(), fixture_bytes(), "rewrite it: python3 -I tools/icons/test_pack.py write")

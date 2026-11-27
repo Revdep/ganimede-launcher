@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.ganimede.launcher.core.IconSet.Cap;
@@ -44,6 +46,21 @@ public class IconSetTest {
         eq(expected.length, actual.length, what + ": number of coordinates");
         for (int i = 0; i < expected.length; i++)
             yes(Math.abs(expected[i] - actual[i]) <= Q, what + ": coordinate " + i + " expected " + expected[i] + ", got " + actual[i]);
+    }
+
+    /** The points of each subpath, split where a move starts one. */
+    private static List<float[]> subpaths(PathData p) {
+        List<float[]> out = new ArrayList<>();
+        int from = 0, at = 0;
+        for (Op op : p.ops()) {
+            if ((op == Op.MOVE || op == Op.MOVE_CLOSED) && at > from) {
+                out.add(Arrays.copyOfRange(p.points(), from, at));
+                from = at;
+            }
+            at += 2 * new int[]{1, 1, 3, 0, 2, 1}[op.ordinal()];
+        }
+        out.add(Arrays.copyOfRange(p.points(), from, at));
+        return out;
     }
 
     public static void testRoundTripPath() {
@@ -117,6 +134,49 @@ public class IconSetTest {
         eq(fill.ops(), stroke.ops(), "same outline");
     }
 
+    public static void testDashesBecomeSubpaths() {
+        List<PathData> paths = icon("dash");
+        eq(1, paths.size(), "one dashed line, one path");
+        List<float[]> dashes = subpaths(paths.get(0));
+        eq(7, dashes.size(), "40 units of \"0 0 4 2\" are 7 dashes; the leading zero dash and zero gap add no dot");
+        for (int i = 0; i < 7; i++) near(new float[]{4 + 6 * i, 10, 8 + 6 * i, 10}, dashes.get(i), "dash " + i);
+    }
+
+    public static void testDotsAreZeroLengthSubpaths() {
+        List<float[]> dots = subpaths(icon("dots").get(0));
+        eq(6, dots.size(), "\"0 0 0 2\" along 10 units: a dot every 2, both ends included");
+        for (int i = 0; i < 6; i++)
+            near(new float[]{4 + 2 * i, 10, 4 + 2 * i, 10}, dots.get(i), "dot " + i + " is a zero-length line, drawn by its round cap");
+    }
+
+    public static void testDashOffsetShiftsThePattern() {
+        List<float[]> dashes = subpaths(icon("dashoffset").get(0));
+        eq(4, dashes.size(), "\"4 2\" from 1 unit in, along 20 units");
+        near(new float[]{4, 10, 7, 10}, dashes.get(0), "the first dash has 3 of its 4 units left");
+        near(new float[]{9, 10, 13, 10}, dashes.get(1), "then the pattern");
+        near(new float[]{21, 10, 24, 10}, dashes.get(3), "the last dash stops at the line's end");
+    }
+
+    public static void testDashedCircleStartsAtItsRightmostPoint() {
+        PathData p = icon("dashcircle").get(0);
+        List<float[]> dashes = subpaths(p);
+        eq(1, dashes.size(), "\"2 100\" on a circle of length 62.8: one dash");
+        float[] d = dashes.get(0);
+        near(new float[]{34, 24}, new float[]{d[0], d[1]}, "SVG starts a circle at (cx + r, cy)");
+        near(new float[]{24 + 10 * (float) Math.cos(.2), 24 + 10 * (float) Math.sin(.2)},
+                new float[]{d[d.length - 2], d[d.length - 1]}, "and goes clockwise: 2 units is 0.2 rad");
+    }
+
+    public static void testDashedShapeKeepsItsFill() {
+        List<PathData> paths = icon("dashfill");
+        eq(2, paths.size(), "the fill and the dashed stroke are two paths");
+        PathData fill = paths.get(0), stroke = paths.get(1);
+        yes(fill.fill() && !fill.stroke(), "the fill first, as SVG paints it");
+        eq(new Op[]{Op.MOVE_CLOSED, Op.LINE, Op.LINE, Op.CLOSE}, fill.ops(), "the fill keeps the whole outline");
+        yes(stroke.stroke() && !stroke.fill(), "then the stroke");
+        near(new float[]{4, 4, 8, 4}, subpaths(stroke).get(0), "dashed from the outline's start");
+    }
+
     public static void testCapsAndJoinsAsDeclared() {
         List<PathData> paths = icon("caps");
         eq(Cap.BUTT, paths.get(0).cap(), "no stroke-linecap declared: SVG's default butt");
@@ -125,6 +185,7 @@ public class IconSetTest {
         eq(Join.ROUND, paths.get(1).join(), "round declared");
         eq(Cap.SQUARE, paths.get(2).cap(), "square declared");
         eq(Join.BEVEL, paths.get(2).join(), "bevel declared");
+        eq(Cap.ROUND, icon("dots").get(0).cap(), "the dots keep their round caps, which draw them");
     }
 
     public static void testRealAssetDecodesAll() {

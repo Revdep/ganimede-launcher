@@ -13,9 +13,11 @@ Format (little endian), all geometry on Arcticons' 48x48 grid:
   names    per icon, ids in name order: varint length + UTF-8
   index    indexCount * (u48 low bits of FNV-1a 64 of the key, u16 icon id), sorted by hash; the key is the package
            when every component of it in the appfilter draws one icon, otherwise "package/full.ClassName"
-Arcs become cubics, transforms, CSS classes and the viewBox are applied here, so the reader only draws.
+Arcs become cubics, dashes become subpaths (a zero-length dash is a zero-length line, drawn by its cap), transforms,
+CSS classes and the viewBox are applied here, so the reader only draws.
 Whether a subpath is closed (for fills, issue 080) is read from the geometry by the decoder, not stored.
 """
+import bisect
 import math
 import os
 import re
@@ -30,6 +32,7 @@ Q = 32  # coordinates are stored in 1/32 of a unit
 OPS = {"M": 0, "L": 1, "C": 2, "Z": 3, "O": 4}
 STROKE, FILL, EVEN_ODD = 1, 2, 4
 CAPS, JOINS = {"round": 0, "butt": 1, "square": 2}, {"round": 0, "miter": 1, "bevel": 2}  # style bits 3-4 and 5-6
+NUMBER = r"-?[\d.]+(?:e-?\d+)?"
 
 
 def css(text):
@@ -47,7 +50,7 @@ def css(text):
 def num(v, d=0.0):
     if v is None:
         return d
-    m = re.match(r"-?[\d.]+(?:e-?\d+)?", v.strip())
+    m = re.match(NUMBER, v.strip())
     return float(m.group(0)) if m else d
 
 
@@ -62,7 +65,7 @@ def style_of(el, classes, inherited):
     """
     s = {k: v for k, v in inherited.items() if k != "opacity"}
     for k in ("fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity", "stroke-linecap",
-              "stroke-linejoin"):
+              "stroke-linejoin", "stroke-dasharray", "stroke-dashoffset"):
         if el.get(k) is not None:
             s[k] = el.get(k)
     for c in (el.get("class") or "").split():
@@ -83,7 +86,7 @@ def shape_path(tag, a):
     if tag == "line":
         return "M%s,%sL%s,%s" % tuple(f(num(a.get(k))) for k in ("x1", "y1", "x2", "y2"))
     if tag in ("polyline", "polygon"):
-        pts = [float(p) for p in re.findall(r"-?[\d.]+(?:e-?\d+)?", a.get("points", ""))]
+        pts = [float(p) for p in re.findall(NUMBER, a.get("points", ""))]
         if len(pts) < 4:
             return None
         d = "M" + " L".join("%s,%s" % (f(pts[i]), f(pts[i + 1])) for i in range(0, len(pts) - 1, 2))
@@ -94,8 +97,10 @@ def shape_path(tag, a):
         ry = num(a.get("r")) if tag == "circle" else num(a.get("ry"))
         if rx <= 0 or ry <= 0:
             return None
-        return "M%s,%sa%s,%s 0 1,0 %s,0a%s,%s 0 1,0 %s,0Z" % (
-            f(cx - rx), f(cy), f(rx), f(ry), f(2 * rx), f(rx), f(ry), f(-2 * rx))
+        # SVG starts at (cx + rx, cy) and goes clockwise: where a dash pattern begins
+        return "M%s,%sA%s,%s 0 0 1 %s,%sA%s,%s 0 0 1 %s,%sA%s,%s 0 0 1 %s,%sA%s,%s 0 0 1 %s,%sZ" % (
+            f(cx + rx), f(cy), f(rx), f(ry), f(cx), f(cy + ry), f(rx), f(ry), f(cx - rx), f(cy),
+            f(rx), f(ry), f(cx), f(cy - ry), f(rx), f(ry), f(cx + rx), f(cy))
     if tag == "rect":
         x, y, w, h = (num(a.get(k)) for k in ("x", "y", "width", "height"))
         rx, ry = a.get("rx"), a.get("ry")
@@ -118,7 +123,7 @@ def mul(a, b):
 def matrix(t):
     m = (1, 0, 0, 1, 0, 0)
     for fn, args in re.findall(r"(\w+)\s*\(([^)]*)\)", t or ""):
-        v = [float(x) for x in re.findall(r"-?[\d.]+(?:e-?\d+)?", args)]
+        v = [float(x) for x in re.findall(NUMBER, args)]
         if fn == "translate":
             n = (1, 0, 0, 1, v[0], v[1] if len(v) > 1 else 0)
         elif fn == "scale":
@@ -281,6 +286,131 @@ def parse_d(d):
     return ops
 
 
+def dash_pattern(st):
+    """stroke-dasharray as lengths, or None for a solid stroke: none, negative or all zero (SVG); odd lists repeat."""
+    v = [float(x) for x in re.findall(NUMBER, st.get("stroke-dasharray") or "")]
+    if not v or min(v) < 0 or sum(v) <= 0:
+        return None
+    return v * 2 if len(v) % 2 else v
+
+
+def cubic_at(p, t):
+    """Point at t of the cubic p = (x0, y0, x1, y1, x2, y2, x3, y3)."""
+    u = 1 - t
+    return tuple(u * u * u * p[k] + 3 * u * u * t * p[k + 2] + 3 * u * t * t * p[k + 4] + t * t * t * p[k + 6] for k in (0, 1))
+
+
+def cubic_split(p, t):
+    """de Casteljau: the cubic p cut at t -> (first part, second part)."""
+    def lerp(a, b):
+        return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+    p0, p1, p2, p3 = p[0:2], p[2:4], p[4:6], p[6:8]
+    a, b, c = lerp(p0, p1), lerp(p1, p2), lerp(p2, p3)
+    d, e = lerp(a, b), lerp(b, c)
+    f = lerp(d, e)
+    return p0 + a + d + f, f + e + c + p3
+
+
+class Segment:
+    """A line (4 numbers) or cubic (8) of a subpath, with its arc length (cubics: 32 chords, far below 1/32 off)."""
+
+    def __init__(self, p):
+        self.p = p
+        if len(p) == 4:
+            self.table = [0.0, math.hypot(p[2] - p[0], p[3] - p[1])]
+        else:
+            pts = [cubic_at(p, i / 32) for i in range(33)]
+            self.table = [0.0]
+            for a, b in zip(pts, pts[1:]):
+                self.table.append(self.table[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+        self.length = self.table[-1]
+
+    def t(self, s):
+        """The parameter at arc length s, linear between the table's samples."""
+        if self.length == 0:
+            return 0.0
+        tb = self.table
+        i = min(max(bisect.bisect_left(tb, s), 1), len(tb) - 1)
+        span = tb[i] - tb[i - 1]
+        return ((i - 1) + ((s - tb[i - 1]) / span if span else 0)) / (len(tb) - 1)
+
+    def at(self, t):
+        p = self.p
+        return (p[0] + (p[2] - p[0]) * t, p[1] + (p[3] - p[1]) * t) if len(p) == 4 else cubic_at(p, t)
+
+    def cut(self, a, b):
+        """-> (start point, op) of this segment between arc lengths a <= b; a zero-length piece is a line."""
+        ta, tb = self.t(a), self.t(b)
+        if len(self.p) == 4 or b <= a:
+            return self.at(ta), ("L",) + self.at(tb)
+        head = cubic_split(self.p, tb)[0]
+        part = cubic_split(head, ta / tb)[1] if ta > 0 else head
+        return part[0:2], ("C",) + part[2:]
+
+
+def subpaths(ops):
+    """Absolute ops (parse_d) -> [(its ops, [Segment], closed)]; Z adds the closing line."""
+    out = []
+    for op in ops:
+        if op[0] == "M":
+            out.append([[], [], False])
+            first = last = op[1:]
+        elif op[0] == "Z":
+            if last != first:
+                out[-1][1].append(Segment(last + first))
+            out[-1][2] = True
+        else:
+            out[-1][1].append(Segment(last + op[1:]))
+            last = op[-2:]
+        out[-1][0].append(op)
+    return out
+
+
+def dash_ranges(length, pattern, offset):
+    """The dashes along one subpath, [start, end] in arc length; dashes that touch (a zero gap) are one."""
+    total, out, i = sum(pattern), [], 0
+    s = -(offset % total)
+    while s <= length + 1e-6:
+        e = s + pattern[i]
+        if i % 2 == 0 and e >= 0:
+            a, b = min(max(s, 0), length), min(e, length)
+            if out and a <= out[-1][1] + 1e-9:
+                out[-1][1] = max(out[-1][1], b)
+            else:
+                out.append([a, b])
+        s, i = e, (i + 1) % len(pattern)
+    return out
+
+
+def dashed(ops, pattern, offset):
+    """SVG dashing, per subpath from its start: each dash becomes its own open subpath."""
+    out = []
+    for own, segs, closed in subpaths(ops):
+        length = sum(g.length for g in segs)
+        ranges = dash_ranges(length, pattern, offset) if length > 0 else [[0, length]]
+        if ranges == [[0, length]]:  # solid, or a dot that is drawn as written: keep the original
+            out += own
+            continue
+
+        def piece(a, b):
+            res, c = [], 0.0
+            for g in segs:
+                lo, hi = max(a, c), min(b, c + g.length)
+                if hi > lo or (a == b and not res and c <= a <= c + g.length):
+                    p0, op = g.cut(lo - c, hi - c)
+                    res += ([("M",) + p0] if not res else []) + [op]
+                c += g.length
+                if c > b:
+                    break
+            return res
+        pieces = [piece(a, b) for a, b in ranges]
+        if closed and len(ranges) > 1 and ranges[0][0] <= 1e-9 and ranges[-1][1] >= length - 1e-9:
+            pieces[0] = pieces.pop() + pieces[0][1:]  # a dash across the closing point is one dash
+        for pc in pieces:
+            out += pc
+    return out
+
+
 def collect(el, classes, inherited, m, alpha, out):
     """Appends (style, width, alpha, ops) for each painted shape under el, in document order, transforms applied.
 
@@ -307,13 +437,14 @@ def collect(el, classes, inherited, m, alpha, out):
     if stroked:  # SVG's defaults are butt and miter; unknown values (miter-clip, arcs) draw as miter
         ends = CAPS.get(st.get("stroke-linecap"), 1) << 3 | JOINS.get(st.get("stroke-linejoin"), 1) << 5
     style |= ends
+    pattern = dash_pattern(st) if stroked else None
     fill_alpha, stroke_alpha = alpha * num(st.get("fill-opacity"), 1.0), alpha * num(st.get("stroke-opacity"), 1.0)
-    if style & FILL and stroked and fill_alpha != stroke_alpha:
+    if style & FILL and stroked and (fill_alpha != stroke_alpha or pattern):
         parts = [(style & (FILL | EVEN_ODD), fill_alpha), (STROKE | ends, stroke_alpha)]  # SVG paints the fill, then the stroke
     else:
         parts = [(style, stroke_alpha if stroked else fill_alpha)]
     rigid = abs(m[1]) < 1e-9 and abs(m[2]) < 1e-9
-    if tag in ("circle", "ellipse") and rigid:
+    if tag in ("circle", "ellipse") and rigid and not pattern:
         a = el.attrib
         cx, cy = num(a.get("cx")), num(a.get("cy"))
         rx = num(a.get("r") if tag == "circle" else a.get("rx"))
@@ -326,15 +457,19 @@ def collect(el, classes, inherited, m, alpha, out):
     d = shape_path(tag, el.attrib)
     if not d:
         return
-    ops = []
-    for op in parse_d(d):
-        pts = op[1:]
-        tp = []
-        for k in range(0, len(pts), 2):
-            tp += [m[0] * pts[k] + m[2] * pts[k + 1] + m[4], m[1] * pts[k] + m[3] * pts[k + 1] + m[5]]
-        ops.append((op[0],) + tuple(tp))
-    if ops:
-        out += [(paint, width * math.sqrt(abs(m[0] * m[3] - m[1] * m[2])), a, ops) for paint, a in parts]
+    raw = parse_d(d)
+    if not raw:
+        return
+    offset = num(st.get("stroke-dashoffset"))
+    for paint, a in parts:
+        ops = []
+        for op in dashed(raw, pattern, offset) if pattern and paint & STROKE else raw:  # dashes in user units
+            pts = op[1:]
+            tp = []
+            for k in range(0, len(pts), 2):
+                tp += [m[0] * pts[k] + m[2] * pts[k + 1] + m[4], m[1] * pts[k] + m[3] * pts[k + 1] + m[5]]
+            ops.append((op[0],) + tuple(tp))
+        out.append((paint, width * math.sqrt(abs(m[0] * m[3] - m[1] * m[2])), a, ops))
 
 
 def icon_paths(svg_file):
