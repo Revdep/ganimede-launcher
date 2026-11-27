@@ -43,7 +43,7 @@ final class Folders {
     private final Runnable refresh;
     /** The long-press menu of an entry inside a folder: (entry, folder id). */
     private final BiConsumer<String, String> entryMenu;
-    private Dialog popup;          // the pop-up last opened
+    private Motion popup;          // the pop-up last opened
     private String popupId;        // its folder
     private Set<String> popupLook; // what it shows of each entry (see looks)
     private FolderDrag popupDrag;  // its icons' touch handling: no rebuild under a finger
@@ -90,7 +90,8 @@ final class Folders {
      * The entry TalkBack was on keeps its focus.
      */
     void reshowIfChanged() {
-        if (popup == null || !popup.isShowing() || !popup.getWindow().getDecorView().hasWindowFocus()) return;
+        if (popup == null || !popup.isShowing() || popup.closing()) return; // closing: tapped away, or an app opening
+        if (!popup.getWindow().getDecorView().hasWindowFocus()) return;
         if (popupDrag.busy() || looks(popupId).equals(popupLook)) return;
         String focused = popupDrag.focused();
         popup.dismiss();
@@ -352,9 +353,9 @@ final class Folders {
             lp.setMargins(m, m, m, m);
             sv.setLayoutParams(lp);
         }
-        dlg[0] = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
+        popup = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
+        dlg[0] = popup;
         dlg[0].show();
-        popup = dlg[0];
         popupId = id;
         popupLook = looks(id);
         popupDrag = drag;
