@@ -19,6 +19,7 @@ read -r ax ay <<<"$(cx Calendar)"
 A shell input draganddrop "$ax" "$ay" "$((W / 10))" "$((H - $(dp 90)))" 1500
 docked() { read -r _ y <<<"$(cx "desc:Calendar")"; [ -n "$y" ] && [ "$y" -gt $((H - $(dp 200))) ]; }
 wait_until 5 docked
+wait_until 5 settled # the dock icon has stopped sliding in: a drag started on it mid-move misses (seen once in ~25 runs)
 read -r dx dy <<<"$(cx "desc:Calendar")"
 [ -n "$dy" ] && [ "$dy" -gt $((H - $(dp 200))) ] && ok "Calendar moved into the dock (y $dy)" || ko "Calendar not in the dock (y ${dy:-none})"
 shot 25-dock
