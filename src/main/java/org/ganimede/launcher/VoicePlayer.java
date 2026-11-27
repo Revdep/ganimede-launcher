@@ -20,6 +20,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcelable;
 import android.os.Process;
+import android.util.Log;
 import android.service.notification.StatusBarNotification;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -38,6 +39,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Voice notes in notifications, heard privately: the audio a chat app attaches to its notification is copied into
@@ -47,8 +50,9 @@ import java.util.Set;
  * may read is also kept, on arrival, in its no-backup storage until the note leaves every notification.
  */
 final class VoicePlayer {
-    private static final long MAX_BYTES = 25L << 20;
-    private static final long KEPT_BYTES = 50L << 20; // all kept notes together; the oldest go first
+    // Copies on arrival wait for no one else: a chat app's stream that never ends stalls only this thread, and only until the watchdog.
+    private static final ExecutorService KEEPER = Executors.newSingleThreadExecutor();
+    private static final Handler WATCHDOG = new Handler(Looper.getMainLooper());
     private static final AudioAttributes SPEECH = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
 
@@ -75,16 +79,16 @@ final class VoicePlayer {
 
     /** A player row for each voice note of the notification this app may read, in the chat's order; none if it is secret. */
     void addRows(StatusBarNotification s, ViewGroup into) {
-        if (!Safe.secret(s.getNotification().visibility)) for (Uri uri : find(s)) into.addView(new Row(uri));
+        for (Uri uri : find(s)) into.addView(new Row(uri));
     }
 
-    /** Each note: from the chat app while it shares it, else the copy kept when it did. */
+    /** Each note: its kept copy, else from the chat app while it shares it. */
     private List<Uri> find(StatusBarNotification s) {
         List<Uri> found = new ArrayList<>();
         for (Uri uri : notes(s)) {
             File kept = kept(ui.a, s, uri);
-            if (granted(ui.a, uri)) found.add(uri);
-            else if (kept.isFile()) found.add(Uri.fromFile(kept));
+            if (kept.isFile()) found.add(Uri.fromFile(kept));
+            else if (granted(ui.a, uri)) found.add(uri);
         }
         return found;
     }
@@ -93,31 +97,46 @@ final class VoicePlayer {
      * On arrival: a private copy of each note this app may read now. Never of a secret notification, never of a note the
      * chat app did not share: those it withdraws before this app ever saw them get no row.
      */
-    static void keep(Context c, StatusBarNotification s) {
-        if (Safe.secret(s.getNotification().visibility)) return;
-        for (Uri uri : notes(s)) {
-            File f = kept(c, s, uri);
-            if (f.isFile() || !granted(c, uri)) continue;
-            File part = copy(c.getContentResolver(), uri, new File(f.getPath() + ".part")); // never half a note
-            if (part != null && !part.renameTo(f)) part.delete();
-        }
+    static void keep(Context c, StatusBarNotification... all) {
+        KEEPER.execute(() -> {
+            try {
+                for (StatusBarNotification s : all) for (Uri uri : notes(s)) {
+                    File f = kept(c, s, uri);
+                    if (f.isFile() || !granted(c, uri) || !Voice.room(used(f.getParentFile()))) continue;
+                    File part = copy(c.getContentResolver(), uri, new File(f.getPath() + ".part")); // never half a note
+                    if (part != null && !part.renameTo(f)) part.delete();
+                }
+            } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
+                Log.w("Ganimede", "Voice note not kept: " + e.getClass().getName());
+            }
+        });
     }
 
-    /** Deletes the kept notes no longer in any of these notifications (removed, dismissed, or gone from the chat), then the oldest past the cap. */
-    static void sweep(Context c, StatusBarNotification[] all) {
+    private static long used(File dir) {
+        long n = 0;
+        File[] files = dir.listFiles();
+        if (files != null) for (File f : files) n += f.length();
+        return n;
+    }
+
+    /**
+     * Deletes the kept notes no longer in any of these notifications: removed, dismissed, gone from the chat, or turned
+     * secret. None given: deletes them all.
+     */
+    static void sweep(Context c, Iterable<StatusBarNotification> all) {
         File dir = keptDir(c);
         File[] files = dir.listFiles();
         if (files == null || files.length == 0) return;
         Set<String> wanted = new HashSet<>();
         for (StatusBarNotification s : all) for (Uri uri : notes(s)) wanted.add(Voice.keptName(s.getKey(), uri.toString()));
         String[] names = new String[files.length];
-        long[] sizes = new long[files.length], times = new long[files.length];
+        long[] ages = new long[files.length];
+        long now = System.currentTimeMillis();
         for (int i = 0; i < files.length; i++) {
             names[i] = files[i].getName();
-            sizes[i] = files[i].length();
-            times[i] = files[i].lastModified();
+            ages[i] = now - files[i].lastModified();
         }
-        for (String name : Voice.drop(names, sizes, times, wanted, KEPT_BYTES)) new File(dir, name).delete();
+        for (String name : Voice.drop(names, ages, wanted)) new File(dir, name).delete();
     }
 
     private static File kept(Context c, StatusBarNotification s, Uri uri) {
@@ -134,9 +153,10 @@ final class VoicePlayer {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    /** The voice notes of a notification, in the chat's order, shared or not. */
+    /** The voice notes of a notification, in the chat's order, shared or not; none if it is secret (never shown, never kept). */
     private static List<Uri> notes(StatusBarNotification s) {
         List<Uri> found = new ArrayList<>();
+        if (Safe.secret(s.getNotification().visibility)) return found;
         try {
             Parcelable[] msgs = s.getNotification().extras.getParcelableArray("android.messages");
             if (msgs == null) return found;
@@ -175,21 +195,34 @@ final class VoicePlayer {
         refresh();
     }
 
-    /** The audio into the private file f, or null when the chat app refuses, it's gone, or it's too big. */
+    /**
+     * The audio into the private file f, or null when the chat app refuses, it's gone, it's too big, or it takes longer
+     * than Voice.COPY_MS (the stream is closed under it).
+     */
     private static File copy(ContentResolver cr, Uri uri, File f) {
         try (InputStream in = cr.openInputStream(uri)) {
             if (in == null) return null;
             f.getParentFile().mkdirs();
+            Runnable cut = () -> {
+                try {
+                    in.close();
+                } catch (IOException e) {
+                    Log.w("Ganimede", "Voice note not cut off: " + e.getClass().getName());
+                }
+            };
+            WATCHDOG.postDelayed(cut, Voice.COPY_MS);
             try (OutputStream out = new FileOutputStream(f)) {
                 byte[] buf = new byte[64 << 10];
                 long total = 0;
                 for (int n; (n = in.read(buf)) > 0; ) {
-                    if ((total += n) > MAX_BYTES) throw new IOException("too big");
+                    if ((total += n) > Voice.NOTE_BYTES) throw new IOException("too big");
                     out.write(buf, 0, n);
                 }
+            } finally {
+                WATCHDOG.removeCallbacks(cut);
             }
             return f;
-        } catch (IOException | RuntimeException refused) { // SecurityException, FileNotFoundException, too big
+        } catch (IOException | RuntimeException refused) { // SecurityException, FileNotFoundException, too big, cut off
             f.delete();
             return null;
         }

@@ -17,10 +17,11 @@ import java.io.IOException;
 /**
  * A chat notification with two voice notes, the way chat apps post them: one MessagingStyle notification whose
  * messages carry audio from this app's own provider. `am broadcast -n org.ganimede.fixture/.Post [--ez secret true]`.
- * `--es shape a|b|c|d|e|f --ei upto k` posts the first k messages of a chat with text before the notes, the way Telegram
+ * `--es shape a|b|c|d|e|f|h --ei upto k` posts the first k messages of a chat with text before the notes, the way Telegram
  * re-posts the conversation with one message more on each arrival (issue 083): (a) "Ciao", a text with a link, note A,
  * note B; (b) "Ciao", A, B; (c) "Ciao", a bare link, A, B; (d) a text with a link, A; (e) as (a), the app revoking the
- * read grant of its earlier notes before each re-post; (f) as (a), the link message carrying a preview image as its data.
+ * read grant of its earlier notes before each re-post; (f) as (a), the link message carrying a preview image as its data;
+ * (h) one note whose stream never ends (Notes "hang.wav").
  * The notes are silent WAVs of 30 and 40 s: their sizes tell which one plays, and they last long enough to be checked
  * while playing.
  */
@@ -36,15 +37,17 @@ public final class Post extends BroadcastReceiver {
             case "b" -> new String[]{"Ciao", "30", "40"};
             case "c" -> new String[]{"Ciao", "https://example.com/a", "30", "40"};
             case "d" -> new String[]{link, "30"};
+            case "h" -> new String[]{"hang"};
             default -> new String[]{"Ciao", link, "30", "40"};
         };
         int upto = Math.min(chat.length, i.getIntExtra("upto", chat.length));
         for (int k = 0; k < upto; k++) {
-            boolean note = chat[k].matches("\\d+");
+            boolean note = chat[k].matches("\\d+|hang");
             Notification.MessagingStyle.Message m = new Notification.MessagingStyle.Message(
                     note ? "Nota " + chat[k] : chat[k], now + k, anna);
             if (note) {
-                Uri uri = Uri.parse("content://org.ganimede.fixture.notes/" + wav(c, Integer.parseInt(chat[k])).getName());
+                Uri uri = Uri.parse("content://org.ganimede.fixture.notes/"
+                        + (chat[k].equals("hang") ? "hang.wav" : wav(c, Integer.parseInt(chat[k])).getName()));
                 if ("e".equals(shape) && k < upto - 1) c.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 m.setData("audio/wav", uri);
             } else if ("f".equals(shape) && chat[k].equals(link)) {

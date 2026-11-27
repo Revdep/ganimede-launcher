@@ -19,6 +19,7 @@ import android.service.notification.StatusBarNotification;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,6 +45,13 @@ public class NotifService extends NotificationListenerService {
     public void onListenerConnected() {
         connected = true;
         self = this;
+        worker.post(() -> { // the notes posted while this app wasn't listening, as long as they are still shared
+            try {
+                VoicePlayer.keep(this, getActiveNotifications());
+            } catch (RuntimeException e) {
+                Log.w("Ganimede", "Voice notes not kept: " + e.getClass().getName());
+            }
+        });
         update();
     }
 
@@ -56,7 +64,7 @@ public class NotifService extends NotificationListenerService {
         }
         worker.post(() -> {
             lastSeen = ""; // reconnected, the same notifications must be read in again
-            VoicePlayer.sweep(this, new StatusBarNotification[0]); // no access, no kept voice notes
+            VoicePlayer.sweep(this, List.of()); // no access, no kept voice notes
         });
         tell();
     }
@@ -64,14 +72,8 @@ public class NotifService extends NotificationListenerService {
     @Override
     public void onNotificationPosted(StatusBarNotification s, RankingMap rank) {
         try {
+            VoicePlayer.keep(this, s); // now, held for the summary or not: a chat app may withdraw the audio when it re-posts
             if (maybeBatch(s, rank)) return;
-            worker.post(() -> { // now: a chat app may withdraw the audio when it re-posts
-                try {
-                    VoicePlayer.keep(this, s);
-                } catch (RuntimeException e) {
-                    Log.w("Ganimede", "Voice note not kept: " + e.getClass().getName());
-                }
-            });
             update();
         } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
             Log.w("Ganimede", "Notification skipped: " + e.getClass().getName());
@@ -171,7 +173,7 @@ public class NotifService extends NotificationListenerService {
             return;
         }
         if (all == null) all = new StatusBarNotification[0];
-        VoicePlayer.sweep(this, all);
+        sweepVoice(all);
         Map<String, List<StatusBarNotification>> m = new HashMap<>();
         for (StatusBarNotification s : all) {
             Notification n = s.getNotification();
@@ -193,6 +195,18 @@ public class NotifService extends NotificationListenerService {
             active.putAll(m);
         }
         tell();
+    }
+
+    /** Kept voice notes stay while their notification is shown or held for the summary. */
+    private void sweepVoice(StatusBarNotification[] all) {
+        try {
+            List<StatusBarNotification> l = new ArrayList<>(Arrays.asList(all));
+            StatusBarNotification[] held = getSnoozedNotifications();
+            if (held != null) l.addAll(Arrays.asList(held));
+            VoicePlayer.sweep(this, l);
+        } catch (RuntimeException e) { // access revoked mid-read: the next read sweeps
+            Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
+        }
     }
 
     /** Notifications are grouped per app and profile: the same app in the work profile is another group. */

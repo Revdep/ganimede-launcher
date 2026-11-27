@@ -37,13 +37,18 @@ public class VoiceTest {
         yes(a.matches("[0-9a-f]{32}-[0-9a-f]{32}"), "only hex reaches the disk, no key nor address: " + a);
     }
 
-    public static void testDropsGoneNotesThenTheOldestPastTheCap() {
-        String[] names = {"a", "b", "c", "d"};
-        long[] sizes = {10, 5, 30, 20}, times = {100, 400, 300, 200};
-        // b is no longer in any notification; of the rest the newest fit in 50 (c 30 + d 20), the oldest (a) is dropped.
-        eq("[a, b]", Voice.drop(names, sizes, times, Set.of("a", "c", "d"), 50).toString(), "gone, then past the cap");
-        eq("[]", Voice.drop(names, sizes, times, Set.of("a", "b", "c", "d"), 65).toString(), "all wanted and they fit");
-        eq("[a, b, c, d]", Voice.drop(names, sizes, times, Set.of(), 1000).toString(), "no notification left: all go");
+    public static void testDropsTheCopiesOfGoneNotesAndStaleHalves() {
+        String[] names = {"a", "b", "c.part", "d.part"};
+        long[] ages = {500_000, 500_000, Voice.COPY_MS - 1, Voice.COPY_MS + 1};
+        // b is no longer in any notification; c is being written now; d was left by a copy cut off or a crash.
+        eq("[b, d.part]", Voice.drop(names, ages, Set.of("a", "c", "d")).toString(), "gone, and a half older than a copy may take");
+        eq("[a, b, d.part]", Voice.drop(names, ages, Set.of()).toString(), "no notification left: all but the half being written");
+    }
+
+    public static void testKeepsANoteOnlyIfAWholeOneStillFits() {
+        yes(Voice.room(0), "empty");
+        yes(Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES), "a largest note fills it exactly");
+        yes(!Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES + 1), "one byte more: no copy, nothing written past the cap");
     }
 
     public static void testPlayerClock() {

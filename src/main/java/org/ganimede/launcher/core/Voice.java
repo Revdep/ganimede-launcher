@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -34,15 +33,23 @@ public final class Voice {
         return hash(key) + "-" + hash(uri);
     }
 
-    /** The kept copies to delete: those of notes no longer in any notification, then the oldest until the rest fit in cap bytes. */
-    public static List<String> drop(String[] names, long[] sizes, long[] times, Set<String> wanted, long cap) {
-        boolean[] gone = new boolean[names.length];
-        long total = 0;
-        for (int i : IntStream.range(0, names.length).boxed().sorted(Comparator.comparingLong(i -> -times[i])).mapToInt(i -> i).toArray()) {
-            gone[i] = !wanted.contains(names[i]) || (total += sizes[i]) > cap;
-        }
+    /** The largest note copied, all kept notes together, and the longest a copy may take before it is cut off. */
+    public static final long NOTE_BYTES = 25L << 20, KEPT_BYTES = 50L << 20, COPY_MS = 10_000;
+
+    /** Whether one more note, at its largest, still fits with the kept ones: nothing is ever written past the cap. */
+    public static boolean room(long used) {
+        return used + NOTE_BYTES <= KEPT_BYTES;
+    }
+
+    /**
+     * The kept copies to delete: those of notes no longer in any notification, and halves (".part") older than a copy
+     * may take, left by a copy cut off or a crash; a younger half is being written now.
+     */
+    public static List<String> drop(String[] names, long[] ages, Set<String> wanted) {
         List<String> out = new ArrayList<>();
-        for (int i = 0; i < names.length; i++) if (gone[i]) out.add(names[i]);
+        for (int i = 0; i < names.length; i++) {
+            if (names[i].endsWith(".part") ? ages[i] > COPY_MS : !wanted.contains(names[i])) out.add(names[i]);
+        }
         return out;
     }
 

@@ -8,10 +8,27 @@ import android.os.ParcelFileDescriptor;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-/** Serves the voice notes Post wrote, read-only, to whoever the system granted them (the notification listeners). */
+/**
+ * Serves the voice notes Post wrote, read-only, to whoever the system granted them (the notification listeners).
+ * "hang.wav" is a hostile one: a stream that never ends nor sends a byte.
+ */
 public final class Notes extends ContentProvider {
+    private static final List<ParcelFileDescriptor> open = new ArrayList<>(); // write ends held: closed, the reader would see the end
+
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
+        if (uri.getPath().endsWith("/hang.wav")) {
+            try {
+                ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
+                open.add(pipe[1]);
+                return pipe[0];
+            } catch (IOException e) {
+                throw new FileNotFoundException(e.getMessage());
+            }
+        }
         return ParcelFileDescriptor.open(new File(getContext().getFilesDir(), new File(uri.getPath()).getName()),
                 ParcelFileDescriptor.MODE_READ_ONLY);
     }
