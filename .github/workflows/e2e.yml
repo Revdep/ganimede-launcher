@@ -55,7 +55,7 @@ jobs:
           # a first boot keeps the CPUs busy for a while and Pixel Launcher answers it with an "isn't responding" dialog
           # over the screen: wait for the load to drop (3 minutes at most), then stop that launcher, which takes its dialog away
           script: |
-            adb shell 'n=0; while [ $n -lt 36 ] && [ "$(cut -d. -f1 /proc/loadavg)" -ge 2 ]; do sleep 5; n=$((n + 1)); done; cat /proc/loadavg'
+            adb shell 'n=0; while [ $n -lt 36 ] && [ "$(cut -d. -f1 /proc/loadavg)" -ge 2 ]; do sleep 5; n=$((n + 1)); done; cat /proc/loadavg; top -b -n 1 -m 12 | tail -13'
             adb shell am force-stop com.google.android.apps.nexuslauncher
             bash -o pipefail -c 'bash e2e/run.sh emulator-5554 2>&1 | tee e2e/out/emulator-5554/run.log'
       - if: always()
