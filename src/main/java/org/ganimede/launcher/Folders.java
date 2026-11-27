@@ -4,6 +4,7 @@ import static org.ganimede.launcher.Sheets.item;
 
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.FolderLook;
+import org.ganimede.launcher.core.FolderOrder;
 
 import android.app.Dialog;
 import android.graphics.drawable.GradientDrawable;
@@ -259,8 +260,12 @@ final class Folders {
         }
         Dialog[] dlg = new Dialog[1];
         List<View> appViews = new ArrayList<>();
+        FolderDrag drag = new FolderDrag(ui, shown -> {
+            layout.editFolderApps(id, a -> { List<String> sorted = FolderOrder.reorderShown(a, shown); a.clear(); a.addAll(sorted); });
+            refresh.run();
+        });
         for (String k : Layout.strings(f.optJSONArray("apps"))) {
-            View v = folderEntry(id, k, look.columns() > 1, dlg);
+            View v = folderEntry(id, k, look.columns() > 1, dlg, drag);
             if (v != null) appViews.add(v);
         }
         if (look.columns() == 1) {
@@ -310,26 +315,21 @@ final class Folders {
         dlg[0].show();
     }
 
-    private View folderEntry(String id, String key, boolean cell, Dialog[] dlg) {
+    private View folderEntry(String id, String key, boolean cell, Dialog[] dlg, FolderDrag drag) {
         if (key.startsWith("s:")) {
             View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP) : entries.shortcutRow(key, false);
-            v.setOnLongClickListener(x -> {
-                dlg[0].dismiss();
-                shortcutMenu.accept(key, id);
-                return true;
-            });
+            drag.add(v, key, () -> { dlg[0].dismiss(); shortcutMenu.accept(key, id); });
             return v;
         }
         Item app = apps.find(key);
         if (app == null) return null;
         View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP) : entries.appRow(app, false);
         v.setOnClickListener(x -> { dlg[0].dismiss(); launcher.launch(app, x); });
-        v.setOnLongClickListener(x -> {
-            if (!layout.editFolderApps(id, a -> a.remove(key))) return true;
+        drag.add(v, key, () -> { // pressed and released in place
+            if (!layout.editFolderApps(id, a -> a.remove(key))) return;
             refresh.run();
             dlg[0].dismiss();
             ui.toast(ui.f("%s removed from the pop-up", apps.label(app)));
-            return true;
         });
         return v;
     }

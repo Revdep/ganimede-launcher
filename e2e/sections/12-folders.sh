@@ -249,6 +249,33 @@ read -r cx1 _ cx2 _ <<<"$(card)"; shot 130-folder-compact
   && ok "the pop-up is centred" || ko "pop-up centre $([ -n "$cx1" ] && echo $(((cx1 + cx2) / 2))) vs screen centre $((W / 2))"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
+step "Folders: long-press and drag reorders the icons inside the pop-up, never out of it (082)"
+order() { pstr "folder:ord" | grep -o '\(calendar\|deskclock\|contacts\)[\\/]' | tr -d '\\/' | paste -sd, -; } # the stored order, short names
+for mode in classic list; do
+  seed $mode
+  setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
+  setp string fav 'f:ord'
+  setp del grid
+  tap Ordine; expect "Contacts"
+  [ "$(order)" = "calendar,deskclock,contacts" ] && ok "$mode: starting order stored" || ko "$mode: start order $(order)"
+  read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Contacts)"
+  A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 1500
+  reordered() { [ "$(order)" = "deskclock,contacts,calendar" ]; }
+  wait_until 5 reordered
+  [ "$(order)" = "deskclock,contacts,calendar" ] && ok "$mode: dragging Calendar onto Contacts' place saved the new order" || ko "$mode: order after drag $(order)"
+  has "Contacts" && ok "$mode: the pop-up stays open after the drop" || ko "$mode: the pop-up closed"
+  shot 131-folder-reordered-$mode
+  read -r ax ay <<<"$(cx Clock)"
+  A shell input draganddrop "$ax" "$ay" $((W - 4)) $((H - 4)) 1500
+  sleep 1
+  [ "$(order | tr , '\n' | sort | paste -sd, -)" = "calendar,contacts,deskclock" ] && ok "$mode: dragged to the screen corner, every app is still in the folder ($(order))" || ko "$mode: apps after drag to the corner: $(order)"
+  has "Contacts" && has "Calendar" && ok "$mode: the icons are still in the open pop-up" || ko "$mode: the pop-up lost its icons"
+  [ "$(pstr fav)" = 'f:ord' ] && ok "$mode: nothing dropped on the home" || ko "$mode: fav = $(pstr fav)"
+  read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
+  wait_until 5 hasnt "Calendar"
+  [ "$(order | grep -c calendar)" = 0 ] && ok "$mode: long-press without moving still removes the app from the pop-up" || ko "$mode: Calendar still stored: $(order)"
+done
+
 step "App menu from the drawer (List): add to favourites"
 seed list
 drawer_find() { # drawer, search $1; leaves Settings in the list

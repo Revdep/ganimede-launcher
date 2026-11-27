@@ -1,0 +1,161 @@
+package org.ganimede.launcher;
+
+import org.ganimede.launcher.core.FolderOrder;
+
+import android.os.Bundle;
+import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.ScrollView;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * Reordering the icons of an open pop-up folder: long-press an icon and move; it follows the finger but stays inside the
+ * folder's grid, the others make room, and the new order is saved on release. Released without moving, the long-press
+ * does what it always did (`pressed`). TalkBack gets "Move up" / "Move down" instead of the drag.
+ */
+final class FolderDrag {
+    private final Ui ui;
+    private final List<View> views = new ArrayList<>(); // as laid out when the pop-up opened
+    private final List<String> keys = new ArrayList<>();
+    private final List<View> order = new ArrayList<>();  // as shown now
+    private final Consumer<List<String>> save;           // the keys in their new order
+    private float[] sx, sy;                              // top-left of each layout slot on screen
+    private List<View> before;                         // the order when the drag began, to go back to on cancel
+    private boolean armed, dragging;
+    private float downX, downY, baseX, baseY;
+
+    FolderDrag(Ui ui, Consumer<List<String>> save) {
+        this.ui = ui;
+        this.save = save;
+    }
+
+    void add(View v, String key, Runnable pressed) {
+        views.add(v);
+        keys.add(key);
+        order.add(v);
+        v.setOnLongClickListener(x -> {
+            if (ui.haptics()) x.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            armed = true;
+            x.getParent().requestDisallowInterceptTouchEvent(true); // the pop-up doesn't scroll away with the finger
+            return true;
+        });
+        v.setOnTouchListener((x, e) -> touch(x, e, pressed));
+        v.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+            @Override
+            public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                int at = order.indexOf(host);
+                if (at > 0) info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.action_move_earlier, ui.tr("Move up")));
+                if (at < order.size() - 1) info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.action_move_later, ui.tr("Move down")));
+            }
+
+            @Override
+            public boolean performAccessibilityAction(View host, int action, Bundle args) {
+                if (action != R.id.action_move_earlier && action != R.id.action_move_later)
+                    return super.performAccessibilityAction(host, action, args);
+                int at = order.indexOf(host), to = action == R.id.action_move_earlier ? at - 1 : at + 1;
+                if (to < 0 || to >= order.size()) return true;
+                measure();
+                place(host, to);
+                settle(null);
+                saved();
+                return true;
+            }
+        });
+    }
+
+    private boolean touch(View v, MotionEvent e, Runnable pressed) {
+        int a = e.getActionMasked();
+        if (a == MotionEvent.ACTION_DOWN) { armed = dragging = false; downX = e.getRawX(); downY = e.getRawY(); return false; }
+        if (!armed) return false;
+        if (a == MotionEvent.ACTION_MOVE) {
+            float dx = e.getRawX() - downX, dy = e.getRawY() - downY;
+            if (!dragging && Math.hypot(dx, dy) < ui.slop()) return true;
+            if (!dragging) lift(v);
+            follow(v, dx, dy);
+            return true;
+        }
+        boolean wasDragging = dragging;
+        armed = dragging = false;
+        if (wasDragging) drop(v, a == MotionEvent.ACTION_UP);
+        else if (a == MotionEvent.ACTION_UP) pressed.run();
+        return true;
+    }
+
+    private void lift(View v) {
+        dragging = true;
+        before = new ArrayList<>(order);
+        measure();
+        baseX = v.getTranslationX(); baseY = v.getTranslationY();
+        for (ViewParent p = v.getParent(); p instanceof ViewGroup && !(p instanceof ScrollView); p = p.getParent()) {
+            ((ViewGroup) p).setClipChildren(false); // the icon leaves its row while it moves
+            ((ViewGroup) p).setTranslationZ(ui.dp(8)); // and stays above the rows after it
+        }
+        v.setTranslationZ(ui.dp(8));
+    }
+
+    /** The finger moved (dx, dy) from where it went down: the icon goes along, kept inside the slots' bounding box. */
+    private void follow(View v, float dx, float dy) {
+        int home = views.indexOf(v);
+        float x = clamp(sx[home] + baseX + dx, sx), y = clamp(sy[home] + baseY + dy, sy);
+        v.setTranslationX(x - sx[home]);
+        v.setTranslationY(y - sy[home]);
+        int to = FolderOrder.nearest(x, y, sx, sy);
+        if (to != order.indexOf(v)) { place(v, to); settle(v); }
+    }
+
+    private void drop(View v, boolean commit) {
+        v.setTranslationZ(0);
+        for (ViewParent p = v.getParent(); p instanceof ViewGroup && !(p instanceof ScrollView); p = p.getParent())
+            ((ViewGroup) p).setTranslationZ(0);
+        if (!commit) { order.clear(); order.addAll(before); }
+        settle(null);
+        if (commit) saved();
+    }
+
+    private void saved() {
+        List<String> out = new ArrayList<>();
+        for (View v : order) out.add(keys.get(views.indexOf(v)));
+        save.accept(out);
+    }
+
+    private void place(View v, int to) {
+        List<View> moved = FolderOrder.move(order, order.indexOf(v), to);
+        order.clear();
+        order.addAll(moved);
+    }
+
+    /** Every icon but `except` glides to the slot it now holds. */
+    private void settle(View except) {
+        for (int i = 0; i < order.size(); i++) {
+            View w = order.get(i);
+            int home = views.indexOf(w);
+            if (w != except) w.animate().translationX(sx[i] - sx[home]).translationY(sy[i] - sy[home]).setDuration(150);
+        }
+    }
+
+    private void measure() {
+        sx = new float[views.size()];
+        sy = new float[views.size()];
+        int[] p = new int[2];
+        for (int i = 0; i < sx.length; i++) {
+            View w = views.get(i);
+            w.getLocationOnScreen(p);
+            sx[i] = p[0] - w.getTranslationX();
+            sy[i] = p[1] - w.getTranslationY();
+        }
+    }
+
+    private static float clamp(float v, float[] slots) {
+        float min = slots[0], max = slots[0];
+        for (float s : slots) { min = Math.min(min, s); max = Math.max(max, s); }
+        return Math.max(min, Math.min(max, v));
+    }
+}
