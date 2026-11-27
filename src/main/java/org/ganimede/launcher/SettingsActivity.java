@@ -147,6 +147,7 @@ public class SettingsActivity extends Activity implements Ui.Owner {
             scrolls.putAll(b.getBundle("scrolls"));
             bricks.pick(b.getString("brick", Brick.SCREEN));
             pages.reopen(b); // the dialog turned with the screen
+            perms.reopen(b);
         }
     }
 
@@ -158,6 +159,7 @@ public class SettingsActivity extends Activity implements Ui.Owner {
         out.putBundle("scrolls", scrolls);
         out.putString("brick", bricks.picked());
         pages.save(out);
+        perms.save(out);
     }
 
     /** Android rebuilds this screen (rotation): a running file job and the undo steps go on to the new one. */
@@ -172,7 +174,10 @@ public class SettingsActivity extends Activity implements Ui.Owner {
 
     @Override
     protected void onDestroy() {
-        for (Dialog d : dialogs) if (d.isShowing()) d.dismiss(); // a dialog kept by save() opens again on the new screen
+        for (Dialog d : dialogs) { // closed by Android, not by the person: no OnDismiss runs; one kept by save() opens again on the new screen
+            d.setOnDismissListener(null);
+            if (d.isShowing()) d.dismiss();
+        }
         bricks.stop();
         pages.stop();
         super.onDestroy();
