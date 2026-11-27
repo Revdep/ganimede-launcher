@@ -68,7 +68,7 @@ expect "Zz Prova A"
 calls() { [ "$(screen | grep -o 'text="✆"' | wc -l)" -eq "$1" ]; } # call buttons: one per contact shown with a number
 wait_until 5 calls 4 && ok "first five: the four with a number have their call button" || ko "first five: call buttons wrong"
 tap "Mostra tutti (8)"
-A shell input keyevent KEYCODE_BACK; wait_until 5 eval '! kbd' # the keyboard covers the last rows; Back hides it and keeps the search
+wait_until 5 kbd; A shell input keyevent KEYCODE_BACK; wait_until 5 eval '! kbd' # the keyboard covers the last rows; Back hides it and keeps the search
 wait_until 5 calls 7 && ok "Show all: the seven with a number have their call button" || ko "Show all: call buttons wrong"
 top() { local b; b=$(bounds "$1"); echo "${b#* }" | cut -d' ' -f1; }
 ya=$(top "Zz Prova A"); yu=$(top "Zz Prova H")
