@@ -59,6 +59,12 @@ final class SettingsBricks {
         kit.prefs().unregisterOnSharedPreferenceChangeListener(watch);
     }
 
+    /** The undo steps, for the screen Android builds in place of this one (rotation); null while the page is closed. */
+    History<Map<String, Object>> history() { return history; }
+
+    /** Takes over the undo steps of the screen this one replaces. */
+    void adopt(History<Map<String, Object>> steps) { history = steps; }
+
     /** Undo covers what is done on this page, from the moment it opens. */
     void track(boolean open) {
         if (!open) history = null;
