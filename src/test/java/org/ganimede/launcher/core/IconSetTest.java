@@ -222,6 +222,15 @@ public class IconSetTest {
         yes(set.id("zzz_not_an_icon").isEmpty(), "a name this version of the set lacks finds no icon");
     }
 
+    /** Issue 081: the set is read in the background when an entry's picked icon comes from it, not on the main thread. */
+    public static void testNeededForPickedIcon() {
+        yes(IconSet.needed(java.util.Map.of("icon:f:12", "builtin:arcticons|okay", "mode", "classic")), "a folder's icon picked from the set");
+        yes(!IconSet.needed(java.util.Map.of("icon:f:12", "com.pack.icons|ic_phone", "icon_pack", "com.pack.icons")),
+                "icons from an installed pack only");
+        yes(!IconSet.needed(java.util.Map.of("rn:x", "builtin:arcticons|okay")), "only picked icons count");
+        yes(!IconSet.needed(java.util.Map.of()), "nothing picked");
+    }
+
     /** Reads everything a set offers, as the launcher does: every icon and name, and an index lookup. */
     private static void readAll(IconSet set) {
         for (int i = 0; i < set.count(); i++) {

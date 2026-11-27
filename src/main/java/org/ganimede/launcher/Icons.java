@@ -170,7 +170,10 @@ final class Icons {
 
     private static volatile IconSet builtin;
 
-    /** The built-in set, read once: the home's pack and the icon picker share it. */
+    /**
+     * The built-in set, read once: the home's pack, the icon picker and picked icons share it. Called on background
+     * threads only (a 4 MB read); on the main thread {@link #named} uses what is already read.
+     */
     private static IconSet builtin(Context c) throws IOException {
         IconSet set = builtin;
         if (set == null) {
@@ -179,6 +182,14 @@ final class Icons {
             }
         }
         return set;
+    }
+
+    /** Reads the built-in set now (Apps.load, in the background) when a picked icon needs it and the pack doesn't. */
+    static void preload(Context c, SharedPreferences p) {
+        try {
+            if (IconSet.needed(p.getAll())) builtin(c);
+        } catch (IOException | RuntimeException damaged) { // picked icons fall back to the usual ones
+        }
     }
 
     /** An app was installed or updated: if it's an icon pack, it's read again on the next load. */
@@ -233,15 +244,16 @@ final class Icons {
 
     /**
      * An icon named "pack|drawable" (how a picked icon is stored; the built-in set's by name, its ids change between
-     * versions), or null: a name the set no longer has falls back to the entry's usual icon.
+     * versions), or null: a name the set no longer has, or the set not read yet (see {@link #preload}), falls back to
+     * the entry's usual icon.
      */
     static Drawable named(Context c, String packAndName) {
         String[] pp = packAndName.split("\\|", 2);
         if (pp.length != 2) return null;
         try {
             if (IconSet.PACK.equals(pp[0])) {
-                IconSet set = builtin(c);
-                OptionalInt id = set.id(pp[1]);
+                IconSet set = builtin;
+                OptionalInt id = set == null ? OptionalInt.empty() : set.id(pp[1]);
                 return id.isPresent() ? new BuiltinIcon(set.icon(id.getAsInt())) : null;
             }
             Resources r = resources(c, pp[0]);

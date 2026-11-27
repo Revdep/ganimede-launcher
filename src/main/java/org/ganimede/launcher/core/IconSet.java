@@ -5,6 +5,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 
 /**
@@ -116,6 +117,13 @@ public final class IconSet {
      */
     public static List<String> search(List<String> keys, String query) {
         return query.isBlank() ? keys : Search.rank(keys, k -> k.substring(k.indexOf('|') + 1), k -> 0, query);
+    }
+
+    /** Whether any entry's picked icon ("icon:<entry>" = "builtin:arcticons|name") comes from this set. */
+    public static boolean needed(Map<String, ?> prefs) {
+        for (Map.Entry<String, ?> e : prefs.entrySet())
+            if (e.getKey().startsWith("icon:") && e.getValue() instanceof String v && v.startsWith(PACK + "|")) return true;
+        return false;
     }
 
     public IconIndex index() {
