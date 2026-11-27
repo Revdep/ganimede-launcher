@@ -115,6 +115,7 @@ copies_are() { [ "$(copies)" = "$1" ]; }
 voice; expect_popup "FIXTURE"
 wait_until 5 eval '[ "$(players)" = "Messaggio vocale|Messaggio vocale" ]' && ok "pop-up: two players" || ko "pop-up players: $(players)"
 shot 41-popup-voice
+target48 "desc:Riproduci il messaggio vocale" && ok "the voice play button is a 48 dp target" || ko "the voice play button is under 48 dp" # issue 064
 p1=$(play_at 1); p2=$(play_at 2)
 A shell input tap $p2
 wait_until 10 copies_are 640044 && ok "the second note (40 s) plays, alone" || ko "copies after tapping the second: $(copies)"
