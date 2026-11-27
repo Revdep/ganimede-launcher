@@ -107,6 +107,12 @@ final class Layout {
         return lines("fav");
     }
 
+    /** Whether a favourite or grid entry still exists: a folder that is kept, a shortcut, or an app {@code app} knows. */
+    boolean entryExists(String entry, java.util.function.Predicate<String> app) {
+        if (entry.startsWith("f:")) return hasFolder(entry.substring(2));
+        return entry.startsWith("s:") || app.test(entry);
+    }
+
     List<String> saveFavourites(List<String> f) {
         List<String> before = favourites(), pinnedBefore = pinnable();
         Set<String> unsuggested = Suggestions.unsuggested(

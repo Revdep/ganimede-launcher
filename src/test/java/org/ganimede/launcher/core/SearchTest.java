@@ -88,4 +88,8 @@ public class SearchTest {
         eq(8, Search.score("a b c d e f g h i j k", "k"), "word-start points never fall under 8");
         eq(1, Search.score("a b c d e f g h i j kz", "z"), "inside-word points never fall under 1");
     }
+
+    public static void testAlphabetLettersAreTheSectionsOfTheNamesInOrder() {
+        eq(List.of("#", "A", "Z"), new java.util.ArrayList<>(Search.sections(List.of("Zz Prova", "alfa", "Àlpha", "9 Nove"))), "sorted, once each, # first");
+    }
 }
