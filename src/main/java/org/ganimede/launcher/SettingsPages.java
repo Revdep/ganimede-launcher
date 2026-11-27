@@ -465,8 +465,7 @@ final class SettingsPages {
     /** A row that opens a multi-choice of installed apps; stores component keys, or package names when byPackage. */
     private void apps(LinearLayout card, String glyph, String label, String key, boolean byPackage) {
         Set<String> chosen = kit.prefs().getStringSet(key, Set.of());
-        kit.row(card, glyph, label, chosen.isEmpty() ? kit.ui.tr("None chosen") : kit.ui.f("%d chosen", chosen.size()), () -> {
-            List<Apps.Item> l = Apps.named(kit.activity());
+        kit.row(card, glyph, label, chosen.isEmpty() ? kit.ui.tr("None chosen") : kit.ui.f("%d chosen", chosen.size()), () -> Apps.named(kit.activity(), l -> {
             String[] names = new String[l.size()], keys = new String[l.size()];
             boolean[] on = new boolean[l.size()];
             for (int i = 0; i < names.length; i++) {
@@ -484,7 +483,7 @@ final class SettingsPages {
                             perms.ask(Manifest.permission.POST_NOTIFICATIONS);
                         kit.render();
                     }).setNegativeButton(kit.ui.tr("Cancel"), null).show();
-        });
+        }));
     }
 
     /** Add (index -1) or edit a custom shortcut: a name and any link Android can open. */
