@@ -46,6 +46,10 @@ step "Quick Lock: Cancel in the explanation leaves quick_lock false"
 perm_settings "Gesti"
 see "Blocco rapido" && tap "Blocco rapido"
 wait_until 5 shows "Consenti impostazioni con restrizioni" && ok "Quick Lock explains the restricted setting" || ko "Quick Lock gave no explanation"
+# issue 064: it names the switch as Android's Accessibility screen does, in the system language (not Ganimede's)
+loc=$(A shell getprop persist.sys.locale | tr -d '\r'); [ -n "$loc" ] || loc=$(A shell getprop ro.product.locale | tr -d '\r')
+case "$loc" in it*) label="Blocco rapido Ganimede";; *) label="Ganimede Quick Lock";; esac
+shows "Attiva" "$label" && ok "the explanation names “$label”" || ko "the explanation does not name “$label”"
 tap "Annulla"; wait_until 5 noshows "Consenti impostazioni con restrizioni"
 bpref quick_lock && ko "Cancel left quick_lock = true" || ok "Cancel: quick_lock is not true"
 

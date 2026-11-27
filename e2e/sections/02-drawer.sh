@@ -67,6 +67,10 @@ A shell input text "Zz Prova"
 expect "Zz Prova A"
 calls() { [ "$(screen | grep -o 'text="✆"' | wc -l)" -eq "$1" ]; } # call buttons: one per contact shown with a number
 wait_until 5 calls 4 && ok "first five: the four with a number have their call button" || ko "first five: call buttons wrong"
+# issue 064: TalkBack names each contact button's action and contact; each is a 48 dp target
+hasd "Chiama Zz Prova A" && hasd "Messaggio a Zz Prova A" && hasd "Email a Zz Prova C" \
+  && ok "contact buttons are described (Chiama / Messaggio a / Email a + name)" || ko "contact buttons lack their description"
+target48 "desc:Chiama Zz Prova A" && target48 "desc:Email a Zz Prova C" && ok "contact buttons are 48 dp targets" || ko "contact buttons are under 48 dp"
 tap "Mostra tutti (8)"
 A shell input keyevent KEYCODE_BACK; wait_until 5 eval '! kbd' # the keyboard covers the last rows; Back hides it and keeps the search
 wait_until 5 calls 7 && ok "Show all: the seven with a number have their call button" || ko "Show all: call buttons wrong"

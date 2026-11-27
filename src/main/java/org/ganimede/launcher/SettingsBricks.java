@@ -148,9 +148,9 @@ final class SettingsBricks {
             TextView chip = kit.text(name, 15, on ? Colors.WHITE : SettingsKit.SUB);
             chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             chip.setGravity(Gravity.CENTER);
-            chip.setMinHeight(kit.ui.dp(40));
+            chip.setMinHeight(kit.ui.dp(48));
             chip.setPadding(kit.ui.dp(16), 0, kit.ui.dp(16), 0);
-            GradientDrawable g = kit.round(on ? Colors.alpha(kit.ui.accent, 0x44) : 0x1FFFFFFF, 20);
+            GradientDrawable g = kit.round(on ? Colors.alpha(kit.ui.accent, 0x44) : 0x1FFFFFFF, 24);
             if (on) g.setStroke(kit.ui.dp(2), kit.ui.accent);
             chip.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), g, null));
             SettingsKit.selectable(chip, on);

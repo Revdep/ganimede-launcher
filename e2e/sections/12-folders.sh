@@ -114,6 +114,12 @@ folder_value() { pstr "folder:$1" | sed 's/&quot;/"/g' | grep -q "\"$2\":$3"; }
 
 # First defaults: Lavender, 93% (one step below the 94% default with light text) and three columns, all through the Settings card.
 folder_settings
+# issue 064: the settings' pills, − / + buttons and slider rows are 48 dp touch targets
+target48 "Cartelle" && ok "Personalizza's pills are 48 dp high" || ko "Personalizza's pill “Cartelle” is under 48 dp"
+find_desc "Colonne: Diminuisci" >/dev/null
+target48 "desc:Colonne: Diminuisci" && target48 "desc:Colonne: Aumenta" && ok "− and + are 48 dp targets" || ko "− / + are under 48 dp"
+b=$(bounds "desc:Colonne"); set -- ${b:-0 0 0 0}
+[ $(($4 - $2)) -ge $(($(dp 48) - 1)) ] && ok "the Colonne slider row is 48 dp high" || ko "the Colonne slider is $(($4 - $2)) px high, under 48 dp"
 if xy=$(last_desc_center "Lavanda"); then set -- $xy; A shell input tap "$1" "$2"; else ko "no folder Lavender control"; fi
 press_desc "Opacità dello sfondo (%): Diminuisci"
 press_desc "Colonne: Aumenta" 2
