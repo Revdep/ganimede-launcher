@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.Gestures;
+import org.ganimede.launcher.core.HomeColumn;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
@@ -118,10 +119,10 @@ final class HomeLook {
             // List: the clock, text line and app column keep their own distance from the edge (never under the
             // alphabet: the column stops before it), and the whole home can be lifted from the bottom.
             screen.home.setGravity(Gravity.BOTTOM);
-            int edge = Gestures.alphabetEndPaddingDp(prefs.getInt("alpha_offset", 0));
-            screen.home.setPaddingRelative(0, 0, ui.dp(edge), ui.dp(prefs.getInt("home_bottom", 64)));
-            int clockX = prefs.getInt("clock_offset", 40), lineX = prefs.getInt("line_offset", 40);
-            int appsX = Gestures.effectiveAppsOffsetDp(prefs.getInt("apps_offset", 40));
+            int[] col = HomeColumn.list(prefs.getInt("alpha_offset", 0), prefs.getInt("home_bottom", 64),
+                    prefs.getInt("clock_offset", 40), prefs.getInt("line_offset", 40), prefs.getInt("apps_offset", 40));
+            screen.home.setPaddingRelative(0, 0, ui.dp(col[0]), ui.dp(col[1]));
+            int clockX = col[2], lineX = col[3], appsX = col[4];
             for (View v : clockViews) { setStartMargin(v, ui.dp(clockX)); v.setTranslationX(0); }
             for (View v : lineViews) { setStartMargin(v, ui.dp(lineX)); v.setTranslationX(0); }
             ((View) screen.date.getParent()).setVisibility(View.VISIBLE);

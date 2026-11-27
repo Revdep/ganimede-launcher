@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- No INTERNET permission: Ganimede cannot go online at all. -->
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
@@ -88,10 +89,12 @@
         </service>
 
         <!-- Breezy Weather shares its weather through the open Gadgetbridge broadcast. -->
+        <!-- Breezy sends it with no permission, so it must stay open; BreezyReceiver checks action, sender (API 34+) and size. -->
         <receiver
             android:name=".BreezyReceiver"
             android:label="Ganimede Launcher"
-            android:exported="true">
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
             <intent-filter>
                 <action android:name="nodomain.freeyourgadget.gadgetbridge.ACTION_GENERIC_WEATHER" />
             </intent-filter>

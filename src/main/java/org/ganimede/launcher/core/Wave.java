@@ -28,6 +28,12 @@ public final class Wave {
         return Math.max(48 * d, Math.min(viewHeight * 0.64f - columnHeight / 2, viewHeight - 64 * d - columnHeight));
     }
 
+    /** What the home alphabet and the Settings preview both draw from: {text size, row step, column top} for n rows (px). */
+    public static float[] geometry(int n, float size, float viewHeight, float d) {
+        float text = textSize(n, size, viewHeight, d), step = step(text, size);
+        return new float[]{text, step, top(viewHeight, step * n, d)};
+    }
+
     /** Row under y, clamped to 0..n-1. */
     public static int index(float y, float top, float step, int n) {
         return Math.max(0, Math.min(n - 1, (int) Math.floor((y - top) / step)));

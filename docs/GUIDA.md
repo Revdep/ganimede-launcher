@@ -80,7 +80,7 @@ per aprirne subito i comandi.
 - **Meteo**: vedi sotto.
 - **Calendario e produttività**, **Ricerca e scorciatoie**, **Gesti**, **Notifiche e benessere**,
   **Privacy e permessi**, **App nascoste**, **Lingua**, **Informazioni**.
-- **Backup e ripristino**: salva o ripristina tutte le impostazioni in un file.
+- **Backup e ripristino**: salva o ripristina tutte le impostazioni in un file. Quante volte apri ogni app resta solo sul telefono.
 
 ## Meteo
 

@@ -76,9 +76,7 @@ final class Entries {
     }
 
     boolean exists(String entry) {
-        if (entry.startsWith("f:")) return layout.hasFolder(entry.substring(2));
-        if (entry.startsWith("s:")) return true;
-        return apps.find(entry) != null;
+        return layout.entryExists(entry, k -> apps.find(k) != null);
     }
 
     /** The entry's icon at this size: an app's own (or picked) icon, a folder tile, a shortcut's icon. */

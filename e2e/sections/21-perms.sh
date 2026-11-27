@@ -62,3 +62,20 @@ tap "Annulla"; wait_until 5 noshows "Consenti impostazioni con restrizioni"
 bpref summary && ko "Cancel left summary = true" || ok "Cancel: summary is not true"
 A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -A3 'name="summary_apps"' | grep -q "com.google.android.calendar" \
   && ko "Cancel left Calendar in summary_apps" || ok "Cancel: Calendar is not in summary_apps"
+
+step "Permission: closing the system dialog with Back is not a refusal, so the next tap asks again (no App info)"
+A shell pm revoke $PK android.permission.READ_CONTACTS; A shell pm clear-permission-flags $PK android.permission.READ_CONTACTS user-set user-fixed
+setp del asked:android.permission.READ_CONTACTS
+nonotif; seed classic
+A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"
+expect "Tocca una parte dell'anteprima per regolarla"
+A shell input swipe 150 2120 150 600 300 # one long scroll: the Privacy row is near the end of the list
+tapn "Privacy e permessi" 6
+see "Contatti" && tap "Contatti"
+asking() { screen | grep -q 'package="[a-z.]*permissioncontroller"'; }
+wait_until 8 asking && ok "the permission dialog opens" || ko "no permission dialog for Contacts"
+A shell input keyevent KEYCODE_BACK; wait_until 5 has "Contatti"
+tap "Contatti"
+wait_until 8 asking && ok "the second tap asks again" || ko "the second tap did not ask again (App info?)"
+A shell input keyevent KEYCODE_BACK
+A shell pm grant $PK android.permission.READ_CONTACTS; A shell pm revoke $PK android.permission.READ_CONTACTS

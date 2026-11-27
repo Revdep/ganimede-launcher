@@ -115,10 +115,21 @@ wait_until 5 has "Nessuna app nascosta" && ok "hidden: Unhide empties the list" 
 pg_back
 
 pg_open "Privacy e permessi" "App Home predefinita"
-for r in "Accesso alle notifiche" "Calendario" "Contatti" "Info app"; do has "$r" && ok "privacy lists “$r”" || ko "privacy: no “$r” row"; done
+for r in "Accesso alle notifiche" "Calendario" "Contatti" "Info app"; do see "$r"; done # the page is longer than the screen
 pg_back
 
 pg_open "Backup e ripristino" "Crea un backup"
+# The screen turns while the restore confirmation is open: the dialog is still there afterwards (issue 063).
+printf '%s' '{}' > "$OUT/rot.json"; A push "$OUT/rot.json" /sdcard/Download/ganimede-rot.json >/dev/null
+tap "Ripristina un backup"; pick_file ganimede-rot.json
+wait_until 8 has "Ripristinare il backup?" || ko "no restore confirmation to rotate"
+A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
+landscape() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; } # the dump's root says the display is turned
+wait_until 8 landscape || ko "the screen did not turn"
+wait_until 5 has "Ripristinare il backup?" && ok "the restore confirmation survives a rotation" || ko "the restore confirmation vanished on rotation"
+A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1
+tap "Annulla"; wait_until 5 hasnt "Ripristinare il backup?"
+A shell rm -f /sdcard/Download/ganimede-rot.json
 pg_back
 
 pg_open "Lingua" "Tutto il launcher cambia lingua all'istante."
