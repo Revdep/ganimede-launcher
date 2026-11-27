@@ -178,7 +178,6 @@ else
   wait_until 5 torch_on && ok "quick settings turned the torch on" || ko "the Torcia tile did not turn on"
   A shell cmd statusbar collapse; wait_until 5 focus
   read -r fx fy <<<"$(cx "desc:Pulsante Ganimede")"; A shell input tap "$fx" "$fy"
-  sleep 1 # a single tap waits out the double-tap timeout only when a double or triple tap is set: harmless here
   A shell cmd statusbar expand-settings
   wait_until 5 torch_off && ok "first tap of the button: the torch is off" || ko "first tap of the button left the torch on (assumed it was off)"
   A shell cmd statusbar collapse; wait_until 5 focus
