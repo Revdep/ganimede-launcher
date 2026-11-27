@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 public class UpgradeReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (!Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction())) return;
         ComponentName entry = new ComponentName(context, context.getPackageName() + ".IconDefault");
         PackageManager pm = context.getPackageManager();
         if (pm.getComponentEnabledSetting(entry) != PackageManager.COMPONENT_ENABLED_STATE_DEFAULT)

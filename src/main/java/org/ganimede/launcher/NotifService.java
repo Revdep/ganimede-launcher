@@ -99,7 +99,7 @@ public class NotifService extends NotificationListenerService {
                 p.getBoolean("summary_skip_chats", true), p.getBoolean("summary_silent", false)),
                 new Summary.Note(s.isClearable(), (n.flags & (Notification.FLAG_ONGOING_EVENT | Notification.FLAG_FOREGROUND_SERVICE)) != 0,
                         n.category != null && URGENT.contains(n.category), n.fullScreenIntent != null,
-                        Notification.CATEGORY_MESSAGE.equals(n.category) || (known && Build.VERSION.SDK_INT >= 30 && r.isConversation()),
+                        Notification.CATEGORY_MESSAGE.equals(n.category) || (known && Build.VERSION.SDK_INT >= 31 && r.isConversation()),
                         known && r.getImportance() < android.app.NotificationManager.IMPORTANCE_DEFAULT))) return false;
         long now = System.currentTimeMillis(), last = Summary.roll(p.getLong("summary_last", 0), now);
         p.edit().putLong("summary_last", last).apply();
