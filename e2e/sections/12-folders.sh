@@ -330,6 +330,23 @@ read -r ax ay <<<"$(cx Clock)"; hold "$ax" "$ay"
 wait_until 5 has "Rimuovi dalla cartella" && ok "Clock's menu has Rimuovi dalla cartella" || ko "no Rimuovi dalla cartella in Clock's menu"
 tap "Rimuovi dalla cartella"
 wait_until 5 gone deskclock && ok "Clock is no longer stored" || ko "folder:sc = $(pstr folder:sc)"
+# a new icon from the same menu: the open pop-up draws it once the app list has reloaded (apps carry their icon)
+wait_until 5 in_card Calendar; wait_until 5 settled
+read -r c1 c2 c3 c4 <<<"$(card)"; crop="$((c3 - c1))x$((c4 - c2))+$c1+$c2"
+A exec-out screencap -p | magick png:- -crop "$crop" +repage "$OUT/folder-icon-before.png"
+read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
+tap "Icona dell'app…"; tap "Arcticons (integrato)"
+wait_until 5 has "calendar" && tap "calendar" # the search field starts with the app's name
+clear_text; A shell input text okay
+wait_until 10 hasd okay; read -r ox oy <<<"$(cx "desc:okay")"; [ -n "$oy" ] && A shell input tap "$ox" "$oy"
+picked() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="icon:com.google.android.calendar/'; }
+wait_until 5 picked && ok "the icon picked from the in-folder menu is saved" || ko "no icon saved for Calendar"
+redrawn() { # once nothing moves (the picker gone, the pop-up rebuilt): the card differs from before the pick
+  settled || return 1
+  A exec-out screencap -p | magick png:- -crop "$crop" +repage "$OUT/folder-icon-after.png"
+  [ "$(fdiff "$OUT/folder-icon-before.png" "$OUT/folder-icon-after.png")" -gt 0 ] 2>/dev/null
+}
+wait_until 15 redrawn && ok "the open pop-up draws the new icon" || ko "the open pop-up still draws Calendar's old icon"
 # renamed from the same menu: the pop-up still open underneath shows the new name once the dialog closes
 wait_until 5 in_card Calendar; wait_until 5 settled
 read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"

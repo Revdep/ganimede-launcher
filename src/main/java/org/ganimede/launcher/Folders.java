@@ -46,7 +46,7 @@ final class Folders {
     private final BiConsumer<String, String> entryMenu;
     private Dialog popup;          // the pop-up last opened
     private String popupId;        // its folder
-    private Set<String> popupLook; // what it shows of each entry (see looks)
+    private Set<List<Object>> popupLook; // what it shows of each entry (see looks)
 
     Folders(Ui ui, Sheets sheets, Layout layout, Apps apps, Entries entries, Launcher launcher, Widgets widgets,
             IconPicker icons, ClassicHome classic, Runnable refresh, BiConsumer<String, String> entryMenu) {
@@ -68,12 +68,17 @@ final class Folders {
         if (layout.editFolderApps(id, a -> a.remove(entry))) refresh.run();
     }
 
-    /** What a pop-up shows of each of its entries, order aside: which ones, their names and picked icons. */
-    private Set<String> looks(String id) {
-        Set<String> out = new HashSet<>();
-        for (String k : Layout.strings(layout.folder(id).optJSONArray("apps")))
-            if (k.startsWith("s:") || apps.find(k) != null)
-                out.add(k + "\n" + entries.name(k) + "\n" + ui.prefs.getString("icon:" + k, ""));
+    /**
+     * What a pop-up shows of each of its entries, order aside: which ones, their names and icons. An app's icon is the
+     * one its Item carries, so the Item itself stands for it (Apps.load makes new ones, Item has no equals): a picked
+     * icon shows only once that load is done. A shortcut draws its picked icon straight from the setting.
+     */
+    private Set<List<Object>> looks(String id) {
+        Set<List<Object>> out = new HashSet<>();
+        for (String k : Layout.strings(layout.folder(id).optJSONArray("apps"))) {
+            Object icon = k.startsWith("s:") ? ui.prefs.getString("icon:" + k, "") : apps.find(k);
+            if (icon != null) out.add(List.of(k, entries.name(k), icon));
+        }
         return out;
     }
 
