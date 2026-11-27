@@ -19,6 +19,33 @@ jobs:
         run: |
           mkdir -p ~/.cache/ganimede && cp e2e/ci-times ~/.cache/ganimede/e2e-times
           bash e2e/run.sh | tee /dev/stderr | jq -Rnc '[inputs]' | sed 's/^/shards=/' >> "$GITHUB_OUTPUT"
+      # The AVD the suite is written on: its coordinates are a Pixel 9's (1080x2424, 420 dpi), its apps Google's. A first boot
+      # keeps the CPUs busy for minutes (touches get lost, Pixel Launcher shows "isn't responding" over the screen), so it is
+      # made once, left to calm down and saved as a snapshot: every shard starts from that. A cache made on main serves all
+      # branches (run this workflow there by hand); change the key's number with the emulator's settings below.
+      - id: avd
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with: { key: avd-35-playstore-pixel9-1, path: "~/.android/avd/*\n~/.android/adb*" }
+      - name: KVM for the runner's user
+        if: steps.avd.outputs.cache-hit != 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - if: steps.avd.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_9
+          cores: 4
+          ram-size: 3072M
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim # no -no-snapshot: the exit saves it
+          disable-animations: false
+          script: |
+            adb shell 'n=0; while [ $n -lt 120 ] && [ "$(cut -d. -f1 /proc/loadavg)" -ge 1 ]; do sleep 5; n=$((n + 1)); done; cat /proc/loadavg'
+            adb shell am force-stop com.google.android.apps.nexuslauncher
   shard:
     needs: plan
     runs-on: ubuntu-26.04 # ImageMagick 7 (magick), as the scripts are written for
@@ -41,22 +68,22 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
       - run: mkdir -p e2e/out/emulator-5554
-      # the AVD the suite is written on: its coordinates are a Pixel 9's (1080x2424, 420 dpi), its apps Google's
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with: { key: avd-35-playstore-pixel9-1, path: "~/.android/avd/*\n~/.android/adb*", fail-on-cache-miss: true }
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         env: { ONLY: "${{ matrix.only }}" }
-        with:
+        with: # plan's emulator, started from its snapshot, which is never saved again
           api-level: 35
           target: google_apis_playstore
           arch: x86_64
           profile: pixel_9
           cores: 4
           ram-size: 3072M
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: false # run.sh sets them, and puts them back
-          # a first boot keeps the CPUs busy for a while and Pixel Launcher answers it with an "isn't responding" dialog
-          # over the screen: wait for the load to drop (3 minutes at most), then stop that launcher, which takes its dialog away
           script: |
-            adb shell 'n=0; while [ $n -lt 36 ] && [ "$(cut -d. -f1 /proc/loadavg)" -ge 2 ]; do sleep 5; n=$((n + 1)); done; cat /proc/loadavg'
-            adb shell am force-stop com.google.android.apps.nexuslauncher
+            adb shell cat /proc/loadavg
             bash -o pipefail -c 'bash e2e/run.sh emulator-5554 2>&1 | tee e2e/out/emulator-5554/run.log'
       - if: always()
         run: cp ~/.cache/ganimede/e2e-times e2e/out/emulator-5554/times || true
