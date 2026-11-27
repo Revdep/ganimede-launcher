@@ -22,10 +22,14 @@ tap "Avanti"
 
 step "Wizard: style"
 expect "Scegli uno stile" && shot 03-mode
-# Each choice rebuilds both miniatures: the old ones must be freed, not kept alive by the window (GC'd view count, read on a still page).
+# Coming back to this step builds both miniatures again (a choice only marks its card, issue 062): the old ones must be freed,
+# not kept alive by the window (GC'd view count, read on a still page).
 views() { wait_until 5 settled; A shell dumpsys meminfo $PK | awk '/Views:/ {print $2; exit}'; }
 v0=$(views)
-for i in 1 2 3 4; do tap "Classica"; tap "Lista"; done
+for i in 1 2 3 4; do
+  tap "Avanti"; wait_until 10 has "Personalizza adesso" || ko "next step not shown"
+  tap "Indietro"; wait_until 10 has "Scegli uno stile" || ko "style step not shown again"
+done
 v1=$(views)
 [ $((v1 - v0)) -lt 100 ] && ok "old miniatures freed (views $v0 → $v1)" || ko "old miniatures leak (views $v0 → $v1)"
 tap "Classica"; wait_until 5 has "✓ Classica" && ok "classic chosen" || ko "classic not marked"
