@@ -336,9 +336,13 @@ read -r c1 c2 c3 c4 <<<"$(card)"; crop="$((c3 - c1))x$((c4 - c2))+$c1+$c2"
 A exec-out screencap -p | magick png:- -crop "$crop" +repage "$OUT/folder-icon-before.png"
 read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
 tap "Icona dell'app…"; tap "Arcticons (integrato)"
-wait_until 5 has "calendar" && tap "calendar" # the search field starts with the app's name
-clear_text; A shell input text okay
-wait_until 10 hasd okay; read -r ox oy <<<"$(cx "desc:okay")"; [ -n "$oy" ] && A shell input tap "$ox" "$oy"
+# the search starts with the app's name: its first result, whichever icon the built-in set ranks first
+first_icon() { screen | awk -v RS='class="android.widget.GridView"' 'END { printf "%s", $0 }' \
+  | grep -o 'content-desc="[^"][^"]*"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' | head -1 \
+  | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   '; }
+picker_ready() { [ -n "$(first_icon)" ]; }
+wait_until 10 picker_ready
+read -r ix1 iy1 ix2 iy2 <<<"$(first_icon)"; [ -n "$iy2" ] && A shell input tap $(((ix1 + ix2) / 2)) $(((iy1 + iy2) / 2))
 picked() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="icon:com.google.android.calendar/'; }
 wait_until 5 picked && ok "the icon picked from the in-folder menu is saved" || ko "no icon saved for Calendar"
 redrawn() { # once the pick is saved, the picker gone and nothing moves (the pop-up rebuilt): the card differs from before
@@ -354,7 +358,8 @@ tap "Rinomina"; wait_until 5 has "Salva"
 field=$(screen | grep -o 'class="android.widget.EditText"[^>]*bounds="[^"]*"' | tail -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   ')
 read -r fx1 fy1 fx2 fy2 <<<"$field"; A shell input tap $(((fx1 + fx2) / 2)) $(((fy1 + fy2) / 2)) # focus the name field
 clear_text; A shell input text AgendaZz; tap "Salva"
-wait_until 5 in_card AgendaZz && ok "renamed from the in-folder menu: the open pop-up shows AgendaZz" || ko "the open pop-up still shows the old name"
+renamed() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="rn:com.google.android.calendar/[^"]*">AgendaZz<'; }
+wait_until 5 renamed && wait_until 5 in_card AgendaZz && ok "renamed from the in-folder menu: the open pop-up shows AgendaZz" || ko "not renamed, or the open pop-up still shows the old name"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "AgendaZz"
 
 step "Folders: another app's update doesn't rebuild the open pop-up; one of its apps removed mid-drag waits for the finger (082)"
