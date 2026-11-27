@@ -99,6 +99,7 @@ final class Notices {
         voice.addRows(sbn, bubble);
         // Tap or swipe: a scrollable preview of this app's messages; tapping one there opens it.
         bubble.setOnClickListener(v -> show(it.notifGroup));
+        //noinspection ClickableViewAccessibility: the swipe opens what the click opens
         bubble.setOnTouchListener(swipeOpens(it.notifGroup));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = ui.dp(5);
@@ -115,6 +116,7 @@ final class Notices {
         float slop = ui.slop();
         float[] down = new float[2];
         boolean[] fired = new boolean[1];
+        //noinspection ClickableViewAccessibility: a swipe; taps fall through to the view's own click
         return (v, e) -> {
             boolean mirrored = ui.prefs.getBoolean("left_handed", false);
             float dx = e.getRawX() - down[0], dy = e.getRawY() - down[1];
@@ -482,6 +484,7 @@ final class Notices {
             return dragging || super.onInterceptTouchEvent(e);
         }
 
+        //noinspection ClickableViewAccessibility: a throw-away swipe (the list cards have a Dismiss button too); taps go to super
         @Override
         public boolean onTouchEvent(MotionEvent e) {
             if (dismiss == null) return super.onTouchEvent(e);

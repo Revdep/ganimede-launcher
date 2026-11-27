@@ -148,6 +148,7 @@ final class DragDrop {
     void cell(View c, String entry, String where) {
         boolean[] armed = arm(c, () -> menu.accept(entry));
         float[] down = new float[2];
+        //noinspection ClickableViewAccessibility: only the drag after the long-press menu is taken; taps reach the click listener
         c.setOnTouchListener((v, e) -> {
             if (e.getActionMasked() == MotionEvent.ACTION_DOWN) { down[0] = e.getRawX(); down[1] = e.getRawY(); }
             return afterMenu(armed, v, e, down, entry, where);
@@ -221,6 +222,7 @@ final class DragDrop {
         View.OnTouchListener swipe = app == null ? null : notices.swipeOpens(app.notifGroup);
         if (app != null) notices.accessibleOpens(row, app.notifGroup);
         float[] down = new float[2];
+        //noinspection ClickableViewAccessibility: drag and swipe only (the swipe is also an accessibility action); taps reach the click listener
         row.setOnTouchListener((v, e) -> {
             if (e.getActionMasked() == MotionEvent.ACTION_DOWN) { down[0] = e.getRawX(); down[1] = e.getRawY(); }
             if (afterMenu(armed, v, e, down, entry, where)) return true;

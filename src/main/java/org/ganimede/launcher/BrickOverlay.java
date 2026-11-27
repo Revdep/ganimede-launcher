@@ -111,6 +111,7 @@ final class BrickOverlay extends View {
                 if (onChange != null) onChange.run();
                 return true;
             case MotionEvent.ACTION_UP:
+                if (!moved) performClick(); // a tap picks: announced like any click
                 if (onPicked != null) onPicked.accept(moved ? selected : held == null ? Brick.SCREEN : held.id);
                 // fall through: the gesture is over
             case MotionEvent.ACTION_CANCEL:
@@ -121,6 +122,11 @@ final class BrickOverlay extends View {
                 return true;
         }
         return true;
+    }
+
+    @Override
+    public boolean performClick() {
+        return super.performClick();
     }
 
     /** A drag begins: remember where the brick and its settings were, and which lines it may cling to. */

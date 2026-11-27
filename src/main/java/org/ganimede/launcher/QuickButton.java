@@ -60,6 +60,7 @@ final class QuickButton {
         float slop = ui.slop();
         float[] down = new float[4];
         boolean[] dragging = new boolean[1];
+        //noinspection ClickableViewAccessibility: only a drag is taken; taps and long-presses reach their listeners
         view.setOnTouchListener((v, e) -> {
             switch (e.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
