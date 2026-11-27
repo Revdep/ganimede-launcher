@@ -255,8 +255,10 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
 step "Folders: long-press and drag reorders the icons inside the pop-up, never out of it (082)"
 order() { pstr "folder:ord" | grep -o '\(calendar\|deskclock\|contacts\)[\\/]' | tr -d '\\/' | paste -sd, -; } # the stored order, short names
-shown() { # the pop-up's icons in view-tree order (the dump's, TalkBack's), same short names: what follows the card's ScrollView
-  screen | awk -v RS='class="android.widget.ScrollView"' 'END { printf "%s", $0 }' | grep -o 'text="\(Calendar\|Clock\|Contacts\)"' \
+card_text() { screen | awk -v RS='class="android.widget.ScrollView"' 'END { printf "%s", $0 }'; } # what follows the card's ScrollView
+in_card() { card_text | grep -q "text=\"$1\""; }
+shown() { # the pop-up's icons in view-tree order (the dump's, TalkBack's), same short names
+  card_text | grep -o 'text="\(Calendar\|Clock\|Contacts\)"' \
     | cut -d'"' -f2 | sed 's/Clock/deskclock/' | tr 'A-Z' 'a-z' | paste -sd, -
 }
 calendar_up() { A shell dumpsys window | grep mCurrentFocus | grep -q calendar; }
@@ -328,7 +330,15 @@ read -r ax ay <<<"$(cx Clock)"; hold "$ax" "$ay"
 wait_until 5 has "Rimuovi dalla cartella" && ok "Clock's menu has Rimuovi dalla cartella" || ko "no Rimuovi dalla cartella in Clock's menu"
 tap "Rimuovi dalla cartella"
 wait_until 5 gone deskclock && ok "Clock is no longer stored" || ko "folder:sc = $(pstr folder:sc)"
-A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
+# renamed from the same menu: the pop-up still open underneath shows the new name once the dialog closes
+wait_until 5 in_card Calendar; wait_until 5 settled
+read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
+tap "Rinomina"; wait_until 5 has "Salva"
+field=$(screen | grep -o 'class="android.widget.EditText"[^>]*bounds="[^"]*"' | tail -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   ')
+read -r fx1 fy1 fx2 fy2 <<<"$field"; A shell input tap $(((fx1 + fx2) / 2)) $(((fy1 + fy2) / 2)) # focus the name field
+clear_text; A shell input text AgendaZz; tap "Salva"
+wait_until 5 in_card AgendaZz && ok "renamed from the in-folder menu: the open pop-up shows AgendaZz" || ko "the open pop-up still shows the old name"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "AgendaZz"
 
 step "Folders: Choose apps lists the folder's pinned shortcuts; unchecking one takes it out, the order stays (082)"
 seed classic

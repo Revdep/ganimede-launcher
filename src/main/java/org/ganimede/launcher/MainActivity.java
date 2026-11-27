@@ -276,6 +276,7 @@ public class MainActivity extends Activity implements Actions.Home {
         if (isDestroyed()) return; // a background job finishing after the screen closed
         applyLook();
         list.clearCache(); // labels, icons or notifications may have changed
+        folders.reshowIfChanged();
         landing.clear();
         boolean cl = layout.classic();
         if (cl) classic.build();

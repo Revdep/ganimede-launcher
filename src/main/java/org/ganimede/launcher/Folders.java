@@ -22,8 +22,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 /** Pop-up folders: creating one, putting things in, its menu, and the pop-up itself (its widgets, then its apps). */
@@ -42,7 +44,9 @@ final class Folders {
     private final Runnable refresh;
     /** The long-press menu of an entry inside a folder: (entry, folder id). */
     private final BiConsumer<String, String> entryMenu;
-    private Dialog popup; // the pop-up last opened
+    private Dialog popup;          // the pop-up last opened
+    private String popupId;        // its folder
+    private Set<String> popupLook; // what it shows of each entry (see looks)
 
     Folders(Ui ui, Sheets sheets, Layout layout, Apps apps, Entries entries, Launcher launcher, Widgets widgets,
             IconPicker icons, ClassicHome classic, Runnable refresh, BiConsumer<String, String> entryMenu) {
@@ -59,11 +63,31 @@ final class Folders {
         this.entryMenu = entryMenu;
     }
 
-    /** "Remove from this folder" in an entry's menu: out of the folder, and an open pop-up shows it gone. */
+    /** "Remove from this folder" in an entry's menu: out of the folder; the open pop-up follows (reshowIfChanged). */
     void remove(String id, String entry) {
-        if (!layout.editFolderApps(id, a -> a.remove(entry))) return;
-        refresh.run();
-        if (popup != null && popup.isShowing()) { popup.dismiss(); show(id); }
+        if (layout.editFolderApps(id, a -> a.remove(entry))) refresh.run();
+    }
+
+    /** What a pop-up shows of each of its entries, order aside: which ones, their names and picked icons. */
+    private Set<String> looks(String id) {
+        Set<String> out = new HashSet<>();
+        for (String k : Layout.strings(layout.folder(id).optJSONArray("apps")))
+            if (k.startsWith("s:") || apps.find(k) != null)
+                out.add(k + "\n" + entries.name(k) + "\n" + ui.prefs.getString("icon:" + k, ""));
+        return out;
+    }
+
+    /**
+     * After any change (MainActivity.refreshAll) and whenever the open pop-up comes back in front (a menu, dialog or
+     * other app on top closed): if its entries now look different (an entry taken out or uninstalled, renamed, a new icon) it
+     * is built again. A reorder alone changes nothing here, the pop-up already shows it; an open menu or dialog is
+     * waited for, so the new pop-up never covers it.
+     */
+    void reshowIfChanged() {
+        if (popup == null || !popup.isShowing() || !popup.getWindow().getDecorView().hasWindowFocus()) return;
+        if (looks(popupId).equals(popupLook)) return;
+        popup.dismiss();
+        show(popupId);
     }
 
     private void save(String id, JSONObject f) {
@@ -322,6 +346,10 @@ final class Folders {
         dlg[0] = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
         dlg[0].show();
         popup = dlg[0];
+        popupId = id;
+        popupLook = looks(id);
+        dlg[0].getWindow().getDecorView().getViewTreeObserver()
+                .addOnWindowFocusChangeListener(has -> { if (has) reshowIfChanged(); });
     }
 
     private View folderEntry(String id, String key, boolean cell, Dialog[] dlg, FolderDrag drag) {
