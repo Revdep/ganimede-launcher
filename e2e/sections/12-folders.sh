@@ -251,9 +251,10 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
 step "Folders: long-press and drag reorders the icons inside the pop-up, never out of it (082)"
 order() { pstr "folder:ord" | grep -o '\(calendar\|deskclock\|contacts\)[\\/]' | tr -d '\\/' | paste -sd, -; } # the stored order, short names
-for mode in classic list; do
-  seed $mode
-  setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
+for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and Contacts are on different rows
+  mode=${variant%:*}; cols=${variant#*:}; mode="$mode/$cols col"
+  seed ${variant%:*}
+  setp string folder:ord '{"name":"Ordine","where":"fav","cols":'$cols',"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
   setp string fav 'f:ord'
   setp del grid
   tap Ordine; expect "Contacts"
@@ -271,9 +272,19 @@ for mode in classic list; do
   [ "$(order | tr , '\n' | sort | paste -sd, -)" = "calendar,contacts,deskclock" ] && ok "$mode: dragged to the screen corner, every app is still in the folder ($(order))" || ko "$mode: apps after drag to the corner: $(order)"
   has "Contacts" && has "Calendar" && ok "$mode: the icons are still in the open pop-up" || ko "$mode: the pop-up lost its icons"
   [ "$(pstr fav)" = 'f:ord' ] && ok "$mode: nothing dropped on the home" || ko "$mode: fav = $(pstr fav)"
-  read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
+  # a drag cut short (the pop-up closed under the finger) saves nothing and leaves no floating icon behind
+  stored=$(order); read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Clock)"
+  A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 5000 &
+  sleep 3; A shell input keyevent KEYCODE_BACK; wait
   wait_until 5 hasnt "Calendar"
-  [ "$(order | grep -c calendar)" = 0 ] && ok "$mode: long-press without moving still removes the app from the pop-up" || ko "$mode: Calendar still stored: $(order)"
+  [ "$(order)" = "$stored" ] && ok "$mode: a cancelled drag keeps the stored order ($stored)" || ko "$mode: order after cancel $(order), was $stored"
+  tap Ordine; wait_until 5 has "Calendar"; wait_until 5 settled # the pop-up opens with an animation
+  read -r ax ay <<<"$(cx Calendar)"
+  has "Clock" && has "Contacts" && [ -n "$ax" ] && ok "$mode: the pop-up opens again with all its icons, nothing left floating" || ko "$mode: the reopened pop-up lost an icon"
+  # pressed and released in place: nothing happens, nothing is lost by hesitating
+  still=$(order); hold "$ax" "$ay"; sleep 1
+  [ "$(order)" = "$still" ] && ok "$mode: long-press without moving keeps the order ($still)" || ko "$mode: order after a still long-press $(order), was $still"
+  has "Calendar" && has "Clock" && has "Contacts" && ok "$mode: all apps still in the open pop-up, no menu" || ko "$mode: the pop-up lost an icon or closed"
 done
 
 step "App menu from the drawer (List): add to favourites"

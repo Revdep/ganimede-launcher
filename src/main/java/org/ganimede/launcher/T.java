@@ -131,7 +131,7 @@ final class T {
         it("Apps in this pop-up", "App in questo pop-up");
         it("This pop-up is empty. Add apps or a widget below.", "Questo pop-up è vuoto. Aggiungi app o un widget qui sotto.");
         it("✎ Edit pop-up", "✎ Modifica pop-up");
-        it("%s removed from the pop-up", "%s tolta dal pop-up");
+        it("Position %1$d of %2$d", "Posizione %1$d di %2$d");
         it("Widget stack full: remove a widget first", "Pila di widget piena: togli prima un widget");
         it("Remove widget", "Rimuovi widget");
         it("Missing widget", "Widget mancante");
@@ -207,7 +207,6 @@ final class T {
         it("Yes, choose apps", "Sì, scegli le app");
         it("Later", "Più tardi");
         it("Added to %s", "Aggiunta a %s");
-        it("Remove from this folder", "Togli da questa cartella");
         it("Add “%s”", "Aggiungi “%s”");
         it("Added", "Aggiunto");
         it("Add", "Aggiungi");

@@ -38,4 +38,12 @@ public class FolderOrderTest {
         eq(List.of("c", "x", "a", "b"), FolderOrder.reorderShown(List.of("a", "x", "b", "c"), List.of("c", "a", "b")),
                 "the shown ones are permuted, the missing one stays where it was");
     }
+
+    public static void testAnEntryNoLongerInTheFolderLeavesTheStoredOrderUntouched() {
+        // the folder was edited while the pop-up was open: "c" is not stored any more, so the order cannot be applied
+        eq(List.of("a", "b"), FolderOrder.reorderShown(List.of("a", "b"), List.of("b", "c", "a")),
+                "a stale shown list changes nothing");
+        eq(List.of("a", "b"), FolderOrder.reorderShown(List.of("a", "b"), List.of("b")),
+                "a shown list that lost an entry changes nothing");
+    }
 }

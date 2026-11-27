@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 /**
  * Reordering the icons of an open pop-up folder: long-press an icon and move; it follows the finger but stays inside the
  * folder's grid, the others make room, and the new order is saved on release. Released without moving, the long-press
- * does what it always did (`pressed`). TalkBack gets "Move up" / "Move down" instead of the drag.
+ * does nothing. TalkBack gets "Move up" / "Move down" instead of the drag.
  */
 final class FolderDrag {
     private final Ui ui;
@@ -27,6 +27,7 @@ final class FolderDrag {
     private final List<View> order = new ArrayList<>();  // as shown now
     private final Consumer<List<String>> save;           // the keys in their new order
     private float[] sx, sy;                              // top-left of each layout slot on screen
+    private List<String> committed;                      // the keys as last saved
     private List<View> before;                         // the order when the drag began, to go back to on cancel
     private boolean armed, dragging;
     private float downX, downY, baseX, baseY;
@@ -36,17 +37,24 @@ final class FolderDrag {
         this.save = save;
     }
 
-    void add(View v, String key, Runnable pressed) {
+    private List<String> keysInOrder() {
+        List<String> out = new ArrayList<>();
+        for (View v : order) out.add(keys.get(views.indexOf(v)));
+        return out;
+    }
+
+    void add(View v, String key) {
         views.add(v);
         keys.add(key);
         order.add(v);
+        committed = new ArrayList<>(keys);
         v.setOnLongClickListener(x -> {
             if (ui.haptics()) x.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             armed = true;
             x.getParent().requestDisallowInterceptTouchEvent(true); // the pop-up doesn't scroll away with the finger
             return true;
         });
-        v.setOnTouchListener((x, e) -> touch(x, e, pressed));
+        v.setOnTouchListener((x, e) -> touch(x, e));
         v.setAccessibilityDelegate(new View.AccessibilityDelegate() {
             @Override
             public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
@@ -66,12 +74,13 @@ final class FolderDrag {
                 place(host, to);
                 settle(null);
                 saved();
+                host.announceForAccessibility(ui.f("Position %1$d of %2$d", to + 1, order.size()));
                 return true;
             }
         });
     }
 
-    private boolean touch(View v, MotionEvent e, Runnable pressed) {
+    private boolean touch(View v, MotionEvent e) {
         int a = e.getActionMasked();
         if (a == MotionEvent.ACTION_DOWN) { armed = dragging = false; downX = e.getRawX(); downY = e.getRawY(); return false; }
         if (!armed) return false;
@@ -85,7 +94,6 @@ final class FolderDrag {
         boolean wasDragging = dragging;
         armed = dragging = false;
         if (wasDragging) drop(v, a == MotionEvent.ACTION_UP);
-        else if (a == MotionEvent.ACTION_UP) pressed.run();
         return true;
     }
 
@@ -94,11 +102,9 @@ final class FolderDrag {
         before = new ArrayList<>(order);
         measure();
         baseX = v.getTranslationX(); baseY = v.getTranslationY();
-        for (ViewParent p = v.getParent(); p instanceof ViewGroup && !(p instanceof ScrollView); p = p.getParent()) {
-            ((ViewGroup) p).setClipChildren(false); // the icon leaves its row while it moves
-            ((ViewGroup) p).setTranslationZ(ui.dp(8)); // and stays above the rows after it
-        }
-        v.setTranslationZ(ui.dp(8));
+        for (ViewParent p = v.getParent(); p instanceof ViewGroup && !(p.getParent() instanceof ScrollView); p = p.getParent())
+            ((ViewGroup) p).setClipChildren(false); // the icon leaves its row while it moves; the card itself keeps clipping
+        raise(v, ui.dp(8));
     }
 
     /** The finger moved (dx, dy) from where it went down: the icon goes along, kept inside the slots' bounding box. */
@@ -112,17 +118,23 @@ final class FolderDrag {
     }
 
     private void drop(View v, boolean commit) {
-        v.setTranslationZ(0);
-        for (ViewParent p = v.getParent(); p instanceof ViewGroup && !(p instanceof ScrollView); p = p.getParent())
-            ((ViewGroup) p).setTranslationZ(0);
+        raise(v, 0);
         if (!commit) { order.clear(); order.addAll(before); }
         settle(null);
         if (commit) saved();
     }
 
+    /** The icon, and its row if it has one, drawn above their neighbours (not the card, which holds everything). */
+    private static void raise(View v, float z) {
+        v.setTranslationZ(z);
+        ViewParent row = v.getParent();
+        if (row instanceof ViewGroup && !(row.getParent() instanceof ScrollView)) ((ViewGroup) row).setTranslationZ(z);
+    }
+
     private void saved() {
-        List<String> out = new ArrayList<>();
-        for (View v : order) out.add(keys.get(views.indexOf(v)));
+        List<String> out = keysInOrder();
+        if (out.equals(committed)) return; // dropped where it was: nothing to write, nothing to refresh
+        committed = out;
         save.accept(out);
     }
 

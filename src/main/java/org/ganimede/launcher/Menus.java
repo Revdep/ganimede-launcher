@@ -61,27 +61,23 @@ final class Menus {
 
     void forEntry(String entry) {
         if (entry.startsWith("f:")) folders.menu(entry.substring(2));
-        else if (entry.startsWith("s:")) shortcut(entry, null);
+        else if (entry.startsWith("s:")) shortcut(entry);
         else {
             Item it = apps.find(entry);
             if (it != null) app(it);
         }
     }
 
-    /** Long-press on a pinned shortcut or web app: put it in a folder, or take it away from where it is. */
-    void shortcut(String entry, String inFolder) {
+    /** Long-press on a pinned shortcut or web app: put it in a folder, or take it off the favourites. */
+    private void shortcut(String entry) {
         List<Sheets.Row> rows = new ArrayList<>();
         rows.add(item("folder", ui.tr("Add to pop-up folder…"), () -> folders.choose(entry)));
         rows.add(item("image", ui.tr("Icon…"), () -> icons.choose(entry)));
-        rows.add(item("close", inFolder == null ? ui.tr("Remove from favourites") : ui.tr("Remove from this folder"), () -> {
-            if (inFolder == null) {
-                List<String> f = layout.favourites();
-                f.remove(entry);
-                if (layout.classic()) layout.removeFromHome(entry);
-                saveFavourites(f);
-            } else if (layout.editFolderApps(inFolder, a -> a.remove(entry))) {
-                refresh.run();
-            }
+        rows.add(item("close", ui.tr("Remove from favourites"), () -> {
+            List<String> f = layout.favourites();
+            f.remove(entry);
+            if (layout.classic()) layout.removeFromHome(entry);
+            saveFavourites(f);
         }));
         sheets.show(Entries.shortcutName(entry), rows);
     }

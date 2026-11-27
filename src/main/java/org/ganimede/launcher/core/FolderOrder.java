@@ -23,9 +23,13 @@ public final class FolderOrder {
         return out;
     }
 
-    /** The stored entries with those in `shown` rearranged as `reordered`; entries that are not shown keep their place. */
+    /**
+     * The stored entries with the shown ones rearranged as `reordered`; entries that are not shown keep their place.
+     * If `reordered` names an entry that is no longer stored (the folder changed meanwhile) nothing changes.
+     */
     public static List<String> reorderShown(List<String> stored, List<String> reordered) {
         List<String> out = new ArrayList<>(stored);
+        if (stored.stream().filter(reordered::contains).count() != reordered.size()) return out;
         int next = 0;
         for (int i = 0; i < out.size(); i++) if (reordered.contains(out.get(i))) out.set(i, reordered.get(next++));
         return out;

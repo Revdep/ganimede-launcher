@@ -24,7 +24,6 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
 
 /** Pop-up folders: creating one, putting things in, its menu, and the pop-up itself (its widgets, then its apps). */
 final class Folders {
@@ -40,11 +39,9 @@ final class Folders {
     private final IconPicker icons;
     private final ClassicHome classic;
     private final Runnable refresh;
-    /** The menu of a pinned shortcut inside a folder: (entry, folder id). */
-    private final BiConsumer<String, String> shortcutMenu;
 
     Folders(Ui ui, Sheets sheets, Layout layout, Apps apps, Entries entries, Launcher launcher, Widgets widgets,
-            IconPicker icons, ClassicHome classic, Runnable refresh, BiConsumer<String, String> shortcutMenu) {
+            IconPicker icons, ClassicHome classic, Runnable refresh) {
         this.ui = ui;
         this.sheets = sheets;
         this.layout = layout;
@@ -55,7 +52,6 @@ final class Folders {
         this.icons = icons;
         this.classic = classic;
         this.refresh = refresh;
-        this.shortcutMenu = shortcutMenu;
     }
 
     private void save(String id, JSONObject f) {
@@ -318,19 +314,14 @@ final class Folders {
     private View folderEntry(String id, String key, boolean cell, Dialog[] dlg, FolderDrag drag) {
         if (key.startsWith("s:")) {
             View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP) : entries.shortcutRow(key, false);
-            drag.add(v, key, () -> { dlg[0].dismiss(); shortcutMenu.accept(key, id); });
+            drag.add(v, key);
             return v;
         }
         Item app = apps.find(key);
         if (app == null) return null;
         View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP) : entries.appRow(app, false);
         v.setOnClickListener(x -> { dlg[0].dismiss(); launcher.launch(app, x); });
-        drag.add(v, key, () -> { // pressed and released in place
-            if (!layout.editFolderApps(id, a -> a.remove(key))) return;
-            refresh.run();
-            dlg[0].dismiss();
-            ui.toast(ui.f("%s removed from the pop-up", apps.label(app)));
-        });
+        drag.add(v, key);
         return v;
     }
 }
