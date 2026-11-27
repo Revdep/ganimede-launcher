@@ -97,6 +97,28 @@ ink=$(colour_pixels "$OUT/icons-folder-inside.png" "#1B1820"); lav=$(colour_pixe
 [ "${ink:-0}" -gt 20 ] && [ "${lav:-0}" -le 20 ] && ok "folder thumbnails: drawn in the ink text colour ($ink px), not lavender ($lav px)" \
   || ko "folder thumbnails: ink ${ink:-0} px, lavender ${lav:-0} px (expected ink, no lavender)"
 
+# Issue 081: the picker offers every icon of the built-in set (no 4000 cap), found by name, saved by name.
+step "Picker reaches icons past 4000"
+seed classic
+setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
+CAL=com.google.android.calendar/com.android.calendar.AllInOneActivity
+capture_calendar "$OUT/icons-pick-before.png" || ko "picker: Calendar icon not found"
+read -r px py <<<"$(cx "desc:Calendar")"
+hold "$px" "$py"
+tap "Icona dell'app…"; tap "Arcticons (integrato)"
+wait_until 5 has "calendar" && tap "calendar" # the field starts with the app's name
+clear_text; A shell input text okay
+wait_until 10 hasd okay && ok "searching okay shows the okay icon, far past the 4000th name" || ko "searching okay finds no okay icon"
+read -r ox oy <<<"$(cx "desc:okay")"
+[ -n "$oy" ] && A shell input tap "$ox" "$oy"
+saved() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -qF "name=\"icon:$CAL\">$BUILTIN|okay<"; }
+wait_until 5 saved && ok "the pick is saved by name ($BUILTIN|okay)" || ko "the pick is not saved as $BUILTIN|okay"
+start_home
+capture_calendar "$OUT/icons-pick-after.png" || ko "picker: Calendar icon not found after the pick"
+d=$(fdiff "$OUT/icons-pick-before.png" "$OUT/icons-pick-after.png")
+[ "${d:-0}" -gt 0 ] && ok "the picked icon replaces Calendar's on the home ($d px)" || ko "the pick leaves Calendar's icon unchanged"
+shot 81-picked-icon
+
 step "APK size: the built-in set stays small"
 bin=$(unzip -lv "$APK" | awk '$NF == "assets/icons.bin" {print $3}') # its compressed size: what it adds to the APK
 [ -n "$bin" ] && [ "$bin" -lt 3000000 ] && ok "assets/icons.bin takes $bin bytes in the APK (< 3 MB)" || ko "assets/icons.bin takes '${bin}' bytes in the APK, expected < 3 MB"
