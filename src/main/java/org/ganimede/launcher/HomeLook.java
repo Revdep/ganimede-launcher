@@ -68,6 +68,7 @@ final class HomeLook {
             if (ui.light()) t.setShadowLayer(ui.dp(5), 0, ui.dp(1), 0x66000000); else t.setShadowLayer(0, 0, 0, 0);
         }
         list.search.setTextColor(fg);
+        list.search.setTypeface(ui.face);
         list.search.setHint(ui.tr("Search apps, contacts, shortcuts…")); // follows a language change at once
         list.search.setHintTextColor(Colors.alpha(fg, 0xAA));
         screen.alpha.accent = ui.accent;
@@ -76,6 +77,7 @@ final class HomeLook {
         screen.alpha.setVisibility(View.VISIBLE);
         screen.alpha.showLetters = listMode.getAsBoolean() || prefs.getBoolean("alpha_home", true);
         int tint = prefs.getInt("alpha_tint", 0);
+        screen.alpha.setFace(Typeface.create(ui.face, Typeface.BOLD));
         screen.alpha.color = tint == 0 ? fg : tint;
         screen.alpha.sizeSp = prefs.getInt("alpha_size", 16);
         screen.alpha.offsetDp = prefs.getInt("alpha_offset", 0);

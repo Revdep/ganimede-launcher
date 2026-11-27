@@ -39,6 +39,7 @@ final class QuickButton {
         };
         view = new TextView(ui.a);
         view.setText("✳");
+        view.setTypeface(ui.face);
         view.setTextSize(24);
         view.setGravity(Gravity.CENTER);
         view.setClipToOutline(true);

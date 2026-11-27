@@ -112,14 +112,14 @@ final class Outlook {
         LinearLayout box = new LinearLayout(ui.a);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPaddingRelative(0, ui.dp(8), 0, ui.dp(8)); // the dialog gives the sides
-        TextView now = new TextView(ui.a);
+        TextView now = popupText();
         now.setTextSize(30);
         now.setText(Wx.sym(k) + " " + Wx.temp(w.optDouble("t"), f) + "  " + ui.tr(Wx.txt(k)));
         box.addView(now);
         StringBuilder sub = new StringBuilder();
         if (w.optInt("hum", -1) >= 0) sub.append(ui.f("Humidity %d%%", w.optInt("hum"))).append("   ");
         if (w.optDouble("wind", -1) >= 0) sub.append(ui.f("Wind %d km/h", Math.round(w.optDouble("wind"))));
-        TextView st = new TextView(ui.a);
+        TextView st = popupText();
         st.setText(sub);
         st.setPaddingRelative(0, ui.dp(4), 0, ui.dp(10));
         box.addView(st);
@@ -133,7 +133,7 @@ final class Outlook {
             for (int i = 0; i < stamps.length; i++) stamps[i] = hours.optJSONObject(i).optLong("ts");
             for (int i : Wx.hoursAhead(stamps, System.currentTimeMillis())) {
                 JSONObject h = hours.optJSONObject(i);
-                TextView cell = new TextView(ui.a);
+                TextView cell = popupText();
                 cell.setGravity(Gravity.CENTER);
                 cell.setPaddingRelative(ui.dp(10), ui.dp(4), ui.dp(10), ui.dp(4));
                 int pp = h.optInt("pp", -1);
@@ -152,7 +152,7 @@ final class Outlook {
         for (int i = today; days != null && i < days.length(); i++) {
             JSONObject d = days.optJSONObject(i);
             if (d == null) { c.add(Calendar.DAY_OF_MONTH, 1); continue; } // a day Breezy sent broken
-            TextView t = new TextView(ui.a);
+            TextView t = popupText();
             t.setTextSize(16);
             t.setPaddingRelative(0, ui.dp(5), 0, ui.dp(5));
             t.setText((i == today ? ui.tr("Today") : dayName.format(c.getTime())) + "     " + Wx.sym(d.optInt("k", 3)) + "     "
@@ -160,7 +160,7 @@ final class Outlook {
             box.addView(t);
             c.add(Calendar.DAY_OF_MONTH, 1);
         }
-        TextView src = new TextView(ui.a);
+        TextView src = popupText();
         src.setText(ui.f("Source: %s · updated %s", w.optString("src"), Prefs.time(ui.a, w.optLong("time"))));
         src.setAlpha(0.7f);
         src.setPaddingRelative(0, ui.dp(10), 0, 0);
@@ -268,9 +268,9 @@ final class Outlook {
             if (!day.equals(lastDay)) {
                 lastDay = day;
                 int off = Wx.daysBetween(now, start);
-                TextView h = new TextView(ui.a);
+                TextView h = popupText();
                 h.setTextSize(16);
-                h.setTypeface(Typeface.DEFAULT_BOLD);
+                h.setTypeface(Typeface.create(ui.face, Typeface.BOLD));
                 h.setTextColor(ui.accent);
                 h.setPaddingRelative(0, ui.dp(16), 0, ui.dp(4));
                 String wx = "";
@@ -283,7 +283,7 @@ final class Outlook {
                 h.setText((off == 0 ? ui.tr("Today") : off == 1 ? ui.tr("Tomorrow") : day) + wx);
                 box.addView(h);
             }
-            TextView t = new TextView(ui.a);
+            TextView t = popupText();
             t.setTextSize(16);
             String when = e.allDay ? ui.tr("All day") : Prefs.time(ui.a, e.begin)
                     + "–" + Prefs.time(ui.a, e.end);
@@ -297,7 +297,7 @@ final class Outlook {
             box.addView(t);
         }
         if (events.isEmpty()) {
-            TextView t = new TextView(ui.a);
+            TextView t = popupText();
             t.setText(ui.tr("No events in the next two weeks."));
             t.setPaddingRelative(0, ui.dp(12), 0, ui.dp(12));
             box.addView(t);
@@ -311,5 +311,12 @@ final class Outlook {
                 .setNeutralButton(ui.tr("Calendar"), (d, x) -> ui.open(calendarNow()))
                 .setNegativeButton(ui.tr("Close"), null)
                 .show();
+    }
+
+    /** A text of the weather and agenda pop-ups, in the home's font. */
+    private TextView popupText() {
+        TextView t = new TextView(ui.a);
+        t.setTypeface(ui.face);
+        return t;
     }
 }

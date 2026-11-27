@@ -174,7 +174,7 @@ final class SettingsLook {
         Typeface[] faces = new Typeface[FONTS.length];
         String[] samples = new String[FONTS.length];
         for (int i = 0; i < FONTS.length; i++) {
-            faces[i] = Typeface.create(FONTS[i], Typeface.NORMAL);
+            faces[i] = Ui.font(FONTS[i]);
             samples[i] = "12:30 · Aa Bb Cc 123";
         }
         String selected = kit.prefs().getString(key, kit.prefs().getString("font", "sans-serif"));

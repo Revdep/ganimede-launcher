@@ -39,7 +39,7 @@ final class Ui {
     void read() {
         fg = darkText(prefs) ? Colors.INK : Colors.WHITE;
         accent = accent(prefs);
-        face = Typeface.create(prefs.getString("font", "sans-serif"), Typeface.NORMAL);
+        face = font(prefs.getString("font", "sans-serif"));
         shape = prefs.getString("icon_shape", Icons.DEFAULT_SHAPE);
         themedShape = prefs.getString("themed_shape", Icons.DEFAULT_THEMED_SHAPE);
     }
@@ -84,6 +84,11 @@ final class Ui {
 
     boolean haptics() {
         return prefs.getBoolean("haptics", true);
+    }
+
+    /** The typeface a font choice names (the one place a font preference becomes a Typeface). */
+    static Typeface font(String name) {
+        return Typeface.create(name, Typeface.NORMAL);
     }
 
     /** Text on the wallpaper, in the theme's colour and font. */
