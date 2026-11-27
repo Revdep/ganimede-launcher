@@ -256,13 +256,17 @@ final class AppList {
      * the first few, or all of them after "Show all". The count comes from the cursor; the rest are not read.
      */
     private ContactHits queryContacts(String q, boolean all) {
+        return queryContacts(q, all, REACHABLE);
+    }
+
+    private ContactHits queryContacts(String q, boolean all, String where) {
         List<Long> ids = new ArrayList<>();
         List<Uri> looks = new ArrayList<>();
         List<String> names = new ArrayList<>();
         int count = 0;
         Uri u = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(q));
         try (Cursor c = ui.a.getContentResolver().query(u, new String[]{ContactsContract.Contacts._ID,
-                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY}, REACHABLE, null,
+                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY}, where, null,
                 ContactsContract.Contacts.STARRED + " DESC, " + ContactsContract.Contacts.SORT_KEY_PRIMARY)) {
             if (c != null) count = c.getCount();
             while (c != null && ids.size() < Search.shownContacts(count, all) && c.moveToNext()) {
@@ -270,8 +274,8 @@ final class AppList {
                 looks.add(ContactsContract.Contacts.getLookupUri(c.getLong(0), c.getString(1)));
                 names.add(c.getString(2));
             }
-        } catch (Exception unavailable) { // contacts provider busy or gone
-            return null;
+        } catch (Exception unavailable) { // provider busy or gone; or one without the AOSP view_data table: then unfiltered
+            return where != null ? queryContacts(q, all, null) : null;
         }
         Map<String, String> data = contactData(ids);
         List<Extra> people = new ArrayList<>();
