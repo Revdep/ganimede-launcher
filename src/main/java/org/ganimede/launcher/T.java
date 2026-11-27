@@ -207,6 +207,7 @@ final class T {
         it("Yes, choose apps", "Sì, scegli le app");
         it("Later", "Più tardi");
         it("Added to %s", "Aggiunta a %s");
+        it("Remove from this folder", "Rimuovi dalla cartella");
         it("Add “%s”", "Aggiungi “%s”");
         it("Added", "Aggiunto");
         it("Add", "Aggiungi");

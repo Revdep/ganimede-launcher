@@ -33,6 +33,14 @@ public final class Gestures {
         return Math.abs(primary) > slop && Math.abs(primary) > Math.abs(cross);
     }
 
+    /**
+     * After a long-press opened an icon's menu, the finger moved (dx, dy): from the slop on, in any direction, the menu
+     * closes and the icon is picked up to be dragged; short of it, the press was held in place and the menu stays.
+     */
+    public static boolean pickedUp(float dx, float dy, float slop) {
+        return Math.hypot(dx, dy) >= slop;
+    }
+
     /** A tap answers at once unless a double or triple tap is set and fewer than three taps came. */
     public static boolean firesNow(int taps, boolean multi) {
         return !multi || taps >= 3;

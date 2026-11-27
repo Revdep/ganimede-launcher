@@ -3,7 +3,7 @@
 pstr() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | sed 's/^[^>]*>//'; } # a string pref, XML-escaped
 nfold() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -c 'name="folder:'; }                         # stored folders
 fid() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o 'name="folder:[0-9]*' | head -1 | grep -o '[0-9]*$'; }
-hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu
+hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu (home or pop-up)
 clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
 APPS="Calendar:com.google.android.calendar Clock:com.google.android.deskclock Contacts:com.google.android.contacts"
 
@@ -299,11 +299,32 @@ for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and 
   tap Ordine; wait_until 5 has "Calendar"; wait_until 5 settled # the pop-up opens with an animation
   read -r ax ay <<<"$(cx Calendar)"
   has "Clock" && has "Contacts" && [ -n "$ax" ] && ok "$mode: the pop-up opens again with all its icons, nothing left floating" || ko "$mode: the reopened pop-up lost an icon"
-  # pressed and released in place: nothing happens, nothing is lost by hesitating
-  still=$(order); hold "$ax" "$ay"; wait_until 5 settled
+  # pressed and released in place: the icon's menu, as on the home, with "Rimuovi dalla cartella"; nothing is taken out
+  still=$(order); hold "$ax" "$ay"
+  wait_until 5 has "Rimuovi dalla cartella" && ok "$mode: long-press in place opens Calendar's menu, with Rimuovi dalla cartella" || ko "$mode: no menu after a long-press in place"
   [ "$(order)" = "$still" ] && ok "$mode: long-press without moving keeps the order ($still)" || ko "$mode: order after a still long-press $(order), was $still"
-  has "Calendar" && has "Clock" && has "Contacts" && ok "$mode: all apps still in the open pop-up, no menu" || ko "$mode: the pop-up lost an icon or closed"
+  A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Rimuovi dalla cartella"
+  has "Calendar" && has "Clock" && has "Contacts" && ok "$mode: menu closed, all apps still in the open pop-up" || ko "$mode: the pop-up lost an icon or closed"
 done
+
+step "Folders: an icon's menu in the pop-up takes it out with Rimuovi dalla cartella, an app or a pinned shortcut (082)"
+seed classic
+setp string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}'
+setp string fav 'f:sc'
+setp del grid
+tap Scorciatoie; expect "Zz Posta"; wait_until 5 settled
+read -r ax ay <<<"$(cx "Zz Posta")"; hold "$ax" "$ay"
+wait_until 5 has "Rimuovi dalla cartella" && ok "the shortcut's menu has Rimuovi dalla cartella" || ko "no Rimuovi dalla cartella in the shortcut's menu"
+tap "Rimuovi dalla cartella"
+gone() { ! pstr folder:sc | grep -q "$1"; }
+wait_until 5 gone zz1 && ok "the shortcut is no longer stored" || ko "folder:sc = $(pstr folder:sc)"
+wait_until 5 has "Calendar"; wait_until 5 settled # the pop-up opens again with the result
+hasnt "Zz Posta" && has "Clock" && ok "the pop-up shows it gone, Clock still there" || ko "pop-up after removing the shortcut"
+read -r ax ay <<<"$(cx Clock)"; hold "$ax" "$ay"
+wait_until 5 has "Rimuovi dalla cartella" && ok "Clock's menu has Rimuovi dalla cartella" || ko "no Rimuovi dalla cartella in Clock's menu"
+tap "Rimuovi dalla cartella"
+wait_until 5 gone deskclock && ok "Clock is no longer stored" || ko "folder:sc = $(pstr folder:sc)"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
 step "Folders: Choose apps lists the folder's pinned shortcuts; unchecking one takes it out, the order stays (082)"
 seed classic

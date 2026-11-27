@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.Gestures;
 
 import android.content.ClipData;
 import android.graphics.drawable.Drawable;
@@ -137,7 +138,7 @@ final class DragDrop {
         if (a == MotionEvent.ACTION_DOWN) { armed[0] = false; return false; }
         if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) { armed[0] = false; return false; }
         if (a != MotionEvent.ACTION_MOVE || !armed[0]) return false;
-        if (Math.hypot(e.getRawX() - down[0], e.getRawY() - down[1]) < ui.slop()) return true;
+        if (!Gestures.pickedUp(e.getRawX() - down[0], e.getRawY() - down[1], ui.slop())) return true;
         armed[0] = false;
         sheets.dismissLast();
         start(v, entry, where);
@@ -183,7 +184,7 @@ final class DragDrop {
             }
             float distance = (float) Math.hypot(e.getRawX() - x, e.getRawY() - y);
             if (action == MotionEvent.ACTION_MOVE && !armed && distance > ui.slop()) handler.removeCallbacks(longPress);
-            if (action == MotionEvent.ACTION_MOVE && armed && distance >= ui.slop()) {
+            if (action == MotionEvent.ACTION_MOVE && armed && Gestures.pickedUp(e.getRawX() - x, e.getRawY() - y, ui.slop())) {
                 armed = false;
                 handler.removeCallbacks(longPress);
                 sheets.dismissLast();

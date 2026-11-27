@@ -24,6 +24,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 /** Pop-up folders: creating one, putting things in, its menu, and the pop-up itself (its widgets, then its apps). */
 final class Folders {
@@ -39,9 +40,12 @@ final class Folders {
     private final IconPicker icons;
     private final ClassicHome classic;
     private final Runnable refresh;
+    /** The long-press menu of an entry inside a folder: (entry, folder id). */
+    private final BiConsumer<String, String> entryMenu;
+    private Dialog popup; // the pop-up last opened
 
     Folders(Ui ui, Sheets sheets, Layout layout, Apps apps, Entries entries, Launcher launcher, Widgets widgets,
-            IconPicker icons, ClassicHome classic, Runnable refresh) {
+            IconPicker icons, ClassicHome classic, Runnable refresh, BiConsumer<String, String> entryMenu) {
         this.ui = ui;
         this.sheets = sheets;
         this.layout = layout;
@@ -52,6 +56,14 @@ final class Folders {
         this.icons = icons;
         this.classic = classic;
         this.refresh = refresh;
+        this.entryMenu = entryMenu;
+    }
+
+    /** "Remove from this folder" in an entry's menu: out of the folder, and an open pop-up shows it gone. */
+    void remove(String id, String entry) {
+        if (!layout.editFolderApps(id, a -> a.remove(entry))) return;
+        refresh.run();
+        if (popup != null && popup.isShowing()) { popup.dismiss(); show(id); }
     }
 
     private void save(String id, JSONObject f) {
@@ -256,7 +268,7 @@ final class Folders {
         }
         Dialog[] dlg = new Dialog[1];
         List<View> appViews = new ArrayList<>();
-        FolderDrag drag = new FolderDrag(ui, shown -> {
+        FolderDrag drag = new FolderDrag(ui, entry -> entryMenu.accept(entry, id), sheets::dismissLast, shown -> {
             layout.editFolderApps(id, a -> { List<String> sorted = FolderOrder.reorderShown(a, shown); a.clear(); a.addAll(sorted); });
             refresh.run();
         });
@@ -309,6 +321,7 @@ final class Folders {
         }
         dlg[0] = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
         dlg[0].show();
+        popup = dlg[0];
     }
 
     private View folderEntry(String id, String key, boolean cell, Dialog[] dlg, FolderDrag drag) {

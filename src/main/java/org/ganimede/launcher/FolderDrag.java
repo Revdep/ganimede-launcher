@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.FolderOrder;
+import org.ganimede.launcher.core.Gestures;
 
 import android.os.Bundle;
 import android.view.HapticFeedbackConstants;
@@ -16,9 +17,10 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Reordering the icons of an open pop-up folder: long-press an icon and move; it follows the finger but stays inside the
- * folder's grid, the others make room, and the new order is saved on release. Released without moving, the long-press
- * does nothing. TalkBack gets "Move up" / "Move down" instead of the drag.
+ * Reordering the icons of an open pop-up folder, the way the home does it (DragDrop, as Launcher3): a long-press opens
+ * the icon's menu at once; held in place and released, the menu stays. Moving past the touch slop closes the menu and
+ * picks the icon up: it follows the finger but stays inside the folder's grid, the others make room, and the new order
+ * is saved on release. TalkBack gets "Move up" / "Move down" instead of the drag.
  */
 final class FolderDrag {
     private final Ui ui;
@@ -26,6 +28,8 @@ final class FolderDrag {
     private final List<String> keys = new ArrayList<>();
     private final List<View> order = new ArrayList<>();  // as shown now
     private final Consumer<List<String>> save;           // the keys in their new order
+    private final Consumer<String> menu;                 // opens an entry's long-press menu
+    private final Runnable closeMenu;                    // closes it again when the icon is picked up
     private float[] sx, sy;                              // top-left of each layout slot on screen
     private List<String> committed;                      // the keys as last saved
     private List<View> before;                         // the order when the drag began, to go back to on cancel
@@ -34,8 +38,10 @@ final class FolderDrag {
     private boolean dragging;
     private float downX, downY, baseX, baseY;
 
-    FolderDrag(Ui ui, Consumer<List<String>> save) {
+    FolderDrag(Ui ui, Consumer<String> menu, Runnable closeMenu, Consumer<List<String>> save) {
         this.ui = ui;
+        this.menu = menu;
+        this.closeMenu = closeMenu;
         this.save = save;
     }
 
@@ -51,8 +57,10 @@ final class FolderDrag {
         order.add(v);
         committed = new ArrayList<>(keys);
         v.setOnLongClickListener(x -> {
-            if (x != touched) return true; // a finger that came down later elsewhere owns downX/downY
+            if (touched != null && x != touched) return true; // a finger that came down later elsewhere owns downX/downY
             if (ui.haptics()) x.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            menu.accept(keys.get(views.indexOf(x)));
+            if (x != touched) return true; // TalkBack's long-press: no finger is down, nothing to drag
             held = x;
             x.getParent().requestDisallowInterceptTouchEvent(true); // the pop-up doesn't scroll away with the finger
             return true;
@@ -92,7 +100,10 @@ final class FolderDrag {
             touched = v; dragging = false; active = e.getPointerId(0); downX = e.getRawX(); downY = e.getRawY();
             return false;
         }
-        if (held == null) return false;
+        if (held == null) {
+            if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) touched = null;
+            return false;
+        }
         if (a == MotionEvent.ACTION_POINTER_DOWN) return true; // a second finger on the held icon doesn't take it
         if (a == MotionEvent.ACTION_POINTER_UP) { // the holding finger lifts: the other one carries on from where it is
             int up = e.getActionIndex();
@@ -108,13 +119,13 @@ final class FolderDrag {
             int i = e.findPointerIndex(active);
             if (i < 0) return true;
             float dx = rawX(e, i) - downX, dy = rawY(e, i) - downY;
-            if (!dragging && Math.hypot(dx, dy) < ui.slop()) return true;
-            if (!dragging) lift(v);
+            if (!dragging && !Gestures.pickedUp(dx, dy, ui.slop())) return true; // held in place: the menu stays
+            if (!dragging) { closeMenu.run(); lift(v); }
             follow(v, dx, dy);
             return true;
         }
         boolean wasDragging = dragging;
-        held = null;
+        held = touched = null;
         dragging = false;
         if (wasDragging) drop(v, a == MotionEvent.ACTION_UP);
         return true;
