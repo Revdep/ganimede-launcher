@@ -2,11 +2,13 @@ package org.ganimede.launcher;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
+import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.LinearLayout;
 
@@ -16,6 +18,8 @@ import java.util.Set;
 final class SettingsPerms {
     static final int REQ_PERM = 23, REQ_HOME = 24;
     private final SettingsKit kit;
+    private AlertDialog explaining; // the open notification-access or Quick Lock explanation, what it is for in explainKind/explainKey
+    private String explainKind, explainKey;
 
     SettingsPerms(SettingsKit kit) {
         this.kit = kit;
@@ -85,23 +89,45 @@ final class SettingsPerms {
 
     private void homeList() { Ui.start(kit.activity(), new Intent(Settings.ACTION_HOME_SETTINGS)); }
 
-    void fixNotif() { Ui.explainNotif(kit.activity(), null); }
+    void fixNotif() { explain("notif", null); }
 
     /**
      * Toggle callback for a feature that needs notification access: switching it on without access explains first;
      * if the person does not go on, the switch goes back off.
      */
-    Runnable needNotif(String key, Runnable then) { return guard(key, this::notifAllowed, Ui::explainNotif, then); }
+    Runnable needNotif(String key, Runnable then) { return guard(key, this::notifAllowed, "notif", then); }
 
     /** Same for Accessibility (Quick Lock). */
-    Runnable needLock(String key, Runnable then) { return guard(key, this::lockAllowed, Ui::explainLock, then); }
+    Runnable needLock(String key, Runnable then) { return guard(key, this::lockAllowed, "lock", then); }
 
-    private Runnable guard(String key, java.util.function.BooleanSupplier allowed, java.util.function.BiConsumer<Activity, Runnable> explain, Runnable then) {
+    private Runnable guard(String key, java.util.function.BooleanSupplier allowed, String kind, Runnable then) {
         return () -> {
-            if (kit.prefs().getBoolean(key, false) && !allowed.getAsBoolean())
-                explain.accept(kit.activity(), () -> { kit.save(key, false); kit.render(); });
+            if (kit.prefs().getBoolean(key, false) && !allowed.getAsBoolean()) explain(kind, key);
             if (then != null) then.run();
         };
+    }
+
+    /** The explanation of kind "notif" or "lock"; if the person does not go on, the switch key (may be null) goes back off. */
+    private void explain(String kind, String key) {
+        Runnable declined = key == null ? null : () -> {
+            kit.save(key, false);
+            if (!kit.activity().isDestroyed()) kit.render(); // also run from onDestroy, where the page is not built again
+        };
+        explaining = kind.equals("lock") ? Ui.explainLock(kit.activity(), declined) : Ui.explainNotif(kit.activity(), declined);
+        explainKind = kind;
+        explainKey = key;
+    }
+
+    /** An explanation open now, for a rebuilt screen (rotation) to show again. */
+    void save(Bundle out) {
+        if (explaining == null || !explaining.isShowing()) return;
+        out.putString("explain", explainKind);
+        out.putString("explain_key", explainKey);
+    }
+
+    /** Shows again what save kept. */
+    void reopen(Bundle in) {
+        if (in.getString("explain") != null) explain(in.getString("explain"), in.getString("explain_key"));
     }
 
     /** The media-player switch, with the notification-access row under it while the player is on without access. */
@@ -115,7 +141,7 @@ final class SettingsPerms {
     void homeRow(LinearLayout c, String why) { kit.perm(c, isHome(), kit.ui.tr("Default home app"), kit.ui.tr(why), this::fixHome); }
     void notifRow(LinearLayout c, String why) { kit.perm(c, notifAllowed(), kit.ui.tr("Notification access"), kit.ui.tr(why), this::fixNotif); }
 
-    void fixLock() { Ui.explainLock(kit.activity(), null); }
+    void fixLock() { explain("lock", null); }
 
     void ask(String perm) {
         if (granted(perm)) return;
