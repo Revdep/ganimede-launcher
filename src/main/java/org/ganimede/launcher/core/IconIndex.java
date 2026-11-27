@@ -29,9 +29,9 @@ public final class IconIndex {
         return h & 0xFFFFFFFFFFFFL;
     }
 
-    /** The icon id for an activity; {@code cls} may be short (".Main"), as in appfilter.xml. */
+    /** The icon id for an activity; {@code cls} is the full class name, as ComponentName.getClassName gives it. */
     public OptionalInt find(String pkg, String cls) {
-        int i = Arrays.binarySearch(hashes, fnv48(pkg + "/" + (cls.startsWith(".") ? pkg + cls : cls)));
+        int i = Arrays.binarySearch(hashes, fnv48(pkg + "/" + cls));
         if (i < 0) i = Arrays.binarySearch(hashes, fnv48(pkg));
         return i < 0 ? OptionalInt.empty() : OptionalInt.of(ids[i]);
     }

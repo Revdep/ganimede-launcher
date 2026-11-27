@@ -54,13 +54,16 @@ def painted(v):
 
 
 def style_of(el, classes, inherited):
-    """Presentation attributes, then classes, then style="": the later wins, as in SVG."""
-    s = dict(inherited)
-    for c in (el.get("class") or "").split():
-        s.update(classes.get(c, {}))
+    """Inherited, then presentation attributes, then class rules, then style="": the later wins, as in CSS.
+
+    opacity is not inherited: collect multiplies it down the tree.
+    """
+    s = {k: v for k, v in inherited.items() if k != "opacity"}
     for k in ("fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity"):
         if el.get(k) is not None:
             s[k] = el.get(k)
+    for c in (el.get("class") or "").split():
+        s.update(classes.get(c, {}))
     for p in (el.get("style") or "").split(";"):
         if ":" in p:
             k, v = p.split(":", 1)
@@ -275,16 +278,20 @@ def parse_d(d):
     return ops
 
 
-def collect(el, classes, inherited, m, out):
-    """Appends (style, width, alpha, ops) for each painted shape under el, in document order, transforms applied."""
+def collect(el, classes, inherited, m, alpha, out):
+    """Appends (style, width, alpha, ops) for each painted shape under el, in document order, transforms applied.
+
+    alpha is the product of the ancestors' opacity; a shape whose fill and stroke differ in opacity becomes two paths.
+    """
     tag = el.tag.replace(NS, "")
     if tag in ("defs", "style", "title", "desc", "metadata", "clipPath", "mask") or tag.startswith("{"):
         return
     st = style_of(el, classes, inherited)
     m = mul(m, matrix(el.get("transform")))
+    alpha *= num(st.get("opacity"), 1.0)
     if tag in ("g", "svg"):
         for ch in el:
-            collect(ch, classes, st, m, out)
+            collect(ch, classes, st, m, alpha, out)
         return
     width = num(st.get("stroke-width"), 1.0)
     stroked = painted(st.get("stroke")) and width > 0
@@ -293,7 +300,11 @@ def collect(el, classes, inherited, m, out):
         return
     if st.get("fill-rule") == "evenodd":
         style |= EVEN_ODD
-    alpha = num(st.get("opacity"), 1.0) * num(st.get("stroke-opacity" if stroked else "fill-opacity"), 1.0)
+    fill_alpha, stroke_alpha = alpha * num(st.get("fill-opacity"), 1.0), alpha * num(st.get("stroke-opacity"), 1.0)
+    if style & FILL and stroked and fill_alpha != stroke_alpha:
+        parts = [(style & ~STROKE, fill_alpha), (STROKE, stroke_alpha)]  # SVG paints the fill, then the stroke
+    else:
+        parts = [(style, stroke_alpha if stroked else fill_alpha)]
     rigid = abs(m[1]) < 1e-9 and abs(m[2]) < 1e-9
     if tag in ("circle", "ellipse") and rigid:
         a = el.attrib
@@ -303,7 +314,7 @@ def collect(el, classes, inherited, m, out):
         if rx > 0 and ry > 0:
             box = (m[0] * (cx - rx) + m[4], m[3] * (cy - ry) + m[5], m[0] * (cx + rx) + m[4], m[3] * (cy + ry) + m[5])
             box = (min(box[0], box[2]), min(box[1], box[3]), max(box[0], box[2]), max(box[1], box[3]))
-            out.append((style, width * math.sqrt(abs(m[0] * m[3])), alpha, [("O",) + box]))
+            out += [(paint, width * math.sqrt(abs(m[0] * m[3])), a, [("O",) + box]) for paint, a in parts]
         return
     d = shape_path(tag, el.attrib)
     if not d:
@@ -316,7 +327,7 @@ def collect(el, classes, inherited, m, out):
             tp += [m[0] * pts[k] + m[2] * pts[k + 1] + m[4], m[1] * pts[k] + m[3] * pts[k + 1] + m[5]]
         ops.append((op[0],) + tuple(tp))
     if ops:
-        out.append((style, width * math.sqrt(abs(m[0] * m[3] - m[1] * m[2])), alpha, ops))
+        out += [(paint, width * math.sqrt(abs(m[0] * m[3] - m[1] * m[2])), a, ops) for paint, a in parts]
 
 
 def icon_paths(svg_file):
@@ -327,7 +338,7 @@ def icon_paths(svg_file):
     vb = [float(v) for v in (root.get("viewBox") or "0 0 48 48").replace(",", " ").split()]
     sx, sy = 48 / vb[2], 48 / vb[3]  # a few icons are drawn on 43x43 or 44x44
     paths = []
-    collect(root, classes, {}, (sx, 0, 0, sy, -vb[0] * sx, -vb[1] * sy), paths)
+    collect(root, classes, {}, (sx, 0, 0, sy, -vb[0] * sx, -vb[1] * sy), 1.0, paths)
     return paths
 
 

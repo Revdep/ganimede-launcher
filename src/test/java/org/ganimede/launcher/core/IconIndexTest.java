@@ -26,7 +26,6 @@ public class IconIndexTest {
     public static void testComponentOverride() {
         eq("arc", found("pkgB", "pkgB.X"), "pkgB/.X");
         eq("oval", found("pkgB", "pkgB.Y"), "pkgB/.Y");
-        eq("oval", found("pkgB", ".Y"), "the short form names the same component");
     }
 
     public static void testMiss() {

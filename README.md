@@ -53,7 +53,8 @@ I test del nucleo (`coreTest`) girano prima di ogni build. Gli APK finiscono nel
 ## Icone integrate
 
 `src/main/assets/icons.bin` contiene le icone di [Arcticons](https://github.com/Arcticons-Team/Arcticons)
-(Donnnno e collaboratori, licenza [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)), convertite da
+(Donnnno e collaboratori, licenza [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), vedi
+[LICENSE-ARCTICONS](LICENSE-ARCTICONS)), convertite da
 `tools/icons/pack.py` dal commit `da2fa5694ccfea800a9b88f556131a20908e95c1`. Per rigenerarle, da un clone di
 Arcticons a quel commit:
 

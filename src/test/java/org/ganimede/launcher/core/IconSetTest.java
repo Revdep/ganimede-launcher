@@ -93,6 +93,28 @@ public class IconSetTest {
         eq(Op.MOVE_CLOSED, paths.get(2).ops()[0], "ends where it started (within 1/32): closed");
     }
 
+    public static void testClassRulesOverridePresentationAttributes() {
+        List<PathData> paths = icon("classwins");
+        eq(1, paths.size(), "one path");
+        yes(paths.get(0).stroke() && !paths.get(0).fill(), "fill=\"#fff\" loses to the class rule fill:none, as in CSS");
+    }
+
+    public static void testGroupOpacityMultiplies() {
+        float alpha = icon("opacity").get(0).alpha();
+        yes(Math.abs(alpha - 0.25f) <= 1 / 255f, "opacity .5 inside a group at .5 is .25, got " + alpha);
+    }
+
+    public static void testFillAndStrokeKeepTheirOwnOpacity() {
+        List<PathData> paths = icon("twoalpha");
+        eq(2, paths.size(), "one shape with two opacities becomes two paths");
+        PathData fill = paths.get(0), stroke = paths.get(1);
+        yes(fill.fill() && !fill.stroke(), "the fill first, as SVG paints it");
+        yes(Math.abs(fill.alpha() - 0.5f) <= 1 / 255f, "fill-opacity .5, got " + fill.alpha());
+        yes(stroke.stroke() && !stroke.fill(), "then the stroke");
+        eq(1f, stroke.alpha(), "the stroke stays opaque");
+        eq(fill.ops(), stroke.ops(), "same outline");
+    }
+
     public static void testRealAssetDecodesAll() {
         IconSet set = load("src/main/assets/icons.bin");
         eq(15459, set.count(), "one icon per SVG in Arcticons icons/white at the pinned commit");
