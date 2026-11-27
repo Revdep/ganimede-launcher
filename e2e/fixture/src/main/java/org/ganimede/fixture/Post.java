@@ -22,7 +22,7 @@ import java.io.IOException;
  * note B; (b) "Ciao", A, B; (c) "Ciao", a bare link, A, B; (d) a text with a link, A; (e) as (a), the app revoking the
  * read grant of its earlier notes before each re-post; (f) as (a), the link message carrying a preview image as its data;
  * (h) one note whose stream never ends (Notes "hang.wav"); (s) a note sent slowly (Notes "slow.wav"), then note A;
- * (x) one note whose provider never opens it (Notes "block.wav").
+ * (x) one note whose provider takes 20 s to fail its open (Notes "block.wav").
  * `--ei id n` posts under another id (default 1); `--ez cancel true` cancels that id instead of posting.
  * The notes are silent WAVs of 30 and 40 s: their sizes tell which one plays, and they last long enough to be checked
  * while playing.

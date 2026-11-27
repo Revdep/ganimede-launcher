@@ -17,15 +17,16 @@ import java.util.List;
 
 /**
  * Serves the voice notes Post wrote, read-only, to whoever the system granted them (the notification listeners).
- * "hang.wav" is a hostile one: a stream that never ends nor sends a byte. "block.wav" never opens: openFile never
- * returns. "slow.wav" is 1 s of silence sent over 5 s, so a copy of it is still running seconds after the post.
+ * "hang.wav" is a hostile one: a stream that never ends nor sends a byte. "block.wav" opens only after 20 s, far past
+ * any copy's time limit, then fails. "slow.wav" is 1 s of silence sent over 5 s, so a copy of it is still running seconds after the post.
  */
 public final class Notes extends ContentProvider {
     private static final List<ParcelFileDescriptor> open = new ArrayList<>(); // write ends held: closed, the reader would see the end
 
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         if (uri.getPath().endsWith("/block.wav")) {
-            while (true) SystemClock.sleep(60_000); // ignores any cancellation, as a hostile app would
+            SystemClock.sleep(20_000); // ignores any cancellation, as a hostile app would
+            throw new FileNotFoundException("blocked");
         }
         if (uri.getPath().endsWith("/hang.wav") || uri.getPath().endsWith("/slow.wav")) {
             try {

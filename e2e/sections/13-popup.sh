@@ -196,11 +196,13 @@ voice --es shape s; wait_until 5 kept_is 1 || ko "the slow note's copy did not s
 A shell am broadcast -n $FIX/.Post --ez cancel true >/dev/null # gone while the copy runs (about 5 s)
 wait_until 15 kept_is 0 && ok "the copy that ended after its notification went is deleted" || ko "kept after the notification went: $(kept)"
 
-step "A note whose app never opens it stalls nothing (fixture app)"
+step "A note whose app does not open it stalls nothing; that app's notes wait until the open returns (fixture app)"
 wipe; wait_until 10 kept_is 0
-voice --es shape x
-voice # the chat again, two good notes, queued behind the open that never returns
-wait_until 25 kept_is 2 && ok "the open was given up: the next notes are kept" || ko "kept after a note that never opens: $(kept)"
+voice --es shape x # its open returns after 20 s
+voice # the chat again, two good notes, queued behind that open
+# no event marks "skipped": without the bound they are copied once the open is given up (11 s), well within 16 s
+wait_until 16 eval '! kept_is 0' && ko "copied while the app's open still hangs: $(kept)" || ok "the app's next notes are not copied while its open hangs"
+wait_until 20 eval 'voice; kept_is 2' && ok "re-posted until its open returned: the app's notes are kept again" || ko "kept after the open returned: $(kept)"
 
 step "Summary holds a chat with voice notes: they are kept before it is snoozed (fixture app)"
 wipe; wait_until 10 kept_is 0

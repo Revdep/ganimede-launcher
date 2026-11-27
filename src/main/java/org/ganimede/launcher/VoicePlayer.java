@@ -19,6 +19,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Parcelable;
 import android.os.Process;
@@ -59,8 +60,9 @@ import java.util.concurrent.TimeoutException;
 final class VoicePlayer {
     // Copies on arrival and deletions, in order: a deletion queued after a copy sees its file. Each copy waits at most COPY_MS.
     private static final ExecutorService KEEPER = Executors.newSingleThreadExecutor();
-    private static final Handler WATCHDOG = new Handler(Looper.getMainLooper());
-    private static final Set<String> COPYING = ConcurrentHashMap.newKeySet(); // kept copies whose thread has not returned
+    private static final Handler WATCHDOG = watchdog(); // off the main thread: a busy screen must not delay a cut
+    private static final Set<String> BUSY = ConcurrentHashMap.newKeySet(); // apps with a kept copy whose thread has not returned
+    private static final int BUSY_MAX = 2;
     private static final AudioAttributes SPEECH = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
 
@@ -111,7 +113,7 @@ final class VoicePlayer {
                 for (StatusBarNotification s : all) for (Uri uri : notes(s)) {
                     File f = kept(c, s, uri);
                     if (f.isFile() || !granted(c, uri) || !Voice.room(used(f.getParentFile()))) continue;
-                    File part = copyAside(c.getContentResolver(), uri, new File(f.getPath() + ".part")); // never half a note
+                    File part = copyAside(c.getContentResolver(), s.getPackageName(), uri, new File(f.getPath() + ".part")); // never half a note
                     if (part != null && !part.renameTo(f)) part.delete();
                 }
             } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
@@ -128,15 +130,17 @@ final class VoicePlayer {
     /**
      * The copy on a thread of its own, waited for a little past the watchdog: Android can't cut short a call into another
      * app, so one whose open never returns strands that thread, not the queue. When it does return, the watchdog has
-     * closed the stream and copy() deletes its half. A note still stranded is not tried again: one thread each, at most.
+     * closed the stream and copy() deletes its half. An app with a copy still stranded gets no other until it returns,
+     * and at most BUSY_MAX apps strand one at a time: one re-posting ever-new notes strands one thread and stalls the
+     * queue once, not once per note.
      */
-    private static File copyAside(ContentResolver cr, Uri uri, File f) {
-        if (!COPYING.add(f.getPath())) return null;
+    private static File copyAside(ContentResolver cr, String app, Uri uri, File f) {
+        if (BUSY.size() >= BUSY_MAX || !BUSY.add(app)) return null; // only this queue adds
         FutureTask<File> task = new FutureTask<>(() -> {
             try {
                 return copy(cr, uri, f);
             } finally {
-                COPYING.remove(f.getPath());
+                BUSY.remove(app);
             }
         });
         new Thread(task, "voice-keep").start();
@@ -159,7 +163,8 @@ final class VoicePlayer {
 
     /**
      * Deletes the kept notes no longer in any of these notifications: removed, dismissed, gone from the chat, or turned
-     * secret. None given: deletes them all. After the copies already queued, so none lands once its note is gone.
+     * secret. Null (no notification access): deletes every one, halves being written too. After the copies already
+     * queued, so none lands once its note is gone.
      */
     static void sweep(Context c, Iterable<StatusBarNotification> all) {
         KEEPER.execute(() -> {
@@ -167,8 +172,8 @@ final class VoicePlayer {
                 File dir = keptDir(c);
                 File[] files = dir.listFiles();
                 if (files == null || files.length == 0) return;
-                Set<String> wanted = new HashSet<>();
-                for (StatusBarNotification s : all) for (Uri uri : notes(s)) wanted.add(Voice.keptName(s.getKey(), uri.toString()));
+                Set<String> wanted = all == null ? null : new HashSet<>();
+                if (all != null) for (StatusBarNotification s : all) for (Uri uri : notes(s)) wanted.add(Voice.keptName(s.getKey(), uri.toString()));
                 String[] names = new String[files.length];
                 long[] ages = new long[files.length];
                 long now = System.currentTimeMillis();
@@ -181,6 +186,12 @@ final class VoicePlayer {
                 Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
             }
         });
+    }
+
+    private static Handler watchdog() {
+        HandlerThread t = new HandlerThread("voice-watchdog");
+        t.start();
+        return new Handler(t.getLooper());
     }
 
     private static File kept(Context c, StatusBarNotification s, Uri uri) {

@@ -43,6 +43,7 @@ public class VoiceTest {
         // b is no longer in any notification; c is being written now; d was left by a copy cut off or a crash.
         eq("[b, d.part]", Voice.drop(names, ages, Set.of("a", "c", "d")).toString(), "gone, and a half older than a copy may take");
         eq("[a, b, d.part]", Voice.drop(names, ages, Set.of()).toString(), "no notification left: all but the half being written");
+        eq("[a, b, c.part, d.part]", Voice.drop(names, ages, null).toString(), "no access: everything, a young half too");
     }
 
     public static void testKeepsANoteOnlyIfAWholeOneStillFits() {

@@ -65,7 +65,7 @@ public class NotifService extends NotificationListenerService {
         worker.post(() -> lastSeen = ""); // reconnected, the same notifications must be read in again
         // Not through the worker: onDestroy quits it before Android calls this. No access, no kept voice notes; a rebind
         // with access on keeps them, a note's grant may be gone by then.
-        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, List.of());
+        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null);
         tell();
     }
 
@@ -116,14 +116,16 @@ public class NotifService extends NotificationListenerService {
         long now = System.currentTimeMillis(), last = Summary.roll(p.getLong("summary_last", 0), now);
         p.edit().putLong("summary_last", last).apply();
         long wait = Summary.upcoming(last, now) - now;
-        p.edit().putStringSet("summary_held", Summary.hold(held, s.getKey(), now + wait, now))
-                .putInt("summary_count", p.getInt("summary_count", 0) + 1).apply();
         String key = s.getKey();
         // Snoozing revokes the chat app's audio grants at once (NotificationManagerService.SnoozeNotificationRunnable ->
-        // cancelNotificationLocked -> updateUriPermissions(null, r, ...)): its voice notes are kept first.
+        // cancelNotificationLocked -> updateUriPermissions(null, r, ...)): its voice notes are kept first. Counted as held
+        // only once snoozed: unbound meanwhile, snoozeNotification does nothing.
         VoicePlayer.afterKept(() -> {
+            if (!connected) return;
             try {
                 snoozeNotification(key, wait);
+                p.edit().putStringSet("summary_held", Summary.hold(p.getStringSet("summary_held", Set.of()), key, now + wait, now))
+                        .putInt("summary_count", p.getInt("summary_count", 0) + 1).apply();
             } catch (RuntimeException e) { // access just lost: shown, not held
                 Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
                 update();
