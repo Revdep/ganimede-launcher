@@ -23,10 +23,10 @@ import android.widget.ImageView;
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.IconMask;
 import org.ganimede.launcher.core.IconSet;
+import org.ganimede.launcher.core.LimitedInputStream;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -173,10 +173,7 @@ final class Icons {
 
     private static byte[] asset(Context c, String name) throws IOException {
         try (InputStream in = c.getAssets().open(name)) {
-            ByteArrayOutputStream b = new ByteArrayOutputStream(1 << 21);
-            byte[] buf = new byte[1 << 16];
-            for (int n; (n = in.read(buf)) > 0; ) b.write(buf, 0, n);
-            return b.toByteArray();
+            return LimitedInputStream.readAll(in, 16 << 20); // the set is 4 MB
         }
     }
 
@@ -195,7 +192,11 @@ final class Icons {
         Pack pack = loaded;
         if (pack.set != null) {
             OptionalInt id = pack.set.index().find(cn.getPackageName(), cn.getClassName());
-            return id.isPresent() ? new BuiltinIcon(pack.set.icon(id.getAsInt())) : null;
+            try {
+                return id.isPresent() ? new BuiltinIcon(pack.set.icon(id.getAsInt())) : null;
+            } catch (RuntimeException damaged) { // a bad record: the app's own icon
+                return null;
+            }
         }
         if (pack.resources == null) return null;
         String name = pack.icons.get(cn.flattenToString());
@@ -277,17 +278,17 @@ final class Icons {
             case "squircle":
             case "square":
             case "teardrop":
-                v.setImageDrawable(icon instanceof AdaptiveIconDrawable ? clip(icon, shape, size) : plain(icon, accent));
+                v.setImageDrawable(icon instanceof AdaptiveIconDrawable ? clip(icon, shape, size) : plain(icon, Colors.lineIcon(accent, fg)));
                 return;
             default: // original: the app's own icon, nothing added
-                v.setImageDrawable(plain(icon, accent));
+                v.setImageDrawable(plain(icon, Colors.lineIcon(accent, fg)));
         }
     }
 
-    /** The icon as it is; a built-in line icon is drawn in the accent (issue 077; 078 brings its own styles). */
-    static Drawable plain(Drawable icon, int accent) {
+    /** The icon as it is; a built-in line icon is drawn in {@code tint} (issue 077; 078 brings its own styles). */
+    static Drawable plain(Drawable icon, int tint) {
         Drawable d = copy(icon);
-        if (icon instanceof BuiltinIcon) d.setTint(accent);
+        if (icon instanceof BuiltinIcon) d.setTint(tint);
         return d;
     }
 

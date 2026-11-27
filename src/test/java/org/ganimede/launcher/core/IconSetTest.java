@@ -200,4 +200,40 @@ public class IconSetTest {
         eq("da2fa5694ccfea800a9b88f556131a20908e95c1", load("src/main/assets/icons.bin").version(),
                 "the asset says which Arcticons commit it was packed from (README, pack.py)");
     }
+
+    /** Reads everything a set offers, as the launcher does: every icon and name, and an index lookup. */
+    private static void readAll(IconSet set) {
+        for (int i = 0; i < set.count(); i++) {
+            set.icon(i);
+            set.name(i);
+        }
+        set.index().find("com.example", "com.example.Main");
+    }
+
+    /** Only IllegalArgumentException may come out of a damaged set: the caller falls back to the app's own icon. */
+    private static void rejectsOrReads(byte[] bytes, String what) {
+        try {
+            readAll(IconSet.of(bytes));
+        } catch (IllegalArgumentException expected) {
+            // refused: the caller shows the app's own icon
+        } catch (RuntimeException | Error e) {
+            throw new AssertionError(what + ": " + e, e);
+        }
+    }
+
+    public static void testTruncatedSetIsRefused() throws IOException {
+        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture.bin"));
+        for (int n = 0; n < whole.length; n++) rejectsOrReads(Arrays.copyOf(whole, n), "cut to " + n + " bytes");
+    }
+
+    public static void testFlippedByteIsRefusedOrRead() throws IOException {
+        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture.bin"));
+        for (int i = 0; i < whole.length; i++) {
+            for (int flip : new int[]{0xFF, 0x80, 0x01}) {
+                byte[] bad = whole.clone();
+                bad[i] ^= (byte) flip;
+                rejectsOrReads(bad, "byte " + i + " xor " + flip);
+            }
+        }
+    }
 }

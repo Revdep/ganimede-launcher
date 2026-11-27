@@ -5,12 +5,8 @@ nonotif() { A shell cmd notification disallow_listener $PK/$PK.NotifService >/de
 # perm_settings page: classic home -> Ganimede settings -> the page (the "Finish setting up" box can push its row far down)
 perm_settings() {
   nonotif; seed classic
-  A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"
-  expect "Tocca una parte dell'anteprima per regolarla"; tapn "$1" 8
+  pg_settings; tapn "$1" 8
 }
-# one node (the dialog message is one) whose text holds all the fragments in order (the dump wraps a text holding " in single quotes)
-shows() { local f re='text=["'"'"'][^>]*'; for f in "$@"; do re="$re$f[^>]*"; done; screen | grep -q "$re"; }
-noshows() { ! shows "$@"; }
 bpref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "name=\"$1\" value=\"true\""; }
 NP="Anteprima delle notifiche sotto i preferiti"
 
@@ -67,8 +63,7 @@ step "Permission: closing the system dialog with Back is not a refusal, so the n
 A shell pm revoke $PK android.permission.READ_CONTACTS; A shell pm clear-permission-flags $PK android.permission.READ_CONTACTS user-set user-fixed
 setp del asked:android.permission.READ_CONTACTS
 nonotif; seed classic
-A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"
-expect "Tocca una parte dell'anteprima per regolarla"
+pg_settings
 A shell input swipe 150 2120 150 600 300 # one long scroll: the Privacy row is near the end of the list
 tapn "Privacy e permessi" 6
 see "Contatti" && tap "Contatti"

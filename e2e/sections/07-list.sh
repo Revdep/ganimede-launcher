@@ -100,7 +100,6 @@ done
 step "Font: the home text follows the chosen font and its weight"
 frow() { local x1 y1 x2 y2; read -r x1 y1 x2 y2 <<<"$(bounds Calendar)"; fcrop "$((x2 - x1))x$((y2 - y1))+$x1+$y1" "$1"; } # the favourite's row, as drawn
 fcrop() { A exec-out screencap -p | magick png:- -crop "$1" +repage "$2"; } # fcrop geometry out.png
-fdiff() { compare -metric AE "$1" "$2" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
 setp boolean left_handed false; setp boolean alpha_home true; setp del alpha_offset; setp string font sans-serif; settled_home() { wait_until 10 settled; }; settled_home
 frow "$OUT/font-row-def.png"
 acrop="$(dp 58)x1100+$((W - $(dp 58)))+1000"; fcrop "$acrop" "$OUT/font-alpha-def.png"

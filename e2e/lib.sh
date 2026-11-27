@@ -159,6 +159,20 @@ settled() { local a; a=$(dump); [ -n "$a" ] && [ "$a" = "$(dump)" ]; } # two scr
 # it re-arms the timers it saved, so a 15-minute timer of an earlier run rings mid-run and its heads-up over the screen
 # top takes the taps meant for the home.
 noclock() { is_emulator || return 0; A shell pm clear com.google.android.deskclock >/dev/null 2>&1; }
+# pg_settings [menu row] [hint]: the classic home's long-press menu (1900 is an empty spot) → Ganimede settings, which
+# shows its hint (Italian by default). For a fresh start (after seed or setp): a running Settings comes back on its last page.
+pg_settings() {
+  local hint="${2:-}"
+  [ -n "$hint" ] || hint="Tocca una parte dell'anteprima per regolarla"
+  A shell input swipe 540 1900 540 1900 1500; tap "${1:-Impostazioni Ganimede}"
+  expect "$hint"
+}
+# one node (the dialog message is one) whose text holds all the fragments in order (the dump wraps a text holding " in single quotes)
+shows() { local f re='text=["'"'"'][^>]*'; for f in "$@"; do re="$re$f[^>]*"; done; screen | grep -q "$re"; }
+noshows() { ! shows "$@"; }
+# fdiff a.png b.png [WxH+X+Y]: how many pixels differ (inside the crop, if given). Pixels, never file bytes: a PNG
+# written by magick carries its dates, so cmp calls two identical pictures different (issue 086).
+fdiff() { compare -metric AE "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
 # seed classic|list: a configured app without the wizard: onboarded, mode, favourites, Italian, the home role.
 # (the APK must be installed). Leaves the home screen in front.
 seed() {

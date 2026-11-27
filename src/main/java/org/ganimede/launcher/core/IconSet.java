@@ -33,21 +33,35 @@ public final class IconSet {
     private final int[] nameAt;
     private final IconIndex index;
 
+    /** Every count and offset is checked against the bytes here or in {@link Reader}: a damaged file is refused, not read past. */
     private IconSet(ByteBuffer data) {
         this.data = data;
+        int length = data.capacity();
         count = data.getInt(24);
+        int indexCount = data.getInt(28), names = data.getInt(32), indexAt = data.getInt(36);
+        if (count < 0 || count > (length - HEADER) / 4 - 1) throw bad("icon count");
         start = HEADER + 4 * (count + 1);
+        for (int i = 0, previous = 0; i <= count; i++) {
+            int off = data.getInt(HEADER + 4 * i);
+            if (off < previous || off > length - start) throw bad("icon offset " + i);
+            previous = off;
+        }
+        if (indexCount < 0 || indexAt < 0 || indexAt > length || indexCount > (length - indexAt) / 8) throw bad("index");
+        if (names < 0 || names > length) throw bad("names");
         nameAt = new int[count];
-        Reader r = new Reader(data.getInt(32));
+        Reader r = new Reader(names, length);
         for (int i = 0; i < count; i++) {
             nameAt[i] = r.pos;
-            int length = r.varint(); // read before adding: pos += varint() would add to the old pos
-            r.pos += length;
+            r.skip(r.varint());
         }
-        index = new IconIndex(data, data.getInt(36), data.getInt(28));
+        index = new IconIndex(data, indexAt, indexCount);
     }
 
-    /** @throws IllegalArgumentException when the bytes are not a format-1 icon set */
+    private static IllegalArgumentException bad(String what) {
+        return new IllegalArgumentException("damaged icon set: " + what);
+    }
+
+    /** @throws IllegalArgumentException when the bytes are not a format-1 icon set, or a damaged one */
     public static IconSet of(byte[] bytes) {
         ByteBuffer b = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
         if (bytes.length < HEADER || b.getInt(0) != MAGIC) throw new IllegalArgumentException("not an ICN1 icon set");
@@ -66,29 +80,33 @@ public final class IconSet {
     }
 
     public String name(int id) {
-        Reader r = new Reader(nameAt[id]);
+        Reader r = new Reader(nameAt[id], data.capacity());
         int length = r.varint();
-        return new String(data.array(), r.pos, length, StandardCharsets.UTF_8);
+        return new String(data.array(), r.pos, length, StandardCharsets.UTF_8); // the constructor checked the length
     }
 
     public IconIndex index() {
         return index;
     }
 
+    /** @throws IllegalArgumentException when the icon's record is damaged */
     public List<PathData> icon(int id) {
-        Reader r = new Reader(start + data.getInt(HEADER + 4 * id));
+        if (id < 0 || id >= count) throw bad("icon id " + id); // an id from a damaged index
+        Reader r = new Reader(start + data.getInt(HEADER + 4 * id), start + data.getInt(HEADER + 4 * (id + 1)));
         List<PathData> paths = new ArrayList<>();
         int x = 0, y = 0;
-        for (int n = r.varint(); n > 0; n--) {
-            int style = data.get(r.pos) & 0xFF;
-            float width = (data.get(r.pos + 1) & 0xFF) / 16f, alpha = (data.get(r.pos + 2) & 0xFF) / 255f;
-            r.pos += 3;
-            Op[] ops = new Op[r.varint()];
+        for (int n = r.count(); n > 0; n--) {
+            int style = r.u8();
+            float width = r.u8() / 16f, alpha = r.u8() / 255f;
+            if ((style >> 3 & 3) >= CAPS.length || (style >> 5 & 3) >= JOINS.length) throw bad("style");
+            Op[] ops = new Op[r.count()];
             int[] q = new int[ops.length * 6];
             int used = 0, move = -1, first = 0;
             boolean z = false;
             for (int o = 0; o < ops.length; o++) {
-                Op op = ops[o] = OPS[data.get(r.pos++)];
+                int code = r.u8();
+                if (code >= POINTS.length) throw bad("op " + code);
+                Op op = ops[o] = OPS[code];
                 if (op == Op.MOVE || op == Op.OVAL) {
                     if (move >= 0 && closes(q, first, used, z)) ops[move] = Op.MOVE_CLOSED;
                     move = op == Op.MOVE ? o : -1;
@@ -118,21 +136,42 @@ public final class IconSet {
         return z || used > first + 2 && q[first] == q[used - 2] && q[first + 1] == q[used - 1];
     }
 
-    /** LEB128 varints and zigzag deltas, read forward from {@code pos}. */
+    /** Bytes, LEB128 varints and zigzag deltas, read forward from {@code pos}, never at or past {@code end}. */
     private final class Reader {
         int pos;
+        final int end;
 
-        Reader(int pos) {
+        Reader(int pos, int end) {
+            if (pos < 0 || pos > end || end > data.capacity()) throw bad("range");
             this.pos = pos;
+            this.end = end;
+        }
+
+        int u8() {
+            if (pos >= end) throw bad("record ends early");
+            return data.get(pos++) & 0xFF;
         }
 
         int varint() {
             int v = 0;
-            for (int shift = 0; ; shift += 7) {
-                int b = data.get(pos++) & 0xFF;
+            for (int shift = 0; shift < 32; shift += 7) {
+                int b = u8();
                 v |= (b & 0x7F) << shift;
                 if (b < 0x80) return v;
             }
+            throw bad("varint");
+        }
+
+        /** A count of items of at least one byte each: never more than the bytes left, so no huge array. */
+        int count() {
+            int n = varint();
+            if (n < 0 || n > end - pos) throw bad("count");
+            return n;
+        }
+
+        void skip(int n) {
+            if (n < 0 || n > end - pos) throw bad("length");
+            pos += n;
         }
 
         int zigzag() {

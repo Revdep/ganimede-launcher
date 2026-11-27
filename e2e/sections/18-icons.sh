@@ -23,8 +23,8 @@ for mode in list classic; do
   setp string icon_shape theme
   capture_calendar "$OUT/icons-$mode-themed.png" || { ko "$mode: themed Calendar icon not found"; continue; }
 
-  cmp -s "$OUT/icons-$mode-original.png" "$OUT/icons-$mode-themed.png" \
-    && ko "$mode: Tinted leaves the icon unchanged" || ok "$mode: Tinted changes the icon"
+  d=$(fdiff "$OUT/icons-$mode-original.png" "$OUT/icons-$mode-themed.png")
+  [ "${d:-0}" -gt 0 ] && ok "$mode: Tinted changes the icon ($d px)" || ko "$mode: Tinted leaves the icon unchanged"
   pixels=$(colour_pixels "$OUT/icons-$mode-themed.png" "#E01010")
   [ "${pixels:-0}" -gt 20 ] && ok "$mode: the icon uses the chosen red accent ($pixels pixels)" \
     || ko "$mode: no chosen accent in the icon (${pixels:-0} pixels)"
@@ -33,8 +33,8 @@ done
 step "Tinted icon plate: the selected shape is used"
 setp string themed_shape none
 capture_calendar "$OUT/icons-classic-no-plate.png"
-cmp -s "$OUT/icons-classic-themed.png" "$OUT/icons-classic-no-plate.png" \
-  && ko "removing the tinted plate changes nothing" || ok "the chosen plate shape changes the icon"
+d=$(fdiff "$OUT/icons-classic-themed.png" "$OUT/icons-classic-no-plate.png")
+[ "${d:-0}" -gt 0 ] && ok "the chosen plate shape changes the icon ($d px)" || ko "removing the tinted plate changes nothing"
 
 step "Tinted icon with the default accent: the glyph stays readable on the plate"
 setp string themed_shape circle
@@ -48,15 +48,10 @@ shot 34-themed-icons-default-accent
 
 # Issue 077: the built-in Arcticons set, always offered, drawn in the accent, credited on the About page.
 BUILTIN=builtin:arcticons
-open_settings() { # open_settings "Ganimede settings" row: long-press the classic home (1900 is an empty spot), open a settings page
-  A shell input swipe 540 1900 540 1900 1500; tap "$1" && tapn "$2" 15 # About is at the bottom of a long page
-}
-shows() { screen | grep -q "text=\"[^\"]*$1"; } # a text node containing $1
-same_pixels() { [ "$(magick compare -metric AE "$1" "$2" null: 2>&1 | cut -d' ' -f1)" = 0 ]; } # cmp also sees PNG metadata
 step "Built-in Arcticons pack: offered in the Icon pack card"
 seed classic
 A shell pm list packages | grep -qiE "icon|arcticons" && echo "  (note: an installed package looks like an icon pack)"
-open_settings "Impostazioni Ganimede" "Personalizza"
+pg_settings; stap "Personalizza"
 pill "Temi"; tap "Temi"
 see "Arcticons (integrato)"
 pv_now() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "name=\"icon_pack\">$BUILTIN<"; }
@@ -70,13 +65,22 @@ for mode in list classic; do
   capture_calendar "$OUT/icons-$mode-own.png" || { ko "$mode: Calendar icon not found"; continue; }
   setp string icon_pack "$BUILTIN"
   capture_calendar "$OUT/icons-$mode-builtin.png" || { ko "$mode: built-in Calendar icon not found"; continue; }
-  same_pixels "$OUT/icons-$mode-own.png" "$OUT/icons-$mode-builtin.png" \
-    && ko "$mode: the built-in pack leaves Calendar's icon unchanged" || ok "$mode: the built-in pack changes Calendar's icon"
+  d=$(fdiff "$OUT/icons-$mode-own.png" "$OUT/icons-$mode-builtin.png")
+  [ "${d:-0}" -gt 0 ] && ok "$mode: the built-in pack changes Calendar's icon ($d px)" || ko "$mode: the built-in pack leaves Calendar's icon unchanged"
   pixels=$(colour_pixels "$OUT/icons-$mode-builtin.png" "#E01010")
   [ "${pixels:-0}" -gt 20 ] && ok "$mode: the built-in icon is drawn in the red accent ($pixels pixels)" \
     || ko "$mode: no red accent in the built-in icon (${pixels:-0} pixels)"
 done
 shot 77-builtin-icons
+
+step "Built-in Arcticons pack: an accent under 3:1 on the dark wallpaper draws the icon in the text colour"
+seed classic
+setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true # only the icon in the crop
+setp int accent -12636266 # #3F2B96 indigo: about 1.7:1 on a dark backdrop
+capture_calendar "$OUT/icons-low-contrast.png" || ko "low contrast: Calendar icon not found"
+white=$(colour_pixels "$OUT/icons-low-contrast.png" "#FFFFFF"); indigo=$(colour_pixels "$OUT/icons-low-contrast.png" "#3F2B96")
+[ "${white:-0}" -gt 20 ] && [ "${indigo:-0}" -le 20 ] && ok "low contrast: drawn in the white text colour ($white px), not indigo ($indigo px)" \
+  || ko "low contrast: white ${white:-0} px, indigo ${indigo:-0} px (expected white, no indigo)"
 
 step "APK size: the built-in set stays small"
 bin=$(unzip -lv "$APK" | awk '$NF == "assets/icons.bin" {print $3}') # its compressed size: what it adds to the APK
@@ -91,9 +95,9 @@ step "About credits Arcticons (CC BY-SA 4.0), in English and Italian"
 for lang in en it; do
   seed classic
   setp string lang $lang
-  if [ $lang = en ]; then open_settings "Ganimede settings" "About"; done_by="converted and algorithmically restyled"
-  else open_settings "Impostazioni Ganimede" "Informazioni"; done_by="convertite e ridisegnate in modo algoritmico"; fi
-  credited() { shows "Arcticons" && shows "CC BY-SA 4.0" && shows "$done_by"; }
-  wait_until 5 credited && ok "$lang: About names Arcticons, CC BY-SA 4.0 and “$done_by”" \
-    || ko "$lang: About lacks the Arcticons credit (Arcticons, CC BY-SA 4.0, “$done_by”)"
+  if [ $lang = en ]; then pg_settings "Ganimede settings" "Touch a part of the preview to adjust it"; tapn "About" 15; done_by="converted and algorithmically restyled"
+  else pg_settings; tapn "Informazioni" 15; done_by="convertite e ridisegnate in modo algoritmico"; fi # About is at the bottom of a long page
+  credited() { shows "Arcticons" "CC BY-SA 4.0" "https://creativecommons.org/licenses/by-sa/4.0/" "$done_by"; }
+  wait_until 5 credited && ok "$lang: About names Arcticons, CC BY-SA 4.0, its licence URI and “$done_by”" \
+    || ko "$lang: About lacks the Arcticons credit (Arcticons, CC BY-SA 4.0, licence URI, “$done_by”)"
 done

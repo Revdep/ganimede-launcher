@@ -25,6 +25,29 @@ public final class Colors {
         return c;
     }
 
+    /** WCAG contrast ratio of two opaque colours, 1 (none) to 21 (black on white). */
+    public static double contrast(int a, int b) {
+        double la = relativeLuminance(a), lb = relativeLuminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    private static double relativeLuminance(int c) {
+        return 0.2126 * linear(c >> 16 & 255) + 0.7152 * linear(c >> 8 & 255) + 0.0722 * linear(c & 255);
+    }
+
+    private static double linear(int channel) {
+        double v = channel / 255.0;
+        return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+
+    /**
+     * A line icon on the home: the accent when it reaches 3:1 (WCAG non-text contrast) on the backdrop the text colour
+     * fg was chosen for (white text: a dark one, ink text: a light one), else fg itself.
+     */
+    public static int lineIcon(int accent, int fg) {
+        return contrast(accent, on(fg)) >= 3 ? accent : fg;
+    }
+
     /** The veil over the wallpaper for a darkening of pct % (night-blue on light text, warm white on dark text). */
     public static int veil(int pct, boolean darkText) {
         int a = Math.max(0, Math.min(95, pct)) * 255 / 100;
