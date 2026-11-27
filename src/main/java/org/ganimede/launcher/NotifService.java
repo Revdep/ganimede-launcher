@@ -54,7 +54,10 @@ public class NotifService extends NotificationListenerService {
         synchronized (active) {
             active.clear();
         }
-        worker.post(() -> lastSeen = ""); // reconnected, the same notifications must be read in again
+        worker.post(() -> {
+            lastSeen = ""; // reconnected, the same notifications must be read in again
+            VoicePlayer.sweep(this, new StatusBarNotification[0]); // no access, no kept voice notes
+        });
         tell();
     }
 
@@ -62,6 +65,13 @@ public class NotifService extends NotificationListenerService {
     public void onNotificationPosted(StatusBarNotification s, RankingMap rank) {
         try {
             if (maybeBatch(s, rank)) return;
+            worker.post(() -> { // now: a chat app may withdraw the audio when it re-posts
+                try {
+                    VoicePlayer.keep(this, s);
+                } catch (RuntimeException e) {
+                    Log.w("Ganimede", "Voice note not kept: " + e.getClass().getName());
+                }
+            });
             update();
         } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
             Log.w("Ganimede", "Notification skipped: " + e.getClass().getName());
@@ -160,8 +170,10 @@ public class NotifService extends NotificationListenerService {
         } catch (RuntimeException e) {
             return;
         }
+        if (all == null) all = new StatusBarNotification[0];
+        VoicePlayer.sweep(this, all);
         Map<String, List<StatusBarNotification>> m = new HashMap<>();
-        for (StatusBarNotification s : all == null ? new StatusBarNotification[0] : all) {
+        for (StatusBarNotification s : all) {
             Notification n = s.getNotification();
             if (!s.isClearable() || (n.flags & (Notification.FLAG_ONGOING_EVENT | Notification.FLAG_GROUP_SUMMARY)) != 0) continue;
             m.computeIfAbsent(group(s.getPackageName(), s.getUser()), k -> new ArrayList<>()).add(s);

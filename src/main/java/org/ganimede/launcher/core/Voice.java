@@ -1,6 +1,13 @@
 package org.ganimede.launcher.core;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 /** Which chat messages in a notification are voice notes the home can play, and the player's clock. */
@@ -20,6 +27,34 @@ public final class Voice {
      */
     public static int[] all(String[] mimes, String[] uris) {
         return IntStream.range(0, mimes.length).filter(i -> playable(mimes[i], uris[i])).toArray();
+    }
+
+    /** The file name of a note's kept copy: one per notification and note, hashes only, so no key nor address is on disk. */
+    public static String keptName(String key, String uri) {
+        return hash(key) + "-" + hash(uri);
+    }
+
+    /** The kept copies to delete: those of notes no longer in any notification, then the oldest until the rest fit in cap bytes. */
+    public static List<String> drop(String[] names, long[] sizes, long[] times, Set<String> wanted, long cap) {
+        boolean[] gone = new boolean[names.length];
+        long total = 0;
+        for (int i : IntStream.range(0, names.length).boxed().sorted(Comparator.comparingLong(i -> -times[i])).mapToInt(i -> i).toArray()) {
+            gone[i] = !wanted.contains(names[i]) || (total += sizes[i]) > cap;
+        }
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < names.length; i++) if (gone[i]) out.add(names[i]);
+        return out;
+    }
+
+    private static String hash(String s) {
+        try {
+            byte[] d = MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(32);
+            for (int i = 0; i < 16; i++) hex.append(Character.forDigit(d[i] >> 4 & 15, 16)).append(Character.forDigit(d[i] & 15, 16));
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e); // every Java and Android has SHA-256
+        }
     }
 
     /** m:ss, in whole seconds. */

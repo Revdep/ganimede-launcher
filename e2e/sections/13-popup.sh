@@ -130,6 +130,38 @@ wipe; voice --ez secret true; expect_popup "FIXTURE"
 nplayers 0 && ok "secret: no player" || ko "secret notification shows players: $(players)"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
 
+step "Voice notes after text and links: a player each, each plays (fixture app)"
+# Telegram re-posts one chat notification with a message more at each arrival: the fixture does the same, shape by shape
+# (Post.java: a text with a link before the notes, no link, a bare link right before note A, a link then one note, and two
+# probes of what a chat app may do differently). Issue 083.
+plays() { # $1: where, $2: which player, $3: its copy's size
+  local p; p=$(play_at "$2"); A shell input tap $p
+  wait_until 10 copies_are "$3" && ok "$1: note $2 plays" || ko "$1: copies after tapping note $2: $(copies)"
+  A shell input tap $p; wait_until 5 copies_are ""
+}
+check_voice() { # $1: where, $2: players expected, $3: 1 if the chat has a link
+  wait_until 5 nplayers "$2" && ok "$1: $2 players" || ko "$1: players: $(players)"
+  [ "$3" = 1 ] && { has "Apri link" && ok "$1: Open link" || ko "$1: no Open link"; }
+  plays "$1" 1 480044; [ "$2" = 2 ] && plays "$1" 2 640044
+}
+for shape in a b c d e f; do
+  wipe
+  n=4; [ $shape = b ] && n=3; [ $shape = d ] && n=2
+  for k in $(seq 1 $n); do voice --es shape $shape --ei upto "$k"; sleep 1; done # the time between two messages (and under
+  # the system's rate limit on updates), not a wait for a state
+  want=2; [ $shape = d ] && want=1; link=1; [ $shape = b ] && link=0
+  expect_popup "FIXTURE"
+  shot "43-popup-voice-$shape"
+  check_voice "$shape, pop-up" $want $link
+  read -r ax ay <<<"$(cx Anna)"; A shell input swipe "$ax" "$ay" "$ax" "$ay" 1500
+  check_voice "$shape, long-press" $want $link
+  A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
+  A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
+done
+kept() { A exec-out run-as $PK sh -c 'ls no_backup/voice 2>/dev/null' | grep -c .; } # notes copied on arrival
+[ "$(kept)" = 2 ] && ok "the last chat's two notes are kept privately" || ko "kept notes: $(kept)"
+wipe; wait_until 10 eval '[ "$(kept)" = 0 ]' && ok "notification cancelled: its kept notes are deleted" || ko "kept notes after cancelling: $(kept)"
+
 step "Favourite bubble (List, preview on): a player per voice note under the fixture's name, each plays, no overlap"
 wipe; voice
 setp string fav "$FIX/$FIX.Open\&#10;com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;com.google.android.deskclock/com.android.deskclock.DeskClock\&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity"

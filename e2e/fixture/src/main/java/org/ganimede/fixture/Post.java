@@ -17,6 +17,10 @@ import java.io.IOException;
 /**
  * A chat notification with two voice notes, the way chat apps post them: one MessagingStyle notification whose
  * messages carry audio from this app's own provider. `am broadcast -n org.ganimede.fixture/.Post [--ez secret true]`.
+ * `--es shape a|b|c|d|e|f --ei upto k` posts the first k messages of a chat with text before the notes, the way Telegram
+ * re-posts the conversation with one message more on each arrival (issue 083): (a) "Ciao", a text with a link, note A,
+ * note B; (b) "Ciao", A, B; (c) "Ciao", a bare link, A, B; (d) a text with a link, A; (e) as (a), the app revoking the
+ * read grant of its earlier notes before each re-post; (f) as (a), the link message carrying a preview image as its data.
  * The notes are silent WAVs of 30 and 40 s: their sizes tell which one plays, and they last long enough to be checked
  * while playing.
  */
@@ -27,9 +31,26 @@ public final class Post extends BroadcastReceiver {
         Person anna = new Person.Builder().setName("Anna").build();
         Notification.MessagingStyle style = new Notification.MessagingStyle(new Person.Builder().setName("Me").build());
         long now = System.currentTimeMillis();
-        for (int s : new int[]{30, 40}) {
-            style.addMessage(new Notification.MessagingStyle.Message("Nota " + s, now + s, anna)
-                    .setData("audio/wav", Uri.parse("content://org.ganimede.fixture.notes/" + wav(c, s).getName())));
+        String shape = i.getStringExtra("shape"), link = "Offerta https://example.com/a";
+        String[] chat = shape == null ? new String[]{"30", "40"} : switch (shape) {
+            case "b" -> new String[]{"Ciao", "30", "40"};
+            case "c" -> new String[]{"Ciao", "https://example.com/a", "30", "40"};
+            case "d" -> new String[]{link, "30"};
+            default -> new String[]{"Ciao", link, "30", "40"};
+        };
+        int upto = Math.min(chat.length, i.getIntExtra("upto", chat.length));
+        for (int k = 0; k < upto; k++) {
+            boolean note = chat[k].matches("\\d+");
+            Notification.MessagingStyle.Message m = new Notification.MessagingStyle.Message(
+                    note ? "Nota " + chat[k] : chat[k], now + k, anna);
+            if (note) {
+                Uri uri = Uri.parse("content://org.ganimede.fixture.notes/" + wav(c, Integer.parseInt(chat[k])).getName());
+                if ("e".equals(shape) && k < upto - 1) c.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                m.setData("audio/wav", uri);
+            } else if ("f".equals(shape) && chat[k].equals(link)) {
+                m.setData("image/png", Uri.parse("content://org.ganimede.fixture.notes/preview.png"));
+            }
+            style.addMessage(m);
         }
         nm.notify(1, new Notification.Builder(c, "chat").setSmallIcon(android.R.drawable.ic_btn_speak_now)
                 .setStyle(style).setCategory(Notification.CATEGORY_MESSAGE)

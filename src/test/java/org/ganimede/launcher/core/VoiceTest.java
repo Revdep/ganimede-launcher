@@ -1,6 +1,7 @@
 package org.ganimede.launcher.core;
 
 import java.util.Arrays;
+import java.util.Set;
 
 import static org.ganimede.launcher.Expect.eq;
 import static org.ganimede.launcher.Expect.yes;
@@ -26,6 +27,23 @@ public class VoiceTest {
                 new String[]{"content://a/1", "content://a/2"})), "two notes: both, the first one first");
         eq("[]", Arrays.toString(Voice.all(new String[]{null}, new String[]{null})), "text only");
         eq("[]", Arrays.toString(Voice.all(new String[0], new String[0])), "no messages");
+    }
+
+    public static void testKeptCopiesAreNamedByHashesPerNotificationAndNote() {
+        String a = Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/1.ogg");
+        eq(a, Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/1.ogg"), "the same note: the same file");
+        yes(!a.equals(Voice.keptName("0|org.telegram|2|null|10123", "content://chat.files/v/1.ogg")), "another notification: another file");
+        yes(!a.equals(Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/2.ogg")), "another note: another file");
+        yes(a.matches("[0-9a-f]{32}-[0-9a-f]{32}"), "only hex reaches the disk, no key nor address: " + a);
+    }
+
+    public static void testDropsGoneNotesThenTheOldestPastTheCap() {
+        String[] names = {"a", "b", "c", "d"};
+        long[] sizes = {10, 5, 30, 20}, times = {100, 400, 300, 200};
+        // b is no longer in any notification; of the rest the newest fit in 50 (c 30 + d 20), the oldest (a) is dropped.
+        eq("[a, b]", Voice.drop(names, sizes, times, Set.of("a", "c", "d"), 50).toString(), "gone, then past the cap");
+        eq("[]", Voice.drop(names, sizes, times, Set.of("a", "b", "c", "d"), 65).toString(), "all wanted and they fit");
+        eq("[a, b, c, d]", Voice.drop(names, sizes, times, Set.of(), 1000).toString(), "no notification left: all go");
     }
 
     public static void testPlayerClock() {
