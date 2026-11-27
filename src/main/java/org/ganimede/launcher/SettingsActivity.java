@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.History;
 
 import android.app.Activity;
 import android.app.Dialog;
@@ -23,6 +24,7 @@ import android.widget.TextView;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Settings: a home page with a live preview of the home screen and one card per category, each opening its own
@@ -48,6 +50,9 @@ public class SettingsActivity extends Activity implements Ui.Owner {
     private SettingsPages pages;
     private final List<Dialog> dialogs = new ArrayList<>(); // the ones open now, closed with this screen
 
+    /** What goes on to the screen Android builds in place of this one, as a ViewModel would: a file job, the undo steps. */
+    private record Kept(Object job, History<Map<String, Object>> undo) {}
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -59,7 +64,8 @@ public class SettingsActivity extends Activity implements Ui.Owner {
                 this::restored);
         look = new SettingsLook(kit, perms, samples, pages::pickButtonIcon);
         wizard = new SettingsWizard(kit, perms, look, pages);
-        pages.adopt(getLastNonConfigurationInstance()); // a file job the screen before this one started
+        Kept kept = (Kept) getLastNonConfigurationInstance();
+        if (kept != null) pages.adopt(kept.job); // a file job the screen before this one started
         if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
         else getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
@@ -134,6 +140,7 @@ public class SettingsActivity extends Activity implements Ui.Owner {
         preview.onIcons(this::render);
         preview.edit.onPicked = this::pick;
         bricks = new SettingsBricks(kit, perms, look, samples, preview, undo);
+        if (kept != null) bricks.adopt(kept.undo);
         if (b == null) start(getIntent().getBooleanExtra("wizard", false) ? Page.W_LANG : Page.HOME);
         else { // rebuilt by Android (rotation): back where it was
             for (String page : b.getStringArray("stack")) stack.addLast(Page.valueOf(page));
@@ -153,9 +160,9 @@ public class SettingsActivity extends Activity implements Ui.Owner {
         pages.save(out);
     }
 
-    /** Android rebuilds this screen (rotation): a running file job goes on to the new one, as a ViewModel would. */
+    /** Android rebuilds this screen (rotation): a running file job and the undo steps go on to the new one. */
     @Override
-    public Object onRetainNonConfigurationInstance() { return pages.running(); }
+    public Object onRetainNonConfigurationInstance() { return new Kept(pages.running(), bricks.history()); }
 
     @Override
     public void own(Dialog d) {
