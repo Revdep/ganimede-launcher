@@ -278,7 +278,7 @@ for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and 
   has "Contacts" && ok "$mode: the pop-up stays open after the drop" || ko "$mode: the pop-up closed"
   wait_until 5 settled
   [ "$(shown)" = "$(order)" ] && ok "$mode: the pop-up's views (TalkBack's reading order) follow the saved order" || ko "$mode: views in the order $(shown), saved $(order)"
-  shot 131-folder-reordered-$mode
+  shot "131-folder-reordered-${variant/:/-}"
   # the moved icons still answer: in 2 columns Calendar changed row, and a view moved only by translation can't be touched
   read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Clock)"
   A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 1500
@@ -341,8 +341,8 @@ clear_text; A shell input text okay
 wait_until 10 hasd okay; read -r ox oy <<<"$(cx "desc:okay")"; [ -n "$oy" ] && A shell input tap "$ox" "$oy"
 picked() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="icon:com.google.android.calendar/'; }
 wait_until 5 picked && ok "the icon picked from the in-folder menu is saved" || ko "no icon saved for Calendar"
-redrawn() { # once nothing moves (the picker gone, the pop-up rebuilt): the card differs from before the pick
-  settled || return 1
+redrawn() { # once the pick is saved, the picker gone and nothing moves (the pop-up rebuilt): the card differs from before
+  picked && hasnt "Arcticons (integrato)" && settled || return 1
   A exec-out screencap -p | magick png:- -crop "$crop" +repage "$OUT/folder-icon-after.png"
   [ "$(fdiff "$OUT/folder-icon-before.png" "$OUT/folder-icon-after.png")" -gt 0 ] 2>/dev/null
 }
@@ -368,10 +368,10 @@ setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.andro
 setp string fav 'f:ord'
 setp del grid
 tap Ordine; expect "Contacts"; wait_until 5 settled
-before=$(popwin)
+wins=$(popwin) # (not "before": run.sh counts checks in that name)
 update_other
 sleep 2 # the reload: 250 ms debounce, then the load thread; nothing on screen marks its end, the point is that nothing changes
-[ -n "$before" ] && [ "$(popwin)" = "$before" ] && ok "the pop-up is the same window after another app's update" || ko "the pop-up was rebuilt: windows $(popwin), were $before"
+[ -n "$wins" ] && [ "$(popwin)" = "$wins" ] && ok "the pop-up is the same window after another app's update" || ko "the pop-up was rebuilt: windows $(popwin), were $wins"
 has "Contacts" && ok "the pop-up is still open" || ko "the pop-up closed"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
 # An app IN the folder goes away while a finger drags an icon: the pop-up waits for the finger (FolderDrag.busy), the
