@@ -149,11 +149,12 @@ setp() { # setp int|boolean|string|del key [value]
 }
 # the home screen has the focus and no window transition is playing (the focus moves when one starts: touches sent before it ends are lost)
 focus() { local w; w=$(A shell dumpsys window | grep -E "mCurrentFocus|reason=Transition"); [[ $w == *mCurrentFocus*MainActivity* && $w != *reason=Transition* ]]; }
+drawn() { dump | grep -q "package=\"$PK\""; } # touches sent before the first frame are lost
 start_home() {
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" \
     || A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1 # another launcher holding HOME would start a second task
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" || { ko "Ganimede doesn't hold the HOME role"; return 1; }
-  A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME; wait_until 10 focus; }
+  A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME; wait_until 10 focus && wait_until 10 drawn; }
 hasd() { screen | grep -q "content-desc=\"$1\""; }  # a node with this content-desc
 valid() { screen >/dev/null; [ -s "$SCR" ]; } # a screen read that worked: an absent node means nothing without one
 hasnt() { valid && ! has "$1"; }
@@ -202,7 +203,6 @@ XML
   A exec-in "run-as $PK sh -c 'mkdir -p shared_prefs; cat > shared_prefs/ganimede.xml'" < "$f"
   A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1
   start_home
-  drawn() { dump | grep -q "package=\"$PK\""; }; wait_until 10 drawn # touches sent before the first frame are lost
 }
 # Crop of the wallpaper (an empty spot of the classic home) as a hash: anything drawn over the home changes it.
 wall() { A exec-out screencap -p | magick png:- -crop "40x40+$((W - 120))+1000" +repage -depth 8 rgb:- 2>/dev/null | md5sum | cut -d' ' -f1; }
