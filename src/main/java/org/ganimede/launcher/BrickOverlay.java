@@ -49,6 +49,8 @@ final class BrickOverlay extends View {
     private int x0, y0, size0, guideX = Snap.NONE, guideY = Snap.NONE;
     private int[] linesX, linesY;
     private String readout;
+    private DashPathEffect dash;
+    private float dashScale;
 
     BrickOverlay(Context c, SharedPreferences p) {
         super(c);
@@ -180,6 +182,15 @@ final class BrickOverlay extends View {
         readout = v + held.unit;
     }
 
+    /** The dashes of the bricks not picked, made again only when the preview's scale changes (not on every frame). */
+    private DashPathEffect dash() {
+        if (dash == null || dashScale != scale) {
+            dash = new DashPathEffect(new float[]{on(5), on(4)}, 0);
+            dashScale = scale;
+        }
+        return dash;
+    }
+
     @Override
     protected void onDraw(Canvas c) {
         if (mode != EDIT) return;
@@ -191,7 +202,7 @@ final class BrickOverlay extends View {
             boolean on = b == sel;
             paint.setColor(on ? accent : 0x8CFFFFFF);
             paint.setStrokeWidth(on(on ? 2 : 1));
-            paint.setPathEffect(on ? null : new DashPathEffect(new float[]{on(5), on(4)}, 0));
+            paint.setPathEffect(on ? null : dash());
             float r = on(10), out = on(3);
             c.drawRoundRect(b.at.left - out, b.at.top - out, b.at.right + out, b.at.bottom + out, r, r, paint);
         }
