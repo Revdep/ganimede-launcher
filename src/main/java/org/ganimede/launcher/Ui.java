@@ -4,6 +4,7 @@ import org.ganimede.launcher.core.Colors;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -132,9 +133,21 @@ final class Ui {
         return new Ask(this);
     }
 
-    /** The settings' dialogs, in the system's dark style. */
+    /** A screen that closes its dialogs itself when it goes: no leaked window, and each dialog's OnDismiss runs. */
+    interface Owner {
+        void own(Dialog d);
+    }
+
+    /** The settings' dialogs, in the system's dark style; an Owner screen is told of each one. */
     static AlertDialog.Builder dialog(Context c) {
-        return new AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+        return new AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert) {
+            @Override
+            public AlertDialog create() {
+                AlertDialog d = super.create();
+                if (c instanceof Owner o) o.own(d);
+                return d;
+            }
+        };
     }
 
     void open(Intent i) {

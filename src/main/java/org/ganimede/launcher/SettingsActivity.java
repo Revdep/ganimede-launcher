@@ -3,6 +3,7 @@ package org.ganimede.launcher;
 import org.ganimede.launcher.core.Colors;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
@@ -11,7 +12,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -21,12 +21,14 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Settings: a home page with a live preview of the home screen and one card per category, each opening its own
  * page in this same activity (Back goes up one level). Built in code; every text goes through T (Italian in ItSettings).
  */
-public class SettingsActivity extends Activity {
+public class SettingsActivity extends Activity implements Ui.Owner {
     private static final int SCRIM = 0x99000000;
 
     private SettingsKit kit;
@@ -44,6 +46,7 @@ public class SettingsActivity extends Activity {
     private SettingsWizard wizard;
     private SettingsBricks bricks;
     private SettingsPages pages;
+    private final List<Dialog> dialogs = new ArrayList<>(); // the ones open now, closed with this screen
 
     @Override
     protected void onCreate(Bundle b) {
@@ -136,7 +139,7 @@ public class SettingsActivity extends Activity {
             for (String page : b.getStringArray("stack")) stack.addLast(Page.valueOf(page));
             scrolls.putAll(b.getBundle("scrolls"));
             bricks.pick(b.getString("brick", Brick.SCREEN));
-            if (b.getString("restore") != null) pages.confirmRestore(Uri.parse(b.getString("restore"))); // the dialog turned with the screen
+            pages.reopen(b); // the dialog turned with the screen
         }
     }
 
@@ -147,7 +150,7 @@ public class SettingsActivity extends Activity {
         scrolls.putInt(shown, sv.getScrollY());
         out.putBundle("scrolls", scrolls);
         out.putString("brick", bricks.picked());
-        if (pages.confirming() != null) out.putString("restore", pages.confirming().toString());
+        pages.save(out);
     }
 
     /** Android rebuilds this screen (rotation): a running file job goes on to the new one, as a ViewModel would. */
@@ -155,7 +158,14 @@ public class SettingsActivity extends Activity {
     public Object onRetainNonConfigurationInstance() { return pages.running(); }
 
     @Override
+    public void own(Dialog d) {
+        dialogs.removeIf(o -> !o.isShowing());
+        dialogs.add(d);
+    }
+
+    @Override
     protected void onDestroy() {
+        for (Dialog d : dialogs) if (d.isShowing()) d.dismiss(); // a dialog kept by save() opens again on the new screen
         bricks.stop();
         pages.stop();
         super.onDestroy();

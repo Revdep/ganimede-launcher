@@ -14,6 +14,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
@@ -43,6 +44,8 @@ final class SettingsPages {
     private final SettingsBackup backup;
     private Uri confirming; // the file the open "Restore backup?" asks about
     private FileJob job; // the backup, restore or icon import this page shows the end of, while it runs
+    private int formIndex; // the open shortcut form: the shortcut it edits (-1: a new one) and its fields, else formName null
+    private EditText formName, formLink;
 
     /** restart: runs the setup wizard again, from its first step. */
     SettingsPages(SettingsKit kit, SettingsPerms perms, Runnable restart, Runnable restored) {
@@ -170,7 +173,7 @@ final class SettingsPages {
     }
 
     /** The restore confirmation; the file it asks about is kept in confirming so a rebuilt screen can ask again. */
-    void confirmRestore(Uri u) {
+    private void confirmRestore(Uri u) {
         SettingsBackup b = backup;
         confirming = u;
         Ui.dialog(kit.activity())
@@ -184,8 +187,20 @@ final class SettingsPages {
                 .setOnCancelListener(d -> confirming = null).show();
     }
 
-    /** The file whose restore is being confirmed, or null. */
-    Uri confirming() { return confirming; }
+    /** What a dialog open now needs to be asked again on a rebuilt screen (rotation): the restore's file, the shortcut form as typed. */
+    void save(Bundle out) {
+        if (confirming != null) out.putString("restore", confirming.toString());
+        if (formName == null) return;
+        out.putInt("form", formIndex);
+        out.putString("form_name", formName.getText().toString());
+        out.putString("form_link", formLink.getText().toString());
+    }
+
+    /** Opens again what save kept. */
+    void reopen(Bundle in) {
+        if (in.getString("restore") != null) confirmRestore(Uri.parse(in.getString("restore")));
+        if (in.containsKey("form")) editShortcut(in.getInt("form"), in.getString("form_name"), in.getString("form_link"));
+    }
 
     /** A file job still running, for the screen Android builds in place of this one (rotation); null if none. */
     Object running() { return job; }
@@ -377,12 +392,12 @@ final class SettingsPages {
             int k = i;
             TextView uri = kit.summary(o.optString("uri"));
             if (uri != null) uri.setSingleLine(true);
-            LinearLayout r = kit.row(c, "star", kit.ui.accent, kit.text(o.optString("name"), 17, Colors.WHITE), uri, () -> editShortcut(k));
+            LinearLayout r = kit.row(c, "star", kit.ui.accent, kit.text(o.optString("name"), 17, Colors.WHITE), uri, () -> editShortcut(k, null, null));
             r.addView(kit.text("✎", 20, SettingsKit.SUB));
         }
         if (links.length() == 0) kit.para(c, kit.ui.tr("No shortcuts yet."), 15, SettingsKit.SUB);
         c = kit.card();
-        kit.row(c, "plus", kit.ui.tr("Add a shortcut"), null, () -> editShortcut(-1));
+        kit.row(c, "plus", kit.ui.tr("Add a shortcut"), null, () -> editShortcut(-1, null, null));
     }
 
     void wellbeing() {
@@ -494,10 +509,11 @@ final class SettingsPages {
         });
     }
 
-    /** Add (index -1) or edit a custom shortcut: a name and any link Android can open. */
-    private void editShortcut(int index) {
+    /** Add (at -1) or edit a custom shortcut: a name and any link Android can open; typed name and link, if not null, fill the form. */
+    private void editShortcut(int at, String typedName, String typedLink) {
         JSONArray links = Sunflower.links(kit.activity());
-        JSONObject old = index >= 0 ? links.optJSONObject(index) : null;
+        JSONObject old = at >= 0 ? links.optJSONObject(at) : null;
+        int index = old != null ? at : -1; // a shortcut gone meanwhile: the form adds it again
         LinearLayout form = new LinearLayout(kit.activity());
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(kit.ui.dp(24), kit.ui.dp(8), kit.ui.dp(24), 0);
@@ -510,6 +526,7 @@ final class SettingsPages {
         link.setHint(kit.ui.tr("Link"));
         link.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         if (old != null) { name.setText(old.optString("name")); link.setText(old.optString("uri")); }
+        if (typedName != null) { name.setText(typedName); link.setText(typedLink); }
         TextView examples = new TextView(kit.activity());
         examples.setTextSize(13);
         examples.setAlpha(0.75f);
@@ -529,6 +546,10 @@ final class SettingsPages {
             kit.render();
         });
         AlertDialog dialog = b.create();
+        formIndex = index;
+        formName = name;
+        formLink = link;
+        dialog.setOnDismissListener(d -> formName = null);
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String n = name.getText().toString().trim(), u = link.getText().toString().trim();
             if (u.matches("[^\\s:/]+\\.[^\\s:]+(/\\S*)?")) u = "https://" + u; // "example.org" means a web page
