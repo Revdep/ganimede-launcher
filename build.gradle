@@ -50,6 +50,7 @@ android {
     lint {
         checkReleaseBuilds false // its tools aren't available offline
         baseline file("lint-baseline.xml") // known issues; anything new fails
+        error += 'ClickableViewAccessibility' // a warning by default: new ones would pass the build unseen
     }
 }
 
