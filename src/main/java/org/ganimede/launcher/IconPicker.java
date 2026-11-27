@@ -88,9 +88,14 @@ final class IconPicker {
             public Object getItem(int i) { return shown.get(i); }
             public long getItemId(int i) { return i; }
             public View getView(int i, View old, ViewGroup parent) {
-                ImageView iv = old instanceof ImageView ? (ImageView) old : new ImageView(ui.a);
-                iv.setLayoutParams(new AbsListView.LayoutParams(-1, ui.dp(52)));
-                iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                ImageView iv = old instanceof ImageView ? (ImageView) old : null;
+                if (iv == null) {
+                    iv = new ImageView(ui.a);
+                    // Only on a new cell: new params on a reused one drop GridView's own flags, and the cell GridView
+                    // measured first is then attached without a window, unseen by accessibility (TalkBack, uiautomator).
+                    iv.setLayoutParams(new AbsListView.LayoutParams(-1, ui.dp(52)));
+                    iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                }
                 String k = shown.get(i);
                 Drawable d = loaded.get(k);
                 if (d == null) {
