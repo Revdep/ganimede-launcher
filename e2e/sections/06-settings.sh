@@ -220,7 +220,6 @@ expect "Temi"; hasnt "Cassetto" && ok "List: no Drawer pill" || ko "List shows a
 step "Settings: a stored value no choice matches (e.g. from a backup) marks no choice"
 seed classic
 setp int accent -16744320; setp int dim_home 50                  # teal and 50 %: no named colour, no tile
-wait_until 10 drawn                                             # touches sent before the first frame are lost
 pg_settings
 lookline() { dump | grep -q 'text="Classica · Sovrapposto · Predefinito"'; }  # mode · clock · font, and no colour name
 wait_until 5 lookline && ok "custom accent: the summary names no colour" || ko "custom accent: summary names a colour"
