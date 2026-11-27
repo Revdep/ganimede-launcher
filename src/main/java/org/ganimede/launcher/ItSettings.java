@@ -241,8 +241,8 @@ final class ItSettings {
         it("Allow it under Permissions in App info", "Consentilo in Info app → Permessi");
         it("Switch on \"Ganimede\" on the next screen. Message text never leaves your phone.",
                 "Attiva \"Ganimede\" nella prossima schermata. Il testo dei messaggi non lascia mai il tuo telefono.");
-        it("Switch on \"Ganimede Quick Lock\" under Accessibility. It only runs system actions (lock, screenshot, recent apps…) and reads nothing on screen.",
-                "Attiva \"Ganimede Quick Lock\" in Accessibilità. Esegue solo azioni di sistema (blocco, screenshot, app recenti…) e non legge niente sullo schermo.");
+        it("Switch on \"%s\" under Accessibility. It only runs system actions (lock, screenshot, recent apps…) and reads nothing on screen.",
+                "Attiva \"%s\" in Accessibilità. Esegue solo azioni di sistema (blocco, screenshot, app recenti…) e non legge niente sullo schermo.");
         it("1. Open and switch it on.\n2. If Android blocks it, press OK.\n3. App info → ⋮ (top right) → \"Allow restricted settings\".\n4. Come back and switch it on again.\nAndroid asks this of every app installed from a file instead of a store.",
                 "1. Apri e attivala.\n2. Se Android la blocca, premi OK.\n3. Info app → ⋮ (in alto a destra) → \"Consenti impostazioni con restrizioni\".\n4. Torna qui e attivala di nuovo.\nAndroid lo chiede per ogni app installata da un file invece che da uno store.");
 

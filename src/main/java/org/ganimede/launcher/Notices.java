@@ -277,7 +277,7 @@ final class Notices {
                 x.setGravity(Gravity.CENTER);
                 x.setContentDescription(ui.tr("Dismiss"));
                 x.setOnClickListener(v -> card.throwAway());
-                card.addView(x, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
+                card.addView(x, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
             }
             card.setOnClickListener(v -> { dlg[0].dismiss(); open(s, it); });
             LinearLayout cardGroup = group;

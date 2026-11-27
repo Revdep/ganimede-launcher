@@ -68,6 +68,29 @@ public class TranslationsTest {
         return out;
     }
 
+    /** Names Android shows in its own screens (Accessibility, Recents): the product name, or a translated string. */
+    public static void testManifestLabelsAreTranslated() throws IOException {
+        String manifest = Files.readString(Path.of("src/main/AndroidManifest.xml"));
+        Set<String> en = resources("values"), it = resources("values-it"), wrong = new TreeSet<>();
+        Matcher m = Pattern.compile("android:(?:label|description)=\"([^\"]*)\"").matcher(manifest);
+        while (m.find()) {
+            String v = m.group(1);
+            if (v.startsWith("@string/") ? !en.contains(v.substring(8)) || !it.contains(v.substring(8))
+                    : !Set.of("Ganimede", "Ganimede Launcher").contains(v)) wrong.add(v);
+        }
+        eq(Set.of(), wrong, "manifest labels that are fixed English text or lack an Italian string");
+        Set<String> untranslated = new TreeSet<>(en);
+        untranslated.removeAll(it);
+        eq(Set.of(), untranslated, "strings.xml entries without an Italian one");
+    }
+
+    private static Set<String> resources(String dir) throws IOException {
+        Set<String> names = new TreeSet<>();
+        Matcher m = Pattern.compile("<string name=\"([^\"]+)\"").matcher(Files.readString(Path.of("src/main/res", dir, "strings.xml")));
+        while (m.find()) names.add(m.group(1));
+        return names;
+    }
+
     public static void testEveryUsedEnglishTextHasItalian() throws IOException {
         Set<String> have = scan(KEY, "T.java", "ItSettings.java");
         yes(have.size() > 300, "the translation tables were found");

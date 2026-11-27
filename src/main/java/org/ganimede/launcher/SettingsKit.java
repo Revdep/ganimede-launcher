@@ -98,7 +98,7 @@ final class SettingsKit {
         });
     }
 
-    /** A round 44 dp button showing a line icon (e.g. an arrow), or the mark itself when there's no such icon. */
+    /** A round 48 dp button showing a line icon (e.g. an arrow), or the mark itself when there's no such icon. */
     FrameLayout glyphButton(String glyph, float rotation, String description) {
         TextView icon = text(Glyph.has(glyph) ? "" : glyph, 26, ui.accent);
         icon.setGravity(Gravity.CENTER);
@@ -109,7 +109,7 @@ final class SettingsKit {
         touch.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), null, oval(Colors.WHITE)));
         touch.addView(icon, new FrameLayout.LayoutParams(ui.dp(40), ui.dp(40), Gravity.CENTER));
         touch.setContentDescription(description);
-        touch.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
+        touch.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
         return touch;
     }
 
@@ -157,7 +157,7 @@ final class SettingsKit {
         repeating(less, () -> bar.setProgress(bar.getProgress() - 1));
         repeating(more, () -> bar.setProgress(bar.getProgress() + 1));
         line.addView(less);
-        line.addView(bar, new LinearLayout.LayoutParams(0, ui.dp(40), 1));
+        line.addView(bar, new LinearLayout.LayoutParams(0, ui.dp(48), 1));
         line.addView(more);
         r.addView(line);
         card.addView(r, new LinearLayout.LayoutParams(-1, -2));
