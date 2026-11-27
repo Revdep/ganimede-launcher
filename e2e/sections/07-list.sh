@@ -97,6 +97,32 @@ for handed in false true; do
   else ko "hidden alphabet, left-handed=$handed: Calendar favourite missing"; fi
 done
 
+step "Font: the home text follows the chosen font and its weight"
+frow() { local x1 y1 x2 y2; read -r x1 y1 x2 y2 <<<"$(bounds Calendar)"; fcrop "$((x2 - x1))x$((y2 - y1))+$x1+$y1" "$1"; } # the favourite's row, as drawn
+fcrop() { A exec-out screencap -p | magick png:- -crop "$1" +repage "$2"; } # fcrop geometry out.png
+fdiff() { compare -metric AE "$1" "$2" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
+setp boolean left_handed false; setp boolean alpha_home true; setp del alpha_offset; setp string font sans-serif; settled_home() { wait_until 10 settled; }; settled_home
+frow "$OUT/font-row-def.png"
+acrop="$(dp 58)x1100+$((W - $(dp 58)))+1000"; fcrop "$acrop" "$OUT/font-alpha-def.png"
+setp string font sans-serif-thin; settled_home
+frow "$OUT/font-row-thin.png"; fcrop "$acrop" "$OUT/font-alpha-thin.png"
+setp string font monospace; settled_home
+frow "$OUT/font-row-mono.png"; fcrop "$acrop" "$OUT/font-alpha-mono.png"
+# the text cursor and the clock's seconds blink: a few dozen pixels is noise, a font is hundreds
+r=$(fdiff "$OUT/font-row-def.png" "$OUT/font-row-mono.png"); [ "${r:-0}" -gt 300 ] && ok "monospace changes the favourite ($r px differ)" || ko "monospace left the favourite alone (${r:-0} px differ)"
+r=$(fdiff "$OUT/font-row-def.png" "$OUT/font-row-thin.png"); [ "${r:-0}" -gt 300 ] && ok "thin is not the default bold ($r px differ)" || ko "thin favourite looks like the default bold (${r:-0} px differ)"
+a=$(fdiff "$OUT/font-alpha-def.png" "$OUT/font-alpha-mono.png")
+[ "${a:-0}" -gt 300 ] && ok "the alphabet follows the font ($a px differ)" || ko "the alphabet ignores the font"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "Zz%sProva%sZz%sProva"
+read -r sx1 sy1 sx2 sy2 <<<"$(bounds "Zz Prova Zz Prova")"; sgeo="$(dp 170)x$((sy2 - sy1))+$((sx1 + $(dp 18)))+$sy1" # the typed text only: the rows under it change with the font too
+fcrop "$sgeo" "$OUT/font-search-mono.png"
+setp string font sans-serif; settled_home
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "Zz%sProva%sZz%sProva"
+fcrop "$sgeo" "$OUT/font-search-def.png"
+s=$(fdiff "$OUT/font-search-def.png" "$OUT/font-search-mono.png")
+[ "${s:-0}" -gt 300 ] && ok "the search text follows the font ($s px differ)" || ko "the search text ignores the font"
+setp del font
+
 step "Breezy weather broadcast: only its own action is read"
 seed list
 BW='nodomain.freeyourgadget.gadgetbridge.ACTION_GENERIC_WEATHER'

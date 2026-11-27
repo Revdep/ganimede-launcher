@@ -292,7 +292,7 @@ final class SettingsPreview extends FrameLayout {
         if (!want.equals(pack)) loadPack(want);
         boolean dark = Ui.darkText(p);
         int fg = dark ? Colors.INK : Colors.WHITE, accent = Ui.accent(p);
-        Typeface face = Typeface.create(p.getString("font", "sans-serif"), Typeface.NORMAL);
+        Typeface face = Ui.font(p.getString("font", "sans-serif"));
         String shape = p.getString("icon_shape", Icons.DEFAULT_SHAPE);
         String themedShape = p.getString("themed_shape", Icons.DEFAULT_THEMED_SHAPE);
         boolean wasClassic = classic;
@@ -523,7 +523,7 @@ final class SettingsPreview extends FrameLayout {
         // The app pages (drawer off) may carry their own look: the cells of the page shown, not the dock.
         boolean app = layout.appPage(page);
         int cellIcon = app ? px(layout.drawerInt("grid_icon", 48)) : icon;
-        Typeface cellFace = app ? Typeface.create(layout.drawerString("font", "sans-serif"), Typeface.NORMAL) : face;
+        Typeface cellFace = app ? Ui.font(layout.drawerString("font", "sans-serif")) : face;
         String cellShape = app ? layout.drawerString("icon_shape", shape) : shape;
         boolean cellLabels = app ? layout.drawerLabels() : labels;
         int cellScale = app ? layout.drawerInt("label_scale", 100) : p.getInt("label_scale", 100);

@@ -180,7 +180,7 @@ final class Entries {
                 float base = labelBase > 0 ? labelBase : layout.defaults()[0] >= 5 ? 14.4f : 13;
                 nameView.setTextSize(drawer ? base * layout.drawerInt("label_scale", 100) / 100f : ui.labelSp(base));
                 nameView.setTextColor(ui.fg);
-                Typeface face = drawer ? Typeface.create(layout.drawerString("font", "sans-serif"), Typeface.NORMAL) : ui.face;
+                Typeface face = drawer ? Ui.font(layout.drawerString("font", "sans-serif")) : ui.face;
                 nameView.setTypeface(face);
                 if (ui.light()) nameView.setShadowLayer(ui.dp(3), 0, ui.dp(1), 0x99000000);
                 nameView.setGravity(Gravity.CENTER);

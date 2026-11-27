@@ -27,7 +27,7 @@ final class SettingsSamples {
     View presetCard(Object[] pr, Runnable onTap) {
         boolean dark = "dark".equals(val(pr, "text_color"));
         int fg = dark ? Colors.INK : Colors.WHITE, acc = (Integer) val(pr, "accent");
-        Typeface face = Typeface.create((String) val(pr, "font"), Typeface.NORMAL);
+        Typeface face = Ui.font((String) val(pr, "font"));
         boolean on = true;
         Map<String, ?> all = kit.prefs().getAll();
         for (int i = 2; i < pr.length; i += 2) on &= pr[i + 1].equals(all.get((String) pr[i]));

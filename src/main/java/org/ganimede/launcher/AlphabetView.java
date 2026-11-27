@@ -48,12 +48,13 @@ public class AlphabetView extends View {
         d = getResources().getDisplayMetrics().density;
         sp = getResources().getDisplayMetrics().scaledDensity;
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         setContentDescription("Alphabet: touch and slide to jump to apps");
         grow.setDuration(Morph.CLOSE_MS);
         grow.setInterpolator(Anim.EASE);
         grow.addUpdateListener(a -> { progress = (float) a.getAnimatedValue(); invalidate(); });
     }
+
+    void setFace(Typeface face) { paint.setTypeface(face); }
 
     void setLetters(Collection<String> l) {
         letters = Stream.concat(Stream.of(STAR), l.stream()).toArray(String[]::new);
