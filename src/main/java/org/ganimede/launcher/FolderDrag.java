@@ -29,7 +29,8 @@ final class FolderDrag {
     private float[] sx, sy;                              // top-left of each layout slot on screen
     private List<String> committed;                      // the keys as last saved
     private List<View> before;                         // the order when the drag began, to go back to on cancel
-    private boolean armed, dragging;
+    private View touched, held; // the icon the last finger went down on; the one picked up by a long-press
+    private boolean dragging;
     private float downX, downY, baseX, baseY;
 
     FolderDrag(Ui ui, Consumer<List<String>> save) {
@@ -49,8 +50,9 @@ final class FolderDrag {
         order.add(v);
         committed = new ArrayList<>(keys);
         v.setOnLongClickListener(x -> {
+            if (x != touched) return true; // a finger that came down later elsewhere owns downX/downY
             if (ui.haptics()) x.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-            armed = true;
+            held = x;
             x.getParent().requestDisallowInterceptTouchEvent(true); // the pop-up doesn't scroll away with the finger
             return true;
         });
@@ -83,8 +85,12 @@ final class FolderDrag {
 
     private boolean touch(View v, MotionEvent e) {
         int a = e.getActionMasked();
-        if (a == MotionEvent.ACTION_DOWN) { armed = dragging = false; downX = e.getRawX(); downY = e.getRawY(); return false; }
-        if (!armed) return false;
+        // while one icon is held, a second finger or the palm on another icon is ignored: it must not reset this drag
+        if (held != null && v != held) return true;
+        if (a == MotionEvent.ACTION_DOWN) { touched = v; dragging = false; downX = e.getRawX(); downY = e.getRawY(); return false; }
+        if (held == null) return false;
+        // a second finger on the held icon itself neither ends nor moves the drag
+        if (a == MotionEvent.ACTION_POINTER_DOWN || a == MotionEvent.ACTION_POINTER_UP) return true;
         if (a == MotionEvent.ACTION_MOVE) {
             float dx = e.getRawX() - downX, dy = e.getRawY() - downY;
             if (!dragging && Math.hypot(dx, dy) < ui.slop()) return true;
@@ -93,7 +99,8 @@ final class FolderDrag {
             return true;
         }
         boolean wasDragging = dragging;
-        armed = dragging = false;
+        held = null;
+        dragging = false;
         if (wasDragging) drop(v, a == MotionEvent.ACTION_UP);
         return true;
     }
