@@ -109,7 +109,10 @@ final class SettingsPerms {
 
     /** The explanation of kind "notif" or "lock"; if the person does not go on, the switch key (may be null) goes back off. */
     private void explain(String kind, String key) {
-        Runnable declined = key == null ? null : () -> { kit.save(key, false); kit.render(); };
+        Runnable declined = key == null ? null : () -> {
+            kit.save(key, false);
+            if (!kit.activity().isDestroyed()) kit.render(); // also run from onDestroy, where the page is not built again
+        };
         explaining = kind.equals("lock") ? Ui.explainLock(kit.activity(), declined) : Ui.explainNotif(kit.activity(), declined);
         explainKind = kind;
         explainKey = key;

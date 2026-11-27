@@ -174,12 +174,15 @@ public class SettingsActivity extends Activity implements Ui.Owner {
 
     @Override
     protected void onDestroy() {
-        for (Dialog d : dialogs) { // closed by Android, not by the person: no OnDismiss runs; one kept by save() opens again on the new screen
-            d.setOnDismissListener(null);
+        bricks.stop(); // first: a switch a dialog puts back off below is no undo step
+        pages.stop();
+        boolean turning = isChangingConfigurations();
+        for (Dialog d : dialogs) {
+            // A rebuild (rotation) is not the person's answer: no OnDismiss, and save() opened it again on the new screen.
+            // Any other end runs it, so a guarded switch is never left on without access.
+            if (turning) d.setOnDismissListener(null);
             if (d.isShowing()) d.dismiss();
         }
-        bricks.stop();
-        pages.stop();
         super.onDestroy();
     }
 
