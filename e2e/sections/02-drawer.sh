@@ -47,16 +47,18 @@ step "Search: every matching contact, any case, in order"
 CONTACTS=content://com.android.contacts
 # the test contacts and the permission go away at the end, and before inserting in case an earlier run stopped halfway
 prova_clean() {
-  A shell "content delete --uri '$CONTACTS/raw_contacts?caller_is_syncadapter=true' --where \"account_type='org.ganimede.e2e'\""
+  A shell "content delete --uri '$CONTACTS/raw_contacts?caller_is_syncadapter=true' --where \"account_type LIKE 'org.ganimede.e2e%'\""
   A shell pm revoke $PK android.permission.READ_CONTACTS
 }
 prova_clean
 names=("Zz Prova H" "Zz Prova G" "ZZ PROVA F" "Zz Prova E" "Zz Prova D" "Zz Prova C" "Zz Prova B" "Zz Prova A")
-for n in "${names[@]}"; do # a raw contact of the e2e account with a name and, all but C, a number
+for n in "${names[@]}"; do # a raw contact of the e2e account with a name and a number, C an email instead
   A shell "content insert --uri $CONTACTS/raw_contacts --bind account_type:s:org.ganimede.e2e --bind account_name:s:e2e"
   id=$(A shell content query --uri $CONTACTS/raw_contacts --projection _id --sort "'_id DESC'" | head -1 | grep -o '_id=[0-9]*' | cut -d= -f2)
   A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/name --bind data1:s:'$n'"
-  [ "$n" = "Zz Prova C" ] || A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:555010$id --bind data2:i:2"
+  if [ "$n" = "Zz Prova C" ]; then # email only: listed, without a call button
+    A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/email_v2 --bind data1:s:zz.prova@example.org --bind data2:i:2"
+  else A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:555010$id --bind data2:i:2"; fi
 done
 A shell pm grant $PK android.permission.READ_CONTACTS
 seed classic; setp boolean contacts_search true
@@ -78,4 +80,21 @@ wait_until 5 has "Mostra tutti (8)" && ok "another text and back: five again, wi
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"' # keyboard, then search
 A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "Zz Prova"
 wait_until 5 has "Mostra tutti (8)" && ok "search reopened: five again, with Show all" || ko "search reopened: still all, no Show all"
+
+step "Search: a chat contact (WhatsApp, Telegram) that did not merge with the phone contact is not a second row"
+# the same person twice: the phone contact, and a raw contact of a messenger account with a name and no number or email
+# (aggregation disabled, as when the names differ slightly and the provider keeps them apart)
+for acct in org.ganimede.e2e org.ganimede.e2e.chat; do
+  mode=0; [ "$acct" = org.ganimede.e2e.chat ] && mode=3
+  A shell "content insert --uri $CONTACTS/raw_contacts --bind account_type:s:$acct --bind account_name:s:e2e --bind aggregation_mode:i:$mode"
+  id=$(A shell content query --uri $CONTACTS/raw_contacts --projection _id --sort "'_id DESC'" | head -1 | grep -o '_id=[0-9]*' | cut -d= -f2)
+  A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/name --bind data1:s:'Zz Prova Chat'"
+  [ "$mode" = 3 ] || A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:555010$id --bind data2:i:2"
+done
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"'
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; wait_until 5 kbd; A shell input text "Chat"
+expect "Zz Prova Chat"
+rows() { [ "$(screen | grep -o 'text="Zz Prova Chat"' | wc -l)" -eq "$1" ]; }
+wait_until 5 rows 1 && ok "the person is listed once" || ko "the person is listed $(screen | grep -o 'text="Zz Prova Chat"' | wc -l) times"
+shot 14-chat
 prova_clean

@@ -247,6 +247,10 @@ final class AppList {
         });
     }
 
+    // Only people I can call or write to: messenger accounts (WhatsApp, Telegram) add contacts with a name and neither.
+    private static final String REACHABLE = ContactsContract.Contacts.HAS_PHONE_NUMBER + "=1 OR " + ContactsContract.Contacts._ID
+            + " IN (SELECT contact_id FROM view_data WHERE mimetype='" + Email.CONTENT_ITEM_TYPE + "')";
+
     /**
      * How many contacts match, starred first then by name, with the details (number, email) of only the rows shown:
      * the first few, or all of them after "Show all". The count comes from the cursor; the rest are not read.
@@ -258,7 +262,7 @@ final class AppList {
         int count = 0;
         Uri u = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(q));
         try (Cursor c = ui.a.getContentResolver().query(u, new String[]{ContactsContract.Contacts._ID,
-                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY}, null, null,
+                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY}, REACHABLE, null,
                 ContactsContract.Contacts.STARRED + " DESC, " + ContactsContract.Contacts.SORT_KEY_PRIMARY)) {
             if (c != null) count = c.getCount();
             while (c != null && ids.size() < Search.shownContacts(count, all) && c.moveToNext()) {
