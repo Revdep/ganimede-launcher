@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.Favourites;
 import org.ganimede.launcher.core.HomeColumn;
 import org.ganimede.launcher.core.Search;
@@ -288,8 +289,7 @@ final class SettingsPreview extends FrameLayout {
         boolean dark = Ui.darkText(p);
         int fg = dark ? Colors.INK : Colors.WHITE, accent = Ui.accent(p);
         Typeface face = Ui.font(p.getString("font", "sans-serif"));
-        String shape = p.getString("icon_shape", Icons.DEFAULT_SHAPE);
-        String themedShape = p.getString("themed_shape", Icons.DEFAULT_THEMED_SHAPE);
+        IconLook look = Icons.look(p);
         boolean wasClassic = classic;
         classic = "classic".equals(forcedMode != null ? forcedMode : p.getString("mode", "list"));
         if (classic != wasClassic || edit.bricks.length == 0) edit.bricks = Brick.of(classic);
@@ -355,8 +355,8 @@ final class SettingsPreview extends FrameLayout {
         grid.removeAllViews();
         dock.removeAllViews();
         dots.removeAllViews();
-        if (classic) buildClassic(fg, accent, face, shape, themedShape, labels, dark);
-        else buildList(fg, accent, face, shape, themedShape, labels);
+        if (classic) buildClassic(fg, accent, face, look, labels, dark);
+        else buildList(fg, accent, face, look, labels);
         favs.setVisibility(classic ? GONE : VISIBLE);
         grid.setVisibility(classic ? VISIBLE : GONE);
         LinearLayout.LayoutParams gridLp = (LinearLayout.LayoutParams) grid.getLayoutParams();
@@ -440,15 +440,15 @@ final class SettingsPreview extends FrameLayout {
     }
 
 
-    private ImageView iconView(Apps.Item a, String shape, String themedShape, int fg, int accent, int size) {
+    private ImageView iconView(Apps.Item a, IconLook look, int fg, int accent, int size) {
         ImageView icon = new ImageView(getContext());
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         Drawable packed = Icons.fromPack(a.info.getComponentName()); // once: it decodes the built-in icon
-        Icons.apply(icon, packed != null ? packed : a.info.getBadgedIcon(0), packed != null, shape, themedShape, fg, accent, size);
+        Icons.apply(icon, packed != null ? packed : a.info.getBadgedIcon(0), packed != null, look, fg, accent, size);
         return icon;
     }
 
-    private void buildList(int fg, int accent, Typeface face, String shape, String themedShape, boolean labels) {
+    private void buildList(int fg, int accent, Typeface face, IconLook look, boolean labels) {
         Context c = getContext();
         int size = px(p.getInt("icon_size", 54)), gap = px(p.getInt("fav_gap", 8));
         List<String> favourites = layout.favourites();
@@ -466,21 +466,21 @@ final class SettingsPreview extends FrameLayout {
             favs.addView(hint);
             return;
         }
-        for (String k : shown) favs.addView(row(k, size, gap, fg, accent, face, shape, themedShape, labels));
+        for (String k : shown) favs.addView(row(k, size, gap, fg, accent, face, look, labels));
         for (String k : faint) {
-            View r = row(k, size, gap, fg, accent, face, shape, themedShape, labels);
+            View r = row(k, size, gap, fg, accent, face, look, labels);
             r.setAlpha(0.6f);
             favs.addView(r);
         }
     }
 
-    private View row(String entry, int size, int gap, int fg, int accent, Typeface face, String shape, String themedShape, boolean labels) {
+    private View row(String entry, int size, int gap, int fg, int accent, Typeface face, IconLook look, boolean labels) {
         Context c = getContext();
         LinearLayout row = new LinearLayout(c);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPaddingRelative(0, gap, 0, gap);
         Apps.Item a = all.get(entry);
-        row.addView(a != null ? iconView(a, shape, themedShape, fg, accent, size) : tile(entry, size, fg),
+        row.addView(a != null ? iconView(a, look, fg, accent, size) : tile(entry, size, fg),
                 new LinearLayout.LayoutParams(size + px(4), size + px(2)));
         if (labels) {
             TextView name = new TextView(c);
@@ -511,7 +511,7 @@ final class SettingsPreview extends FrameLayout {
     }
 
     /** The first page of the real grid (its saved cells, or the favourites before anything was placed) and the dock. */
-    private void buildClassic(int fg, int accent, Typeface face, String shape, String themedShape,
+    private void buildClassic(int fg, int accent, Typeface face, IconLook look,
                               boolean labels, boolean dark) {
         Context c = getContext();
         int cols = layout.cols(), rows = layout.rows(), icon = px(p.getInt("grid_icon", 48));
@@ -519,7 +519,7 @@ final class SettingsPreview extends FrameLayout {
         boolean app = layout.appPage(page);
         int cellIcon = app ? px(layout.drawerInt("grid_icon", 48)) : icon;
         Typeface cellFace = app ? Ui.font(layout.drawerString("font", "sans-serif")) : face;
-        String cellShape = app ? layout.drawerString("icon_shape", shape) : shape;
+        IconLook cellLook = app ? layout.drawerIconLook() : look;
         boolean cellLabels = app ? layout.drawerLabels() : labels;
         int cellScale = app ? layout.drawerInt("label_scale", 100) : p.getInt("label_scale", 100);
         String[] cells = new String[cols * rows];
@@ -541,7 +541,7 @@ final class SettingsPreview extends FrameLayout {
         for (int i = 0; i < cells.length; i++) cells[i] = saved.getOrDefault(page * cells.length + i, "");
         for (int r = 0; r < rows; r++) {
             for (int k = 0; k < cols; k++) {
-                View cell = cell(cells[r * cols + k], cellLabels, cellIcon, fg, accent, cellFace, cellShape, themedShape, cellScale);
+                View cell = cell(cells[r * cols + k], cellLabels, cellIcon, fg, accent, cellFace, cellLook, cellScale);
                 cell.setTag(new int[]{k, r, 1, 1});
                 grid.addView(cell);
             }
@@ -591,18 +591,18 @@ final class SettingsPreview extends FrameLayout {
         dock.setVisibility(slot.length == 0 ? GONE : VISIBLE);
         dock.setWeightSum(Math.max(1, slot.length));
         for (String s : slot)
-            dock.addView(cell(s, false, icon, fg, accent, face, shape, themedShape), new LinearLayout.LayoutParams(0, icon + px(20), 1));
+            dock.addView(cell(s, false, icon, fg, accent, face, look), new LinearLayout.LayoutParams(0, icon + px(20), 1));
         GradientDrawable shelf = new GradientDrawable();
         shelf.setCornerRadius(px(28));
         shelf.setColor(Ui.dockColor(p, dark));
         dock.setBackground(shelf);
     }
 
-    private View cell(String entry, boolean labels, int icon, int fg, int accent, Typeface face, String shape, String themedShape) {
-        return cell(entry, labels, icon, fg, accent, face, shape, themedShape, p.getInt("label_scale", 100));
+    private View cell(String entry, boolean labels, int icon, int fg, int accent, Typeface face, IconLook look) {
+        return cell(entry, labels, icon, fg, accent, face, look, p.getInt("label_scale", 100));
     }
 
-    private View cell(String entry, boolean labels, int icon, int fg, int accent, Typeface face, String shape, String themedShape,
+    private View cell(String entry, boolean labels, int icon, int fg, int accent, Typeface face, IconLook look,
                       int labelScale) {
         Context c = getContext();
         LinearLayout box = new LinearLayout(c);
@@ -612,7 +612,7 @@ final class SettingsPreview extends FrameLayout {
         View iv = null;
         Apps.Item a = all.get(entry);
         if (a != null) {
-            iv = iconView(a, shape, themedShape, fg, accent, icon);
+            iv = iconView(a, look, fg, accent, icon);
             name = Apps.label(p, a);
         } else if (layout.entryExists(entry, k -> false)) { // a folder that is kept, or a shortcut
             iv = tile(entry, icon, fg);

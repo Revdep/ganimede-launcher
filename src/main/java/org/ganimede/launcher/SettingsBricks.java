@@ -318,7 +318,7 @@ final class SettingsBricks {
         gridPicker(kit.card("Grid"));
         if (layout.drawerFollowsHome()) return;
         LinearLayout c = kit.card("Icons");
-        look.iconChoices(c, layout.drawerKey("icon_shape"));
+        look.iconChoices(c, layout::drawerKey);
         kit.slider(c, kit.ui.tr("Icon size"), layout.drawerKey("grid_icon"), 32, 80, kit.prefs().getInt("grid_icon", 48));
         kit.toggle(c, kit.ui.tr("App names in the app drawer"), null, "drawer_labels",
                 !kit.prefs().getBoolean("hide_labels", false), kit::render);

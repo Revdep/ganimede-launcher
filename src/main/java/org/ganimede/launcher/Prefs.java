@@ -1,10 +1,12 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.Preferences;
 
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,10 +30,14 @@ final class Prefs {
         return new java.text.SimpleDateFormat(pattern, l).format(new java.util.Date(ms));
     }
 
-    /** Applies missing preference additions before either activity reads the layout. */
+    /** Applies missing preference additions (and the old icon shapes as the icon model) before either activity reads the layout. */
     static void prepare(SharedPreferences p) {
-        if (p.getBoolean(Preferences.LINE_MIGRATED, false)) return; // the common case: no full copy of the settings
-        Map<String, Object> additions = Preferences.lineMigration(p.getAll());
+        boolean legacyIcons = false;
+        for (String k : IconLook.LEGACY) legacyIcons |= p.contains(k);
+        if (p.getBoolean(Preferences.LINE_MIGRATED, false) && !legacyIcons) return; // the common case: no full copy of the settings
+        Map<String, ?> all = p.getAll();
+        Map<String, Object> additions = new HashMap<>(Preferences.lineMigration(all));
+        additions.putAll(IconLook.migrate(all));
         if (additions.isEmpty()) return;
         SharedPreferences.Editor e = p.edit();
         for (Map.Entry<String, Object> addition : additions.entrySet()) put(e, addition.getKey(), addition.getValue());

@@ -22,7 +22,12 @@ public class BackupTest {
         eq("b", Backup.typeOf("drawer_follow"), "drawer follows home");
         eq("s", Backup.typeOf("drawer_font"), "independent drawer font");
         eq("i", Backup.typeOf("drawer_icon"), "independent drawer icon size");
-        eq("s", Backup.typeOf("drawer_icon_shape"), "independent drawer icon shape");
+        eq("s", Backup.typeOf("drawer_icon_shape"), "an old backup's drawer icon shape still comes back");
+        eq("s", Backup.typeOf("icon_shape"), "an old backup's icon shape still comes back");
+        for (String k : new String[]{"icon_glyph", "icon_container", "icon_fill", "icon_color"}) {
+            eq("s", Backup.typeOf(k), k + " travels with the backup");
+            eq("s", Backup.typeOf("drawer_" + k), "drawer_" + k + " travels with the backup");
+        }
         eq("i", Backup.typeOf("drawer_label_scale"), "independent drawer label size");
         eq("i", Backup.typeOf("folder_bg"), "default folder background colour");
         eq("i", Backup.typeOf("folder_alpha"), "default folder background opacity");
@@ -113,6 +118,12 @@ public class BackupTest {
     public static void testTextIsAtMost64KB() {
         yes(Backup.fits("fav", "x".repeat(64 * 1024)), "the limit");
         yes(!Backup.fits("fav", "x".repeat(64 * 1024 + 1)) && !Backup.fits("rn:a/.B", "x".repeat(70_000)), "past it");
+    }
+
+    public static void testIconModelKeepsListedValues() {
+        yes(!Backup.fits("icon_glyph", "cutout"), "Cutout was removed: a theme from someone else can't bring it");
+        yes(Backup.fits("icon_container", "circle") && Backup.fits("icon_fill", "soft") && Backup.fits("icon_color", "text"), "listed values");
+        yes(!Backup.fits("icon_color", "soft") && !Backup.fits("drawer_icon_container", "hexagon"), "unlisted values");
     }
 
     public static void testModeIsListOrClassic() {

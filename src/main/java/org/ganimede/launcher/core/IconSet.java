@@ -28,6 +28,11 @@ public final class IconSet {
     private static final Join[] JOINS = Join.values();
     private static final int[] POINTS = {1, 1, 3, 0, 2};
 
+    /** How many x, y points an op takes: 1 per move or line, 3 per cubic, 2 per oval (its box), none for close. */
+    public static int points(Op op) {
+        return op == Op.MOVE_CLOSED ? 1 : POINTS[op.ordinal()];
+    }
+
     private final ByteBuffer data;
     private final int count, start;
     private final int[] nameAt;

@@ -4,6 +4,7 @@ import org.ganimede.launcher.core.Grid;
 import org.ganimede.launcher.core.Pins;
 import org.ganimede.launcher.core.Blocks;
 import org.ganimede.launcher.core.DrawerSettings;
+import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.Suggestions;
 
 import android.content.Context;
@@ -58,6 +59,9 @@ final class Layout {
     int drawerInt(String homeKey, int def) {
         return prefs.getInt(drawerKey(homeKey), prefs.getInt(homeKey, def));
     }
+
+    /** The icon settings of the app pages: the drawer's own, each falling back to the home's. */
+    IconLook drawerIconLook() { return IconLook.read(k -> drawerString(k, null)); }
 
     String drawerString(String homeKey, String def) {
         return prefs.getString(drawerKey(homeKey), prefs.getString(homeKey, def));

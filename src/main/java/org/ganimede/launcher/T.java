@@ -345,8 +345,9 @@ final class T {
         it("Rounded square", "Quadrato arrotondato");
         it("Teardrop", "Goccia");
         it("No plate", "Nessuna piastra");
-        it("Tinted", "Colorata");
-        it("Monochrome", "Monocromatica");
+        it("Line", "Linea");
+        it("Bold", "Marcato");
+        it("Sharp", "Spigoloso");
         it("Dots (minimal)", "Puntini (minimal)");
         it("Remove from home screen", "Togli dalla Home");
         it("Add to home screen", "Aggiungi alla Home");

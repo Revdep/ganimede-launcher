@@ -39,6 +39,8 @@ public final class Backup {
             FolderLook.BACKGROUND_KEY, "i", FolderLook.ALPHA_KEY, "i", FolderLook.COLUMNS_KEY, "i",
             "icon_size", "i", "icon_pack", "s", "hide_labels", "b", "drawer_follow", "b", "drawer_labels", "b",
             "drawer_font", "s", "drawer_icon_shape", "s", "drawer_icon", "i", "drawer_label_scale", "i",
+            "icon_glyph", "s", "icon_container", "s", "icon_fill", "s", "icon_color", "s",
+            "drawer_icon_glyph", "s", "drawer_icon_container", "s", "drawer_icon_fill", "s", "drawer_icon_color", "s",
             "label_scale", "i", "show_date", "b",
             "show_battery", "b", "show_weather", "b", "alpha_home", "b", "alpha_tint", "i", "alpha_size", "i",
             "alpha_offset", "i", "apps_offset", "i", "clock_offset", "i", "line_offset", "i", "home_bottom", "i", "left_handed", "b",
@@ -83,6 +85,7 @@ public final class Backup {
         if (k.startsWith("icon:") && !((String) v).matches("[\\w.]+\\|\\w+")) return false; // "pack|drawable", as the picker saves it
         if (v instanceof String && ((String) v).length() > 64 * 1024) return false; // a real setting is far smaller
         if (k.equals("mode")) return v.equals("list") || v.equals("classic");
+        if (v instanceof String && !IconLook.allows(k, (String) v)) return false; // e.g. the removed "cutout"
         return !k.equals("fab_icon") || v.equals("default") || v.equals("gray") || v.equals("colour") || v.equals("custom");
     }
 
