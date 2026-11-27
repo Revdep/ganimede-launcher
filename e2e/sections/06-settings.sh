@@ -36,7 +36,7 @@ done
 # The undo steps outlive the rebuild too (issue 063)
 if read -r ux uy <<<"$(cx "desc:Dock: Sposta su")" && [ -n "$ux" ]; then
   A shell input tap "$ux" "$uy"; wait_until 5 moved4
-  for s in 1.15 "$fs"; do setting system font_scale "$s" || continue; sleep 2; wait_until 5 settled; done
+  for s in 1.15 "$fs"; do setting system font_scale "$s" || continue; wait_until 5 settled; done
   wait_until 5 has "Annulla" && tap "Annulla"; wait_until 5 undone
   [ -z "$(pref classic_dock_y)" ] && ok "Undo still takes the move back after Android rebuilt the settings" || ko "undo lost on a rebuild: classic_dock_y = $(pref classic_dock_y)"
 else ko "dock arrows missing after the rebuild"; fi
