@@ -22,10 +22,14 @@ tap "Avanti"
 
 step "Wizard: style"
 expect "Scegli uno stile" && shot 03-mode
-# Each choice rebuilds both miniatures: the old ones must be freed, not kept alive by the window (GC'd view count, read on a still page).
+# Coming back to this step builds both miniatures again (a choice only marks its card, issue 062): the old ones must be freed,
+# not kept alive by the window (GC'd view count, read on a still page).
 views() { wait_until 5 settled; A shell dumpsys meminfo $PK | awk '/Views:/ {print $2; exit}'; }
 v0=$(views)
-for i in 1 2 3 4; do tap "Classica"; tap "Lista"; done
+for i in 1 2 3 4; do
+  tap "Avanti"; wait_until 10 has "Personalizza adesso" || ko "next step not shown"
+  tap "Indietro"; wait_until 10 has "Scegli uno stile" || ko "style step not shown again"
+done
 v1=$(views)
 [ $((v1 - v0)) -lt 100 ] && ok "old miniatures freed (views $v0 → $v1)" || ko "old miniatures leak (views $v0 → $v1)"
 tap "Classica"; wait_until 5 has "✓ Classica" && ok "classic chosen" || ko "classic not marked"
@@ -35,6 +39,17 @@ step "Wizard: customise now"
 expect "Personalizza adesso" && tap "Personalizza adesso"
 expect "Le tue app preferite" && shot 04-favs
 for app in Calendar Clock Contacts; do stap "$app" >/dev/null; done # not in the preview, so the list row is hit
+# A tick changes its own row, not the whole page (issue 062): the keyboard focus stays on the row and its state flips.
+A shell input keyevent KEYCODE_DPAD_DOWN; A shell input keyevent KEYCODE_DPAD_DOWN
+row_focus() { screen | grep -o 'checkable="true" checked="[a-z]*"[^>]*focused="true"[^>]*bounds="[^"]*"' | head -1 | sed 's/^checkable="true" //; s/ clickable.*bounds=/ /'; }
+f0=$(row_focus)   # checked="true|false" "[l,t][r,b]"
+flipped() { local f; f=$(row_focus); [ -n "$f" ] && [ "${f#* }" = "${f0#* }" ] && [ "${f%% *}" != "${f0%% *}" ]; }
+if [ -z "$f0" ]; then ko "no app row took the keyboard focus"
+else
+  A shell input keyevent KEYCODE_ENTER
+  wait_until 3 flipped && ok "a tick keeps the focus on its row and flips it ($f0)" || ko "a tick lost the row's focus or state (was $f0, now $(row_focus))"
+  A shell input keyevent KEYCODE_ENTER # back as it was: the three favourites above stay
+fi
 tap "Avanti"
 expect "Stile delle icone" && shot 05-icons
 tap "Squircle"; tap "Avanti"
