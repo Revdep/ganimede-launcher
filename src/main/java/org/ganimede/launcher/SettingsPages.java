@@ -260,6 +260,7 @@ final class SettingsPages {
         kit.para(c, kit.ui.f("Version %s · GPL-3.0 licence", version()), 15, SettingsKit.SUB);
         kit.para(c, kit.ui.tr("A free, minimalist home screen without Google: no ads, no tracking, no internet."), 15, Colors.WHITE);
         kit.para(c, kit.ui.tr("Weather by Breezy Weather, sent from your own phone."), 15, SettingsKit.SUB);
+        kit.para(c, kit.ui.tr("Built-in icons: Arcticons by Donnnno and contributors (github.com/Arcticons-Team/Arcticons), CC BY-SA 4.0, converted and algorithmically restyled."), 15, SettingsKit.SUB);
         kit.row(c, "gear", kit.ui.tr("App info"), null, () -> Ui.appInfo(kit.activity()));
         kit.row(c, "arrow", kit.ui.tr("Run the setup wizard again"), null, restart);
     }

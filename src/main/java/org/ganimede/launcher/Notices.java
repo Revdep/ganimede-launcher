@@ -221,7 +221,7 @@ final class Notices {
                 app.setPaddingRelative(ui.dp(4), ui.dp(18), 0, ui.dp(8));
                 if (it != null) {
                     ImageView ic = new ImageView(ui.a);
-                    ic.setImageDrawable(Icons.copy(it.icon));
+                    ic.setImageDrawable(Icons.plain(it.icon, ui.accent));
                     app.addView(ic, new LinearLayout.LayoutParams(ui.dp(22), ui.dp(22)));
                 }
                 TextView name = ui.plain(14, true, Colors.onDark(ui.accent));

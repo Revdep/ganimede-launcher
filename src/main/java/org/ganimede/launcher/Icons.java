@@ -22,17 +22,21 @@ import android.widget.ImageView;
 
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.IconMask;
+import org.ganimede.launcher.core.IconSet;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.function.BiPredicate;
 
-/** Icon packs (the common appfilter.xml format) and icon shapes. */
+/** Icon packs (the common appfilter.xml format, or the built-in set of core/IconSet) and icon shapes. */
 final class Icons {
     static final String[] SHAPES = {"original", "squircle", "circle", "square", "teardrop", "theme", "mono", "dot"};
     static final String[] SHAPE_NAMES = {"Original", "Squircle", "Circle", "Rounded square", "Teardrop",
@@ -66,19 +70,24 @@ final class Icons {
     private static final String[] PACK_ACTIONS = {"org.adw.launcher.THEMES", "com.novalauncher.THEME",
             "com.gau.go.launcherex.theme", "com.anddoes.launcher.THEME"};
 
+    /** The icon_pack value of the built-in Arcticons set: a colon can't be in a package name. */
+    static final String BUILTIN = "builtin:arcticons";
+
     private static final Object LOAD_LOCK = new Object();
     private static volatile String loadedPack;
-    private static volatile Pack loaded = new Pack(null, null, Map.of());
+    private static volatile Pack loaded = new Pack(null, null, Map.of(), null);
     private static final java.util.concurrent.atomic.AtomicInteger packRevision = new java.util.concurrent.atomic.AtomicInteger();
 
     private static final class Pack {
         final String name;
         final Resources resources;
         final Map<String, String> icons;
-        Pack(String name, Resources resources, Map<String, String> icons) {
+        final IconSet set; // the built-in set, instead of resources and icons
+        Pack(String name, Resources resources, Map<String, String> icons, IconSet set) {
             this.name = name;
             this.resources = resources;
             this.icons = icons;
+            this.set = set;
         }
     }
 
@@ -138,8 +147,11 @@ final class Icons {
             int revision = packRevision.get();
             Resources res = null;
             Map<String, String> icons = new HashMap<>();
+            IconSet set = null;
             try {
-                if (pack != null && !pack.isEmpty()) {
+                if (BUILTIN.equals(pack)) {
+                    set = IconSet.of(asset(c, "icons.bin"));
+                } else if (pack != null && !pack.isEmpty()) {
                     res = resources(c, pack);
                     readAppfilter(res, pack, (comp, draw) -> {
                         if (comp == null || draw == null || !comp.startsWith("ComponentInfo{")) return true;
@@ -149,13 +161,22 @@ final class Icons {
                     });
                 }
                 if (revision != packRevision.get()) return;
-                loaded = new Pack(pack, res, Map.copyOf(icons));
+                loaded = new Pack(pack, res, Map.copyOf(icons), set);
                 loadedPack = pack;
             } catch (Exception e) {
                 if (revision != packRevision.get()) return;
-                loaded = new Pack(null, null, Map.of());
+                loaded = new Pack(null, null, Map.of(), null);
                 loadedPack = null; // a broken pack falls back now and is tried again on the next load
             }
+        }
+    }
+
+    private static byte[] asset(Context c, String name) throws IOException {
+        try (InputStream in = c.getAssets().open(name)) {
+            ByteArrayOutputStream b = new ByteArrayOutputStream(1 << 21);
+            byte[] buf = new byte[1 << 16];
+            for (int n; (n = in.read(buf)) > 0; ) b.write(buf, 0, n);
+            return b.toByteArray();
         }
     }
 
@@ -164,7 +185,7 @@ final class Icons {
         if (pkg != null && pkg.equals(loadedPack)) {
             packRevision.incrementAndGet();
             loadedPack = null;
-            loaded = new Pack(null, null, Map.of());
+            loaded = new Pack(null, null, Map.of(), null);
         }
         synchronized (PACK_RES) { PACK_RES.remove(pkg); }
     }
@@ -172,6 +193,10 @@ final class Icons {
     /** The pack's icon for a component, or null. */
     static Drawable fromPack(ComponentName cn) {
         Pack pack = loaded;
+        if (pack.set != null) {
+            OptionalInt id = pack.set.index().find(cn.getPackageName(), cn.getClassName());
+            return id.isPresent() ? new BuiltinIcon(pack.set.icon(id.getAsInt())) : null;
+        }
         if (pack.resources == null) return null;
         String name = pack.icons.get(cn.flattenToString());
         if (name == null) return null;
@@ -252,20 +277,26 @@ final class Icons {
             case "squircle":
             case "square":
             case "teardrop":
-                v.setImageDrawable(clip(icon, shape, size));
+                v.setImageDrawable(icon instanceof AdaptiveIconDrawable ? clip(icon, shape, size) : plain(icon, accent));
                 return;
             default: // original: the app's own icon, nothing added
-                v.setImageDrawable(copy(icon));
+                v.setImageDrawable(plain(icon, accent));
         }
     }
 
+    /** The icon as it is; a built-in line icon is drawn in the accent (issue 077; 078 brings its own styles). */
+    static Drawable plain(Drawable icon, int accent) {
+        Drawable d = copy(icon);
+        if (icon instanceof BuiltinIcon) d.setTint(accent);
+        return d;
+    }
+
     /**
-     * The icon cut to a shape. Adaptive icons fill the shape edge to edge; old square icons are left as they are
-     * (no white plate behind them), so nothing looks like a sticker.
+     * An adaptive icon cut to a shape, edge to edge. Old square icons are not clipped (Icons.apply leaves them as they
+     * are, no white plate behind them), so nothing looks like a sticker.
      */
     private static Drawable clip(Drawable icon, String shape, int size) {
         if (size <= 0) size = 96;
-        if (!(icon instanceof AdaptiveIconDrawable)) return copy(icon);
         String key = idOf(icon) + "|" + shape + "|" + size;
         Bitmap cached = CACHE.get(key);
         if (cached != null) return new BitmapDrawable(null, cached);
