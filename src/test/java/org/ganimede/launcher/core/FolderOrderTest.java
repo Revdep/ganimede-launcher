@@ -47,4 +47,12 @@ public class FolderOrderTest {
         eq(List.of("a", "b"), FolderOrder.reorderShown(List.of("a", "b"), List.of("b")),
                 "a shown list that lost an entry changes nothing");
     }
+
+    public static void testChoosingAppsKeepsTheOrderAndCanDropAShortcut() {
+        // stored: a shortcut between two apps; the dialog lists the shortcut first, then the apps alphabetically
+        List<String> stored = List.of("b", "s:pkg|id|Mail", "a");
+        eq(List.of("b", "a", "c"), FolderOrder.chosen(stored, List.of("a", "b", "c")),
+                "the unchecked shortcut leaves, the kept ones keep their order, a new one goes last");
+        eq(stored, FolderOrder.chosen(stored, List.of("s:pkg|id|Mail", "a", "b")), "nothing changed: the same order");
+    }
 }

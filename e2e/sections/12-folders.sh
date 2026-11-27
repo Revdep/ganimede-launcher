@@ -305,6 +305,20 @@ for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and 
   has "Calendar" && has "Clock" && has "Contacts" && ok "$mode: all apps still in the open pop-up, no menu" || ko "$mode: the pop-up lost an icon or closed"
 done
 
+step "Folders: Choose apps lists the folder's pinned shortcuts; unchecking one takes it out, the order stays (082)"
+seed classic
+setp string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}'
+setp string fav 'f:sc'
+setp del grid
+tap Scorciatoie; expect "Zz Posta"
+tap "✎ Modifica pop-up"; tap "Scegli app"; wait_until 5 has "Zz Posta"
+tap "Zz Posta"; tap "Salva"
+wait_until 5 has "Calendar" # the pop-up opens again with the result
+hasnt "Zz Posta" && ok "the unchecked shortcut is gone from the pop-up" || ko "the shortcut is still in the pop-up"
+pstr folder:sc | grep -q 'zz1' && ko "the shortcut is still stored: $(pstr folder:sc)" || ok "the shortcut is no longer stored"
+pstr folder:sc | grep -q 'deskclock.*calendar' && ok "Clock and Calendar keep their order" || ko "folder:sc = $(pstr folder:sc)"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
+
 step "App menu from the drawer (List): add to favourites"
 seed list
 drawer_find() { # drawer, search $1; leaves Settings in the list

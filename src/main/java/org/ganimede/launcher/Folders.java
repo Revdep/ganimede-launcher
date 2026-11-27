@@ -200,22 +200,22 @@ final class Folders {
         return value == null ? fallback : value;
     }
 
+    /** The folder's pinned shortcuts, then every app, with check boxes: unchecking takes an entry out of the folder. */
     private void chooseApps(String id) {
-        List<Item> all = apps.visible();
         JSONObject f = layout.folder(id);
-        List<String> inside = Layout.strings(f.optJSONArray("apps"));
-        String[] names = new String[all.size()];
-        boolean[] on = new boolean[all.size()];
-        for (int i = 0; i < names.length; i++) { names[i] = apps.label(all.get(i)); on[i] = inside.contains(all.get(i).key); }
+        List<String> inside = Layout.strings(f.optJSONArray("apps")), listed = new ArrayList<>(), names = new ArrayList<>();
+        for (String k : inside) if (k.startsWith("s:")) { listed.add(k); names.add(Entries.shortcutName(k)); }
+        for (Item it : apps.visible()) { listed.add(it.key); names.add(apps.label(it)); }
+        boolean[] on = new boolean[listed.size()];
+        for (int i = 0; i < on.length; i++) on[i] = inside.contains(listed.get(i));
         ui.ask().setTitle(ui.tr("Apps in this pop-up"))
-                .setMultiChoiceItems(names, on, (d, w, c) -> on[w] = c)
+                .setMultiChoiceItems(names.toArray(new String[0]), on, (d, w, c) -> on[w] = c)
                 .setPositiveButton(ui.tr("Save"), (d, w) -> {
-                    List<String> keep = new ArrayList<>();
-                    for (String k : inside) if (k.startsWith("s:")) keep.add(k); // pinned shortcuts stay
-                    for (int i = 0; i < names.length; i++) if (on[i]) keep.add(all.get(i).key);
+                    List<String> checked = new ArrayList<>();
+                    for (int i = 0; i < on.length; i++) if (on[i]) checked.add(listed.get(i));
                     try {
                         if (!f.has("name")) f.put("name", defaultName(id));
-                        f.put("apps", new JSONArray(keep));
+                        f.put("apps", new JSONArray(FolderOrder.chosen(inside, checked)));
                     } catch (Exception ignored) { return; }
                     save(id, f);
                     show(id); // show the result right away

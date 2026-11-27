@@ -3,7 +3,7 @@ package org.ganimede.launcher.core;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Reordering the icons of an open folder: which slot a finger is over, and the list after moving one icon. */
+/** The order of a folder's entries: which slot a finger is over, moving one icon, and the list after choosing apps. */
 public final class FolderOrder {
     /**
      * The slot whose top-left corner (xs[i], ys[i]) is nearest (x, y), the dragged icon's own top-left corner; an icon
@@ -35,6 +35,14 @@ public final class FolderOrder {
         if (stored.stream().filter(reordered::contains).count() != reordered.size()) return out;
         int next = 0;
         for (int i = 0; i < out.size(); i++) if (reordered.contains(out.get(i))) out.set(i, reordered.get(next++));
+        return out;
+    }
+
+    /** The entries after "Choose apps": the stored ones still checked keep their order, newly checked ones go last. */
+    public static List<String> chosen(List<String> stored, List<String> checked) {
+        List<String> out = new ArrayList<>(stored);
+        out.retainAll(checked);
+        for (String k : checked) if (!out.contains(k)) out.add(k);
         return out;
     }
 
