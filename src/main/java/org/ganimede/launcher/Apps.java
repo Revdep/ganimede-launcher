@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
-import android.content.pm.PackageManager;
 import android.content.pm.ShortcutInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
@@ -33,8 +32,12 @@ final class Apps {
         boolean fromPack;
         /** The icon picked for it when this Item was made ("" for none): what its icon shows, as a stable key. */
         String picked = "";
-        /** When its app was last updated, as of this Item (0 unknown): an update may bring a new icon of its own. */
-        long updated;
+        /**
+         * Its app's install as of this Item: the APK path, which changes with every update (an update may bring a new
+         * icon of its own), in its own profile. Android 11+ installs each update under a new random /data/app/~~…/
+         * directory; 8 to 10 alternate /data/app/<pkg>-1 and -2, which still differs from the install before.
+         */
+        final String installed;
 
         Item(LauncherActivityInfo info, String key) {
             this.info = info;
@@ -42,6 +45,7 @@ final class Apps {
             pkg = info.getComponentName().getPackageName();
             notifGroup = NotifService.group(pkg, info.getUser());
             label = info.getLabel().toString();
+            installed = String.valueOf(info.getApplicationInfo().sourceDir);
         }
     }
 
@@ -109,8 +113,6 @@ final class Apps {
                         // An icon picked for this one app wins over the pack's and the app's own.
                         Drawable packed = Icons.picked(c, prefs, it.key);
                         it.picked = prefs.getString("icon:" + it.key, "");
-                        try { it.updated = c.getPackageManager().getPackageInfo(it.pkg, 0).lastUpdateTime; }
-                        catch (PackageManager.NameNotFoundException gone) { /* 0: removed meanwhile */ }
                         if (packed == null) packed = Icons.fromPack(info.getComponentName());
                         it.fromPack = packed != null;
                         it.icon = packed != null ? packed : info.getBadgedIcon(0);
