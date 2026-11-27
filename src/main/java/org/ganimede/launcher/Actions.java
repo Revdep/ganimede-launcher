@@ -12,6 +12,8 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.media.AudioManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -114,7 +116,7 @@ final class Actions {
                 }
                 case "camera": start(c, new Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)); return;
                 case "video": start(c, new Intent(MediaStore.INTENT_ACTION_VIDEO_CAMERA)); return;
-                case "torch": torch(c); return;
+                case "torch": torch(c, home); return;
                 case "media": {
                     AudioManager am = c.getSystemService(AudioManager.class);
                     long t = SystemClock.uptimeMillis();
@@ -158,13 +160,17 @@ final class Actions {
     }
 
     /** Flashlight through Android's torch switch (needs no camera permission). */
-    private static void torch(Context c) throws Exception {
+    private static void torch(Activity c, Home home) throws Exception {
         CameraManager cm = c.getSystemService(CameraManager.class);
         if (!torchWatched) {
             torchWatched = true;
+            Handler main = new Handler(Looper.getMainLooper());
             cm.registerTorchCallback(new CameraManager.TorchCallback() {
                 @Override public void onTorchModeChanged(String id, boolean on) { torchOn.put(id, on); }
-            }, null);
+            }, main);
+            // Registering posts each flash's present state to main: switch after it, never on a guess (issue 065).
+            main.post(() -> run(c, home, "torch"));
+            return;
         }
         for (String id : cm.getCameraIdList()) {
             Boolean flash = cm.getCameraCharacteristics(id).get(CameraCharacteristics.FLASH_INFO_AVAILABLE);

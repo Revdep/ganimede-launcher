@@ -160,3 +160,27 @@ wait_until 5 settled
 has "Rinomina" && ok "short slow pull: the sheet springs back" || ko "short pull closed the sheet"
 A shell input swipe $((W / 2)) "$ry" $((W / 2)) $((ry + sheet_h * 4 / 10)) 1500 # beyond a quarter, slow
 wait_until 5 hasnt "Rinomina" && ok "pulled past a quarter: the sheet closes" || ko "the sheet stayed after a long pull"
+
+step "Gestures: a torch switched on from quick settings goes off at the first tap of the flashlight button (issue 065)"
+# Ganimede starts fresh (seed stops it) with the torch already on: the first tap must read the real state, not assume "off".
+torch_tile() { screen | grep -o '<node [^>]*content-desc="Torcia"[^>]*>' | head -1; }
+torch_on() { torch_tile | grep -q 'checked="true"'; }
+torch_off() { torch_tile | grep -q 'checked="false"'; }
+qs_torch() { read -r tx ty <<<"$(cx "desc:Torcia")"; A shell input tap "$tx" "$ty"; }
+seed classic; setp string fab_tap torch
+A shell cmd statusbar expand-settings
+if ! wait_until 5 eval '[ -n "$(torch_tile)" ]'; then
+  SKIPS=$((SKIPS + 1)); echo "  SKIP: no Torcia tile in quick settings (this device has no flashlight)"
+  A shell cmd statusbar collapse
+else
+  torch_on || qs_torch
+  defer 'A shell cmd statusbar expand-settings; sleep 1; torch_on && qs_torch; A shell cmd statusbar collapse' # never leave the torch on
+  wait_until 5 torch_on && ok "quick settings turned the torch on" || ko "the Torcia tile did not turn on"
+  A shell cmd statusbar collapse; wait_until 5 focus
+  read -r fx fy <<<"$(cx "desc:Pulsante Ganimede")"; A shell input tap "$fx" "$fy"
+  sleep 1 # a single tap waits out the double-tap timeout only when a double or triple tap is set: harmless here
+  A shell cmd statusbar expand-settings
+  wait_until 5 torch_off && ok "first tap of the button: the torch is off" || ko "first tap of the button left the torch on (assumed it was off)"
+  A shell cmd statusbar collapse; wait_until 5 focus
+fi
+setp del fab_tap
