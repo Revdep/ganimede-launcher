@@ -6,7 +6,7 @@
 # (emu_only, setting); every setting changed is put back on exit, also on Ctrl-C or a failure (keep, defer).
 case "$SERIAL" in emulator-*) ;; *) case " ${E2E_DEVICES:-} " in *" $SERIAL "*) ;; *) echo "emulators only: $SERIAL (or list it in E2E_DEVICES)" >&2; exit 2;; esac;; esac
 exec 9>"/tmp/ganimede-e2e-$SERIAL.lock"; flock 9
-OUT="$HERE/out"; mkdir -p "$OUT"
+OUT="$HERE/out/$SERIAL"; mkdir -p "$OUT"; rm -f "$OUT"/fail-*.png # per device: two runs from one checkout keep apart; fail-N is this run's
 SCR="$OUT/screen.xml" # the last screen read, a file so that subshells share it
 PK=org.ganimede.launcher
 # Every adb call goes through A. One that can change the screen drops the cached screen read (see `screen`).

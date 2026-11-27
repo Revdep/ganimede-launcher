@@ -2,7 +2,7 @@
 # End-to-end usability test on an emulator, one file per section in sections/NN-name.sh.
 # Usage: [ONLY="drawer|list"] e2e/run.sh [serial]   (default emulator-5554). ONLY: regex on the section names.
 # Exit: 0 all passed, 1 a check failed (or a section is broken, ran no check or crashed the app), 2 the setup refused.
-# Screenshots go to e2e/out/. A section that needs a configured app calls `seed <mode>`; only `wizard` installs fresh.
+# Screenshots go to e2e/out/<serial>/. A section that needs a configured app calls `seed <mode>`; only `wizard` installs fresh.
 set -u
 SERIAL="${1:-emulator-5554}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
