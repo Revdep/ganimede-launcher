@@ -373,8 +373,6 @@ final class T {
         it("Icon…", "Icona…");
         it("All icon packs", "Tutti i pacchetti di icone");
         it("Search icons", "Cerca icone");
-        it("No icon packs installed. Install one (for example from F-Droid) and it shows up here.",
-                "Nessun pacchetto di icone installato. Installane uno (per esempio da F-Droid) e comparirà qui.");
         it("Left-hand use (mirrored)", "Uso con la mano sinistra (specchiato)");
         it("Alphabet on the left, everything aligned to the right", "Alfabeto a sinistra, tutto allineato a destra");
         it("Alphabet", "Alfabeto");

@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.FolderLook;
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Preferences;
 import org.ganimede.launcher.core.Safe;
 
@@ -201,7 +202,7 @@ final class SettingsLook {
         List<String> ids = new ArrayList<>(), names = new ArrayList<>();
         ids.add("");
         names.add(kit.ui.tr("None (apps' own icons)"));
-        ids.add(Icons.BUILTIN);
+        ids.add(IconSet.PACK);
         names.add(kit.ui.tr("Arcticons (built-in)"));
         for (Map.Entry<String, String> e : Icons.packs(kit.activity()).entrySet()) { ids.add(e.getKey()); names.add(e.getValue()); }
         kit.radios(c, names.toArray(new String[0]), Math.max(0, ids.indexOf(kit.prefs().getString("icon_pack", ""))), null, null,

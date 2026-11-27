@@ -70,9 +70,6 @@ final class Icons {
     private static final String[] PACK_ACTIONS = {"org.adw.launcher.THEMES", "com.novalauncher.THEME",
             "com.gau.go.launcherex.theme", "com.anddoes.launcher.THEME"};
 
-    /** The icon_pack value of the built-in Arcticons set: a colon can't be in a package name. */
-    static final String BUILTIN = "builtin:arcticons";
-
     private static final Object LOAD_LOCK = new Object();
     private static volatile String loadedPack;
     private static volatile Pack loaded = new Pack(null, null, Map.of(), null);
@@ -149,8 +146,8 @@ final class Icons {
             Map<String, String> icons = new HashMap<>();
             IconSet set = null;
             try {
-                if (BUILTIN.equals(pack)) {
-                    set = IconSet.of(asset(c, "icons.bin"));
+                if (IconSet.PACK.equals(pack)) {
+                    set = builtin(c);
                 } else if (pack != null && !pack.isEmpty()) {
                     res = resources(c, pack);
                     readAppfilter(res, pack, (comp, draw) -> {
@@ -171,10 +168,17 @@ final class Icons {
         }
     }
 
-    private static byte[] asset(Context c, String name) throws IOException {
-        try (InputStream in = c.getAssets().open(name)) {
-            return LimitedInputStream.readAll(in, 16 << 20); // the set is 4 MB
+    private static volatile IconSet builtin;
+
+    /** The built-in set, read once: the home's pack and the icon picker share it. */
+    private static IconSet builtin(Context c) throws IOException {
+        IconSet set = builtin;
+        if (set == null) {
+            try (InputStream in = c.getAssets().open("icons.bin")) {
+                builtin = set = IconSet.of(LimitedInputStream.readAll(in, 16 << 20)); // the set is 4 MB
+            }
         }
+        return set;
     }
 
     /** An app was installed or updated: if it's an icon pack, it's read again on the next load. */
@@ -209,13 +213,17 @@ final class Icons {
         }
     }
 
-    /** Every icon an installed pack offers (the drawable names its appfilter lists, without repeats). */
+    /**
+     * Every icon a pack offers: the built-in set's names, or the drawable names an installed pack's appfilter lists,
+     * without repeats. No cap (issue 081): names are only strings, and the picker draws only the cells on screen.
+     */
     static java.util.List<String> packIcons(Context c, String pack) {
         java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
         try {
+            if (IconSet.PACK.equals(pack)) return builtin(c).names();
             readAppfilter(resources(c, pack), pack, (comp, draw) -> {
                 if (draw != null) out.add(draw);
-                return out.size() < 4000;
+                return true;
             });
         } catch (Exception ignored) {
             // Unreadable pack: nothing to offer.
@@ -223,11 +231,19 @@ final class Icons {
         return new java.util.ArrayList<>(out);
     }
 
-    /** An icon named "pack|drawable" (how a picked icon is stored), or null. */
+    /**
+     * An icon named "pack|drawable" (how a picked icon is stored; the built-in set's by name, its ids change between
+     * versions), or null: a name the set no longer has falls back to the entry's usual icon.
+     */
     static Drawable named(Context c, String packAndName) {
         String[] pp = packAndName.split("\\|", 2);
         if (pp.length != 2) return null;
         try {
+            if (IconSet.PACK.equals(pp[0])) {
+                IconSet set = builtin(c);
+                OptionalInt id = set.id(pp[1]);
+                return id.isPresent() ? new BuiltinIcon(set.icon(id.getAsInt())) : null;
+            }
             Resources r = resources(c, pp[0]);
             int id = r.getIdentifier(pp[1], "drawable", pp[0]);
             return id == 0 ? null : r.getDrawable(id, null);

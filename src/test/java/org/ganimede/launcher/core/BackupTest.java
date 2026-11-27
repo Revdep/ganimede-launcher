@@ -190,6 +190,13 @@ public class BackupTest {
                 "a package and a drawable name, nothing else");
     }
 
+    /** Issue 081: an icon picked from the built-in set ("builtin:arcticons|name") travels in the backup like any other. */
+    public static void testBuiltinIconPickRestored() {
+        yes(Backup.fits("icon:f:12", "builtin:arcticons|okay"), "built-in set|name");
+        yes(!Backup.fits("icon:f:12", "builtin:other|okay") && !Backup.fits("icon:f:12", "builtin:arcticons|a b"),
+                "only the built-in set's own id, and a plain name");
+    }
+
     public static void testOnlyRestorableSettingsAreWritten() {
         yes(!Backup.travels("asked:android.permission.X") && !Backup.travels("pending_widget_1") && !Backup.travels("icon_pack_loaded")
                 && !Backup.travels("return_to_settings") && !Backup.travels("summary_last") && !Backup.travels("summary_count"),
