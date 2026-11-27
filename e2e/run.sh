@@ -33,7 +33,8 @@ for f in "${picked[@]}"; do
   if bash -n "$f"; then . "$f"; else ko "$CUR: syntax error"; fi
   [ $((PASS + FAIL + SKIPS)) -gt $before ] || ko "$CUR: ran no check (nor a skip)"
   if A logcat -d -b crash | grep -q "org.ganimede.launcher"; then ko "$CUR: the app crashed"; A logcat -d -b crash | grep -A5 "org.ganimede" | head -20; A logcat -b crash -c; fi
-  echo "  [$CUR: $((SECONDS - t)) s]"; mkdir -p "${TIMES%/*}"; echo "${CUR#*-} $((SECONDS - t))" >> "$TIMES"; CUR=
+  echo "  [$CUR: $((SECONDS - t)) s]"; mkdir -p "${TIMES%/*}"; echo "${CUR#*-} $((SECONDS - t))" >> "$TIMES"
+  tail -n 200 "$TIMES" > "$TIMES.tmp" && mv "$TIMES.tmp" "$TIMES"; CUR= # the last 200 runs of sections are plenty
 done
 
 echo; echo "Result: $PASS passed, $FAIL failed. Screenshots in $OUT"
