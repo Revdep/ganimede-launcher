@@ -62,10 +62,10 @@ public class NotifService extends NotificationListenerService {
         synchronized (active) {
             active.clear();
         }
-        worker.post(() -> {
-            lastSeen = ""; // reconnected, the same notifications must be read in again
-            VoicePlayer.sweep(this, List.of()); // no access, no kept voice notes
-        });
+        worker.post(() -> lastSeen = ""); // reconnected, the same notifications must be read in again
+        // Not through the worker: onDestroy quits it before Android calls this. No access, no kept voice notes; a rebind
+        // with access on keeps them, a note's grant may be gone by then.
+        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, List.of());
         tell();
     }
 
@@ -116,15 +116,20 @@ public class NotifService extends NotificationListenerService {
         long now = System.currentTimeMillis(), last = Summary.roll(p.getLong("summary_last", 0), now);
         p.edit().putLong("summary_last", last).apply();
         long wait = Summary.upcoming(last, now) - now;
-        try {
-            snoozeNotification(s.getKey(), wait);
-            p.edit().putStringSet("summary_held", Summary.hold(held, s.getKey(), now + wait, now))
-                    .putInt("summary_count", p.getInt("summary_count", 0) + 1).apply();
-            return true;
-        } catch (Exception e) {
-            Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
-            return false;
-        }
+        p.edit().putStringSet("summary_held", Summary.hold(held, s.getKey(), now + wait, now))
+                .putInt("summary_count", p.getInt("summary_count", 0) + 1).apply();
+        String key = s.getKey();
+        // Snoozing revokes the chat app's audio grants at once (NotificationManagerService.SnoozeNotificationRunnable ->
+        // cancelNotificationLocked -> updateUriPermissions(null, r, ...)): its voice notes are kept first.
+        VoicePlayer.afterKept(() -> {
+            try {
+                snoozeNotification(key, wait);
+            } catch (RuntimeException e) { // access just lost: shown, not held
+                Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
+                update();
+            }
+        });
+        return true;
     }
 
     /** Reads the notifications off the main thread: each read crosses into the system and unpacks every one. */

@@ -4,6 +4,7 @@ import org.ganimede.launcher.core.Colors;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -170,8 +171,11 @@ final class Ui {
 
     /** Whether Ganimede's notification listener is switched on in Android. */
     static boolean notifAllowed(Context c) {
+        ComponentName me = new ComponentName(c, NotifService.class);
+        // Asked of the system itself where it can: the setting is written only after the listener is already unbound.
+        if (Build.VERSION.SDK_INT >= 27) return c.getSystemService(NotificationManager.class).isNotificationListenerAccessGranted(me);
         String s = Settings.Secure.getString(c.getContentResolver(), "enabled_notification_listeners");
-        return s != null && s.contains(new ComponentName(c, NotifService.class).flattenToString());
+        return s != null && s.contains(me.flattenToString());
     }
 
     /** The notification-access explanation, then Android's screen; declined runs if the person does not go on (may be null). */

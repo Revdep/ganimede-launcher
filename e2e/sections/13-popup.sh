@@ -168,9 +168,11 @@ voice; wait_until 10 kept_is 2; voice --ez secret true
 wait_until 10 kept_is 0 && ok "the chat turned secret: its kept notes are deleted" || ko "kept notes of a secret chat: $(kept)"
 
 step "Voice notes posted while the listener was off are kept when it reconnects (fixture app)"
-wipe; wait_until 10 kept_is 0 || ko "kept notes before the listener goes off: $(kept)"
+wipe; voice; wait_until 10 kept_is 2 || ko "kept notes before the listener goes off: $(kept)"
 A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 eval '! bound'
+wait_until 10 kept_is 0 && ok "access off: the kept notes are deleted" || ko "kept after access went off: $(kept)"
 voice --es shape e --ei upto 3 # text, link, note A: nobody listening
+# no event marks "nothing copied": a bound listener's copy of note A takes well under these 3 s
 wait_until 3 eval '! kept_is 0' && ko "kept while not listening: the listener was still bound ($(kept))" || ok "nothing kept while not listening"
 A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 bound
 wait_until 10 kept_is 1 && ok "reconnected: note A is kept" || ko "kept notes after reconnecting: $(kept)"
@@ -188,9 +190,36 @@ wait_until 20 kept_is 0 && ok "the endless copy was cut off, no half left" || ko
 voice # the chat's notification again, now with two good notes: the copying thread is free
 wait_until 10 kept_is 2 && ok "after the cut-off, new notes are kept again" || ko "kept after the cut-off: $(kept)"
 
+step "A note still being copied when its notification goes leaves no copy behind (fixture app)"
+wipe; wait_until 10 kept_is 0
+voice --es shape s; wait_until 5 kept_is 1 || ko "the slow note's copy did not start: $(kept)"
+A shell am broadcast -n $FIX/.Post --ez cancel true >/dev/null # gone while the copy runs (about 5 s)
+wait_until 15 kept_is 0 && ok "the copy that ended after its notification went is deleted" || ko "kept after the notification went: $(kept)"
+
+step "A note whose app never opens it stalls nothing (fixture app)"
+wipe; wait_until 10 kept_is 0
+voice --es shape x
+voice # the chat again, two good notes, queued behind the open that never returns
+wait_until 25 kept_is 2 && ok "the open was given up: the next notes are kept" || ko "kept after a note that never opens: $(kept)"
+
+step "Summary holds a chat with voice notes: they are kept before it is snoozed (fixture app)"
+wipe; wait_until 10 kept_is 0
+A shell am force-stop $PK; A exec-out run-as $PK sh -c "sed -i '/name=\"summary_held\" *\/>/d; /name=\"summary_held\">/,/<\/set>/d' shared_prefs/ganimede.xml"
+setp boolean summary true; setp boolean summary_skip_chats false; setset summary_apps $FIX
+wait_until 10 listening; wait_until 10 bound
+c0=$(pref summary_count); c0=${c0:-0}
+NID=$((RANDOM + 2)) # a fresh id: Android keeps a snoozed key silent for hours
+A shell am broadcast -n $FIX/.Post --es shape s --ei id $NID >/dev/null # snoozing takes the chat app's grant away (issue 083)
+wait_until 8 held && ok "the chat was held for the summary" || ko "the chat was not held back by the summary"
+wait_until 15 kept_is 2 && ok "both its notes were kept before it was snoozed" || ko "kept notes of the held chat: $(kept)"
+# Not checked: the app cancelling it while held. Android still lists it as snoozed until the hold ends (SnoozeHelper.cancel
+# only marks it), so its notes stay until then; the next step's access off deletes them.
+bound_home
+
 step "Notification access off: kept voice notes are wiped when the home starts"
 wipe
 A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 eval '! bound'
+wait_until 10 kept_is 0 || ko "kept after access went off: $(kept)" # that deletion done before the leftover is planted
 A shell "run-as $PK sh -c 'mkdir -p no_backup/voice && echo x > no_backup/voice/left'"   # left while the home was not running
 kept_is 1 || ko "the leftover copy was not planted: $(kept)"
 A shell am force-stop $PK; start_home

@@ -8,6 +8,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioAttributes;
@@ -16,6 +17,7 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcelable;
@@ -39,8 +41,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Voice notes in notifications, heard privately: the audio a chat app attaches to its notification is copied into
@@ -50,9 +57,10 @@ import java.util.concurrent.Executors;
  * may read is also kept, on arrival, in its no-backup storage until the note leaves every notification.
  */
 final class VoicePlayer {
-    // Copies on arrival wait for no one else: a chat app's stream that never ends stalls only this thread, and only until the watchdog.
+    // Copies on arrival and deletions, in order: a deletion queued after a copy sees its file. Each copy waits at most COPY_MS.
     private static final ExecutorService KEEPER = Executors.newSingleThreadExecutor();
     private static final Handler WATCHDOG = new Handler(Looper.getMainLooper());
+    private static final Set<String> COPYING = ConcurrentHashMap.newKeySet(); // kept copies whose thread has not returned
     private static final AudioAttributes SPEECH = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
 
@@ -103,13 +111,43 @@ final class VoicePlayer {
                 for (StatusBarNotification s : all) for (Uri uri : notes(s)) {
                     File f = kept(c, s, uri);
                     if (f.isFile() || !granted(c, uri) || !Voice.room(used(f.getParentFile()))) continue;
-                    File part = copy(c.getContentResolver(), uri, new File(f.getPath() + ".part")); // never half a note
+                    File part = copyAside(c.getContentResolver(), uri, new File(f.getPath() + ".part")); // never half a note
                     if (part != null && !part.renameTo(f)) part.delete();
                 }
             } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
                 Log.w("Ganimede", "Voice note not kept: " + e.getClass().getName());
             }
         });
+    }
+
+    /** Runs r after the copies already queued: snoozing a notification takes its audio grants back (issue 083). */
+    static void afterKept(Runnable r) {
+        KEEPER.execute(r);
+    }
+
+    /**
+     * The copy on a thread of its own, waited for a little past the watchdog: Android can't cut short a call into another
+     * app, so one whose open never returns strands that thread, not the queue. When it does return, the watchdog has
+     * closed the stream and copy() deletes its half. A note still stranded is not tried again: one thread each, at most.
+     */
+    private static File copyAside(ContentResolver cr, Uri uri, File f) {
+        if (!COPYING.add(f.getPath())) return null;
+        FutureTask<File> task = new FutureTask<>(() -> {
+            try {
+                return copy(cr, uri, f);
+            } finally {
+                COPYING.remove(f.getPath());
+            }
+        });
+        new Thread(task, "voice-keep").start();
+        try {
+            return task.get(Voice.COPY_MS + 1000, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException | ExecutionException e) {
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
     }
 
     private static long used(File dir) {
@@ -121,22 +159,28 @@ final class VoicePlayer {
 
     /**
      * Deletes the kept notes no longer in any of these notifications: removed, dismissed, gone from the chat, or turned
-     * secret. None given: deletes them all.
+     * secret. None given: deletes them all. After the copies already queued, so none lands once its note is gone.
      */
     static void sweep(Context c, Iterable<StatusBarNotification> all) {
-        File dir = keptDir(c);
-        File[] files = dir.listFiles();
-        if (files == null || files.length == 0) return;
-        Set<String> wanted = new HashSet<>();
-        for (StatusBarNotification s : all) for (Uri uri : notes(s)) wanted.add(Voice.keptName(s.getKey(), uri.toString()));
-        String[] names = new String[files.length];
-        long[] ages = new long[files.length];
-        long now = System.currentTimeMillis();
-        for (int i = 0; i < files.length; i++) {
-            names[i] = files[i].getName();
-            ages[i] = now - files[i].lastModified();
-        }
-        for (String name : Voice.drop(names, ages, wanted)) new File(dir, name).delete();
+        KEEPER.execute(() -> {
+            try {
+                File dir = keptDir(c);
+                File[] files = dir.listFiles();
+                if (files == null || files.length == 0) return;
+                Set<String> wanted = new HashSet<>();
+                for (StatusBarNotification s : all) for (Uri uri : notes(s)) wanted.add(Voice.keptName(s.getKey(), uri.toString()));
+                String[] names = new String[files.length];
+                long[] ages = new long[files.length];
+                long now = System.currentTimeMillis();
+                for (int i = 0; i < files.length; i++) {
+                    names[i] = files[i].getName();
+                    ages[i] = now - files[i].lastModified();
+                }
+                for (String name : Voice.drop(names, ages, wanted)) new File(dir, name).delete();
+            } catch (RuntimeException e) { // as in keep: never take the home's process down
+                Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
+            }
+        });
     }
 
     private static File kept(Context c, StatusBarNotification s, Uri uri) {
@@ -197,34 +241,39 @@ final class VoicePlayer {
 
     /**
      * The audio into the private file f, or null when the chat app refuses, it's gone, it's too big, or it takes longer
-     * than Voice.COPY_MS (the stream is closed under it).
+     * than Voice.COPY_MS from before the open (the open is cancelled, if the app listens, and the stream closed under it).
      */
     private static File copy(ContentResolver cr, Uri uri, File f) {
-        try (InputStream in = cr.openInputStream(uri)) {
-            if (in == null) return null;
+        CancellationSignal stop = new CancellationSignal();
+        Runnable cut = stop::cancel;
+        WATCHDOG.postDelayed(cut, Voice.COPY_MS);
+        try (AssetFileDescriptor afd = cr.openAssetFileDescriptor(uri, "r", stop)) {
+            if (afd == null) return null;
             f.getParentFile().mkdirs();
-            Runnable cut = () -> {
-                try {
-                    in.close();
-                } catch (IOException e) {
-                    Log.w("Ganimede", "Voice note not cut off: " + e.getClass().getName());
-                }
-            };
-            WATCHDOG.postDelayed(cut, Voice.COPY_MS);
-            try (OutputStream out = new FileOutputStream(f)) {
+            try (InputStream in = afd.createInputStream(); OutputStream out = new FileOutputStream(f)) {
+                stop.setOnCancelListener(() -> close(in)); // at once if the time is already up
                 byte[] buf = new byte[64 << 10];
                 long total = 0;
                 for (int n; (n = in.read(buf)) > 0; ) {
                     if ((total += n) > Voice.NOTE_BYTES) throw new IOException("too big");
                     out.write(buf, 0, n);
                 }
-            } finally {
-                WATCHDOG.removeCallbacks(cut);
             }
+            stop.throwIfCanceled(); // a stream closed under a read may look ended: half a note
             return f;
-        } catch (IOException | RuntimeException refused) { // SecurityException, FileNotFoundException, too big, cut off
+        } catch (IOException | RuntimeException refused) { // SecurityException, FileNotFoundException, cancelled, too big
             f.delete();
             return null;
+        } finally {
+            WATCHDOG.removeCallbacks(cut);
+        }
+    }
+
+    private static void close(InputStream in) {
+        try {
+            in.close();
+        } catch (IOException e) {
+            Log.w("Ganimede", "Voice note not cut off: " + e.getClass().getName());
         }
     }
 
