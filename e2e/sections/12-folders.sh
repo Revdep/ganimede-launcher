@@ -94,8 +94,7 @@ folder_pixel() { # folder_pixel name: RGB safely inside the card's left padding,
 }
 folder_settings() { # home → Personalizza → Cartelle (own pill), from a fresh Settings (a reopened one keeps its scroll)
   start_home; wait_until 5 settled
-  # A long-press on a home that has just restarted can be lost: press again until the home menu shows.
-  for _ in 1 2 3; do A shell input swipe 540 1900 540 1900 1500; wait_until 3 has "Impostazioni Ganimede" && break; done
+  home_menu || return 1
   tap "Impostazioni Ganimede"; tap "Personalizza"
   wait_until 5 has "Dock"
   pill "Cartelle"
@@ -246,7 +245,7 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 step "App menu from the drawer (List): add to favourites"
 seed list
 drawer_find() { # drawer, search $1; leaves Settings in the list
-  A shell input swipe 540 1900 540 600 150; wait_until 5 has "Cerca app"; A shell input text "$1"; wait_until 5 has "Settings"; }
+  open_drawer; A shell input text "$1"; wait_until 5 has "Settings"; }
 drawer_find sett
 read -r sx sy <<<"$(cx Settings)"; hold "$sx" "$sy"
 expect "Aggiungi ai preferiti" && tap "Aggiungi ai preferiti"
@@ -265,7 +264,7 @@ expect "Rimuovi dai preferiti"; tap "Nascondi"
 wait_until 5 hasnt "Rimuovi dai preferiti"
 wait_until 5 has 'sett"' && ok "the search is still open behind the menu" || ko "the menu closed the search"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"' # the menu took the keyboard down: one Back closes the search
-drawer_find_hidden() { A shell input swipe 540 1900 540 600 150; wait_until 5 has "Cerca app"; A shell input text sett; wait_until 5 has "Nascoste"; }
+drawer_find_hidden() { open_drawer; A shell input text sett; wait_until 5 has "Nascoste"; }
 drawer_find_hidden
 wait_until 5 has "Nascoste" && ok "after Hide a search shows the “Nascoste” section" || ko "no Nascoste section"
 has "Settings" && ok "…and it still finds Settings" || ko "Settings not found in search once hidden"

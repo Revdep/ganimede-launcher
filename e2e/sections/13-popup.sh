@@ -8,7 +8,7 @@ bound() { A shell dumpsys notification | sed -n '/Live notification listeners/,/
 tagged() { A shell dumpsys notification | grep -q "tag=$1 "; }                 # still in the system's list
 untagged() { ! tagged "$1"; }
 headers() { dump | grep -o "text=\"$1\"" | wc -l; }                            # how many group headers a name has
-popup() { A shell input swipe 540 1900 540 1900 1500; tap "Notifiche"; }       # long-press an empty spot (list mode)
+popup() { home_menu "Notifiche"; tap "Notifiche"; }       # long-press an empty spot (list mode)
 # The pop-up is a snapshot; Android can list a post before the listener's throttled read has reached Ganimede.
 _popup_has() { popup; has "$1" && return 0; A shell input keyevent KEYCODE_BACK; wait_until 3 hasnt "Notifiche"; return 1; }
 expect_popup() {

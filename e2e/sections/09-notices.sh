@@ -5,7 +5,7 @@ A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1
 listening() { A shell settings get secure enabled_notification_listeners | grep -q NotifService; }; wait_until 5 listening
 A shell cmd notification post -t "Prova" e2etag "Anteprima" >/dev/null   # (the shell sends one word)
 posted() { A shell dumpsys notification | grep -q e2etag; }; wait_until 5 posted
-A shell input swipe 540 1900 540 1900 1500; tap "Notifiche"  # long-press an empty spot (list mode)
+home_menu "Notifiche"; tap "Notifiche"  # long-press an empty spot (list mode)
 expect "Anteprima" && shot 29-notifs
 focus && ok "still on the home screen (preview, not opened)" || ko "left the home screen"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Anteprima"

@@ -56,7 +56,7 @@ else ko "Calendar cell missing from the five-column home"; cal0=0; fi
 chrome0=$(chrome_h); [ "$chrome0" -gt 0 ] && ok "an app page shows Chrome" || ko "no Chrome on the app pages"
 # back in the settings, the drawer stops following the home and gets bigger icons
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede"; tap "Personalizza" # not pg_settings: Settings comes back on the page it was left on
+home_menu; tap "Impostazioni Ganimede"; tap "Personalizza" # not pg_settings: Settings comes back on the page it was left on
 pill "Cassetto"; tap "Cassetto"
 tap "Segui home"
 wait_until 5 bpref drawer_follow false && ok "the drawer stops following home" || ko "drawer_follow was not saved false"
