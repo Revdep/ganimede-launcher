@@ -97,6 +97,8 @@ for mode in classic list; do
     name="${part%%:*}"; rest="${part#*:}"; key="${rest%%:*}"; dir="${rest##*:}"; sg=1; [ "$dir" = su ] && sg=-1
     tap "$name"                                                   # its name under the preview picks the brick
     xy=$(find_desc "$name: Sposta $dir") || { ko "$name: no arrows"; continue; }
+    early() { [ $((10#$(A shell date +%S | tr -d '\r'))) -lt 30 ]; }
+    wait_until 35 early # the preview draws the time: a minute turning between the two pictures would change it too
     A exec-out screencap -p > "$OUT/set-$key-before.png"
     read -r px1 py1 px2 py2 <<<"$(bounds "desc:Anteprima della tua schermata Home")"
     pcrop="$((px2 - px1))x$((py2 - py1))+$px1+$py1" # only the preview: the status-bar clock changes too
