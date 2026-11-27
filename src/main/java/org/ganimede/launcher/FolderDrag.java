@@ -65,6 +65,7 @@ final class FolderDrag {
             x.getParent().requestDisallowInterceptTouchEvent(true); // the pop-up doesn't scroll away with the finger
             return true;
         });
+        //noinspection ClickableViewAccessibility: only the drag after the long-press menu is taken; taps reach the click listener
         v.setOnTouchListener((x, e) -> touch(x, e));
         v.setAccessibilityDelegate(new View.AccessibilityDelegate() {
             @Override
@@ -85,7 +86,10 @@ final class FolderDrag {
                 place(host, to);
                 saved();
                 reparent();
-                host.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null); // detaching dropped it
+                // the user's own Move up/down on this node: re-parenting detached it and so cleared its focus; giving it back
+                // keeps TalkBack on the icon just moved instead of jumping elsewhere
+                //noinspection AccessibilityFocus: focus returns to the node the action was performed on
+                host.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
                 host.announceForAccessibility(ui.f("Position %1$d of %2$d", to + 1, order.size()));
                 return true;
             }
