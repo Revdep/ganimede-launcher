@@ -20,7 +20,6 @@ setset() {
   sed -i "s@</map>@    <set name=\"$1\"><string>$2</string></set>\n</map>@" "$f"
   A exec-in "run-as $PK sh -c 'cat > shared_prefs/ganimede.xml'" < "$f"
   start_home
-  drawn2() { dump | grep -q "package=\"$PK\""; }; wait_until 10 drawn2 # touches sent before the first frame are lost
 }
 pg_back() { # one level up, to the settings home
   A shell input keyevent KEYCODE_BACK
