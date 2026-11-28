@@ -241,8 +241,6 @@ final class ClassicHome {
         }
         if (content == clockContent && content.getParent() instanceof ViewGroup) ((ViewGroup) content.getParent()).removeView(content); // widgets detach in Widgets.view
         box.addView(content, new FrameLayout.LayoutParams(-1, -1));
-        View blockContent = content;
-        if (!b.id.equals("clock")) box.post(() -> widgets.size(blockContent, box.getWidth(), box.getHeight()));
         box.gesture = drag.block(box, b.id, () -> blockMenu.accept(b.id));
         if (b.id.equals(resizing)) addHandles(box, b);
         return box;

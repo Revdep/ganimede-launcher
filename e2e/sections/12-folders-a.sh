@@ -327,9 +327,13 @@ fwid() { pref folder:wid | grep -q widgets; }
 wait_until 10 fwid && ok "the widget is stored in the folder" || ko "no widget in folder:wid"
 wait_until 10 has "ConWidget"; tap "ConWidget"
 wait_until 10 has "Contacts" && ok "the pop-up opens with its apps" || ko "pop-up did not open"
+# drawn, not just there: the Stopwatch's dial fills much of its host view; an unsized widget left it the card's flat colour
+widget_drawn() { label_whole "desc:Stopwatch" 30 30; }
+wait_until 10 widget_drawn && ok "the widget is drawn in the pop-up" || ko "the widget's area in the pop-up is blank"
 read -r ax ay <<<"$(cx Contacts)"; hold "$ax" "$ay"
 expect "Rimuovi dalla cartella" && tap "Rimuovi dalla cartella"
 wait_until 5 hasnt "Contacts" && A shell pidof $PK >/dev/null && has "Clock" && ok "the pop-up came back without Contacts, widget kept" || ko "pop-up not rebuilt after removing an app (launcher died?)"
+wait_until 10 widget_drawn && ok "the widget is drawn in the rebuilt pop-up" || ko "the widget's area in the rebuilt pop-up is blank"
 shot 126-folder-widget
 
 step "Folders: a long pop-up reorders past its first screen (the drag scrolls it near the edge)"

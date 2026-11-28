@@ -113,6 +113,11 @@ final class Widgets {
         if (v == null) {
             v = host.createView(a.getApplicationContext(), id, info);
             v.setAppWidget(id, info);
+            // the provider draws for the size it is told (some draw nothing untold): wherever the view goes (a classic
+            // block, the stack, a pop-up), each new laid-out size is passed on
+            v.addOnLayoutChangeListener((x, l, t, r, b, ol, ot, or, ob) -> {
+                if (r - l != or - ol || b - t != ob - ot) x.post(() -> size(x, x.getWidth(), x.getHeight()));
+            });
             views.put(stored, v);
         }
         if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v); // shown once: moves to its new parent
@@ -121,7 +126,7 @@ final class Widgets {
         return v;
     }
 
-    void size(View view, int width, int height) {
+    private void size(View view, int width, int height) {
         if (!(view instanceof AppWidgetHostView) || width <= 0 || height <= 0) return;
         float density = a.getResources().getDisplayMetrics().density;
         int w = Math.max(1, Math.round(width / density)), h = Math.max(1, Math.round(height / density));
