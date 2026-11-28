@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       only: { description: 'ONLY: regex on the section names (empty: all)', default: '' }
-      shards: { description: 'how many emulators', default: '6' }
+      shards: { description: 'how many emulators (auto: one per 600 s of measured sections, at most 12)', default: 'auto' }
 concurrency: { group: "e2e-${{ github.ref }}", cancel-in-progress: true }
 jobs:
   plan:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - id: plan # run.sh's PLAN balances the sections by e2e/ci-times, the runners' measured seconds (a section not there counts 120)
-        env: { ONLY: "${{ inputs.only }}", PLAN: "${{ inputs.shards || 6 }}" }
+        env: { ONLY: "${{ inputs.only }}", PLAN: "${{ inputs.shards || 'auto' }}" }
         run: |
           mkdir -p ~/.cache/ganimede && cp e2e/ci-times ~/.cache/ganimede/e2e-times
           bash e2e/run.sh | tee /dev/stderr | jq -Rnc '[inputs]' | sed 's/^/shards=/' >> "$GITHUB_OUTPUT"
