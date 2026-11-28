@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - id: plan # run.sh's PLAN balances the sections by e2e/ci-times, the runners' measured seconds (a section not there counts 120)
         env: { ONLY: "${{ inputs.only }}", PLAN: "${{ inputs.shards || 'auto' }}" }
+        shell: bash # -eo pipefail: a failed run.sh is not hidden by the pipe
         run: |
           mkdir -p ~/.cache/ganimede && cp e2e/ci-times ~/.cache/ganimede/e2e-times
           bash e2e/run.sh | tee /dev/stderr | jq -Rnc '[inputs]' | sed 's/^/shards=/' >> "$GITHUB_OUTPUT"
