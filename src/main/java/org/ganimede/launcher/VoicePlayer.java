@@ -62,8 +62,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 final class VoicePlayer {
     // Copies on arrival and deletions, in order: a deletion queued after a copy sees its file. Each copy waits at most COPY_MS.
-    private static final ExecutorService KEEPER = Executors.newSingleThreadExecutor();
-    private static final Handler WATCHDOG = watchdog(); // off the main thread: a busy screen must not delay a cut
+    // Both are made on first use (a home with no voice note never starts them), as daemons: they never hold the process up.
+    private static ExecutorService keeper;
+    private static Handler watchdog; // off the main thread: a busy screen must not delay a cut
     private static final Set<String> BUSY = ConcurrentHashMap.newKeySet(); // apps with a kept copy whose thread has not returned
     private static final int BUSY_MAX = 2;
     // Notifications with notes waiting for a copy, the latest per key; one copy task drains them (SCHEDULED).
@@ -120,7 +121,7 @@ final class VoicePlayer {
         boolean queued = false;
         for (StatusBarNotification s : all) if (!notes(s).isEmpty()) queued |= WAITING.offer(s.getKey(), s); // full: not kept; the sweep and the holds still queue
         if (!queued || !SCHEDULED.compareAndSet(false, true)) return;
-        KEEPER.execute(() -> {
+        keeper().execute(() -> {
             SCHEDULED.set(false); // an arrival from now on schedules the next drain
             try {
                 for (StatusBarNotification s : WAITING.drain()) for (Uri uri : notes(s)) {
@@ -139,7 +140,7 @@ final class VoicePlayer {
 
     /** Runs r after the copies already queued: snoozing a notification takes its audio grants back (issue 083). */
     static void afterKept(Runnable r) {
-        KEEPER.execute(r);
+        keeper().execute(r);
     }
 
     /**
@@ -182,7 +183,7 @@ final class VoicePlayer {
      * queued, so none lands once its note is gone. snapshot: when all was read; a copy started since is not swept.
      */
     static void sweep(Context c, Iterable<StatusBarNotification> all, long snapshot) {
-        KEEPER.execute(() -> {
+        keeper().execute(() -> {
             try {
                 File dir = keptDir(c);
                 File[] files = dir.listFiles();
@@ -212,10 +213,23 @@ final class VoicePlayer {
         return files != null && files.length > 0;
     }
 
-    private static Handler watchdog() {
-        HandlerThread t = new HandlerThread("voice-watchdog");
-        t.start();
-        return new Handler(t.getLooper());
+    private static synchronized ExecutorService keeper() {
+        if (keeper == null) keeper = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "voice-keeper");
+            t.setDaemon(true);
+            return t;
+        });
+        return keeper;
+    }
+
+    private static synchronized Handler watchdog() {
+        if (watchdog == null) {
+            HandlerThread t = new HandlerThread("voice-watchdog");
+            t.setDaemon(true);
+            t.start();
+            watchdog = new Handler(t.getLooper());
+        }
+        return watchdog;
     }
 
     private static File kept(Context c, StatusBarNotification s, Uri uri) {
@@ -281,7 +295,7 @@ final class VoicePlayer {
     private static File copy(ContentResolver cr, Uri uri, File f) {
         CancellationSignal stop = new CancellationSignal();
         Runnable cut = stop::cancel;
-        WATCHDOG.postDelayed(cut, Voice.COPY_MS);
+        watchdog().postDelayed(cut, Voice.COPY_MS);
         try (AssetFileDescriptor afd = cr.openAssetFileDescriptor(uri, "r", stop)) {
             if (afd == null) return null;
             f.getParentFile().mkdirs();
@@ -300,7 +314,7 @@ final class VoicePlayer {
             f.delete();
             return null;
         } finally {
-            WATCHDOG.removeCallbacks(cut);
+            watchdog().removeCallbacks(cut);
         }
     }
 
