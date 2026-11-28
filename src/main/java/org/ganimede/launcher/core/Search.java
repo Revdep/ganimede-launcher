@@ -89,6 +89,20 @@ public final class Search {
         return all ? found : Math.min(found, 5);
     }
 
+    /** A search for a phone number: only digits, spaces, dashes and plus, at least 3 digits; anything else is a name. */
+    public static boolean isNumberQuery(String query) {
+        return query.matches("[0-9 +\\-]*") && digits(query).length() >= 3;
+    }
+
+    /** The number holds the typed digits, whatever the spaces, dashes or international prefix (+39, 0039) around them. */
+    public static boolean numberMatches(String number, String query) {
+        return number != null && digits(number).contains(digits(query));
+    }
+
+    private static String digits(String s) {
+        return s.replaceAll("[^0-9]", "");
+    }
+
     /** Section letter for the A–Z list. */
     public static String letter(String label) {
         if (label == null || label.isEmpty()) return "#";

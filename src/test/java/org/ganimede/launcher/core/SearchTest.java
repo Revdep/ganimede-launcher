@@ -138,4 +138,21 @@ public class SearchTest {
     public static void testAlphabetLettersAreTheSectionsOfTheNamesInOrder() {
         eq(List.of("#", "A", "Z"), new java.util.ArrayList<>(Search.sections(List.of("Zz Prova", "alfa", "Àlpha", "9 Nove"))), "sorted, once each, # first");
     }
+
+    public static void testNumberQueryNeedsThreeDigitsAndNothingElse() {
+        yes(Search.isNumberQuery("347 12"), "digits and a space");
+        yes(Search.isNumberQuery("+39 347-1"), "plus and dash are allowed");
+        yes(!Search.isNumberQuery("34"), "two digits are too few");
+        yes(!Search.isNumberQuery("rossi 347"), "a name keeps the name search");
+        yes(!Search.isNumberQuery(""), "empty");
+    }
+
+    public static void testNumberMatchesOnDigitsOnly() {
+        yes(Search.numberMatches("+39 347 1234567", "347 12"), "spaces ignored");
+        yes(Search.numberMatches("+39 347 1234567", "34712"), "same digits");
+        yes(Search.numberMatches("0039 347-1234567", "39 347"), "international prefix");
+        yes(!Search.numberMatches("347 1234567", "+39 347"), "a prefix the number lacks does not match");
+        yes(!Search.numberMatches("+39 347 1234567", "348"), "other digits");
+        yes(!Search.numberMatches(null, "347"), "no number");
+    }
 }
