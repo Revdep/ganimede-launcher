@@ -162,8 +162,7 @@ for mode in classic list; do
 done
 
 step "List mode: old app offsets stay outside the gesture strip"
-seed list
-setp int apps_offset 4
+seed list int apps_offset 4
 if read -r fav_x _ _ _ <<<"$(bounds "desc:Calendar")" && [ -n "$fav_x" ]; then
   [ "$fav_x" -ge "$(dp 32)" ] && ok "old apps_offset 4: favourites start outside the 32 dp strip" \
     || ko "old apps_offset 4: favourites start at $fav_x px, before $(dp 32) px"
@@ -222,8 +221,7 @@ pill "Temi"
 expect "Temi"; hasnt "Cassetto" && ok "List: no Drawer pill" || ko "List shows a Drawer pill"
 
 step "Settings: a stored value no choice matches (e.g. from a backup) marks no choice"
-seed classic
-setp int accent -16744320; setp int dim_home 50                  # teal and 50 %: no named colour, no tile
+seed classic int accent -16744320 int dim_home 50 # teal and 50 %: no named colour, no tile
 pg_settings
 lookline() { dump | grep -q 'text="Classica · Sovrapposto · Predefinito"'; }  # mode · clock · font, and no colour name
 wait_until 5 lookline && ok "custom accent: the summary names no colour" || ko "custom accent: summary names a colour"

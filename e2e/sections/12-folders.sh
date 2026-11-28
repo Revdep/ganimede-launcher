@@ -44,8 +44,7 @@ wait_until 5 right && ok "Calendar sits on the empty spot" || ko "Calendar not o
 [ "$(nfold)" = 0 ] && hasnt "Cartella" && ok "no folder revived on the grid" || ko "a folder came back: stored $(nfold)"
 
 step "Folders: same for the dock"
-seed classic
-setp string dock "f:777"
+seed classic string dock "f:777"
 read -r ax ay <<<"$(cx Calendar)"
 A shell input draganddrop "$ax" "$ay" "$((W / 10))" "$((H - $(dp 90)))" 1500
 wait_until 5 hasd "Calendar" # (the grid icon's label is text, the dock icon's is a content-desc)
@@ -76,11 +75,10 @@ A shell input swipe $(dp 40) $((H / 2)) $((W - $(dp 40))) $((H / 2)) 250
 wait_until 5 has Calendar && [ -n "$on2" ] && hasnt Pag2 && ok "page 1 has no “Pag2”" || ko "page 1 check: Calendar shown? Pag2 seen on page 2 (${on2:-no}) and absent here?"
 
 step "Folders: Settings defaults, one-folder look, then changed defaults"
-seed classic
-setp string folder:look '{"name":"Tre","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string folder:other '{"name":"Altra","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:look\&#10;f:other'
-setp del grid
+seed classic \
+  string folder:look '{"name":"Tre","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
+  string folder:other '{"name":"Altra","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
+  string fav 'f:look\&#10;f:other'
 LAVENDER=-4609803 # #FFB9A8F5
 SKY=-7686920      # #FF8AB4F8
 
@@ -191,18 +189,16 @@ pixel=$(folder_pixel Altra)
 A shell input keyevent KEYCODE_BACK
 
 step "Folders: an untouched one-column folder keeps its 24 dp margins and wraps its content"
-seed classic
 # Up to 40 installed (15 rows already overflow the screen) launcher activities as "package/class" (query-activities --brief may print ".Class" short names)
 comps=$(A shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
   | tr -d '\r' | sed 's/^ *//' | grep '^[A-Za-z0-9_.]*/' | awk -F/ '{c=$2; if (c ~ /^\./) c=$1 c; print $1"/"c}' | sort -u | head -40)
 n=$(echo "$comps" | grep -c .)
 [ "$n" -ge 15 ] && ok "$n launcher activities to fill a tall folder" || ko "only $n launcher activities installed: not enough for a tall folder"
 many=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
-setp string folder:big "{\"name\":\"Grande\",\"where\":\"fav\",\"apps\":[$many]}"
-setp string folder:few '{"name":"Pochi","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:big\&#10;f:few\&#10;f:two'
-setp string folder:two "{\"name\":\"Doppia\",\"where\":\"fav\",\"cols\":2,\"apps\":[$many]}" # same apps, 2 columns: still taller than the screen when n >= 30
-setp del grid
+seed classic string folder:big "{\"name\":\"Grande\",\"where\":\"fav\",\"apps\":[$many]}" \
+  string folder:few '{"name":"Pochi","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
+  string fav 'f:big\&#10;f:few\&#10;f:two' \
+  string folder:two "{\"name\":\"Doppia\",\"where\":\"fav\",\"cols\":2,\"apps\":[$many]}" # same apps, 2 columns: still taller than the screen when n >= 30
 inset() { # inset statusBars|navigationBars: the inset's frame "x1 y1 x2 y2" from the window dump, empty when absent
   A shell dumpsys window | grep -o "type=$1 frame=\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]" | head -1 \
     | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr -d '[' | tr ']' ' ' | tr ',' ' '
@@ -240,10 +236,8 @@ read -r cx1 _ cx2 _ <<<"$(card)"; shot 128-folder-short
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
 step "Folders: a 3-app, 2-column pop-up is a small centred card, not nearly full width (051)"
-seed classic
-setp string folder:duo '{"name":"Duo","where":"fav","cols":2,"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:duo'
-setp del grid
+seed classic string folder:duo '{"name":"Duo","where":"fav","cols":2,"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
+  string fav 'f:duo'
 tap Duo; wait_until 10 card_settled
 read -r cx1 _ cx2 _ <<<"$(card)"; shot 130-folder-compact
 [ -n "$cx1" ] && [ $(((cx2 - cx1) * 100)) -lt $((W * 60)) ] \

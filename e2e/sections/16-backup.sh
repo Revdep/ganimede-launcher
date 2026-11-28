@@ -26,9 +26,8 @@ state_unchanged() { # this phone's own state is still what setp put there
 
 step "Backup: export writes a file to Downloads"
 WX='{}' # no & or quotes: setp pastes the value through sed into the XML
-seed list
-setp int fav_gap 12; setp string stack "101,102"; setp string wx "$WX"
-setp string folder:x '{"name":"F","where":"fav","apps":[],"widgets":[7],"bg":-2093040,"alpha":73,"cols":4}' # widget ids stay local; look travels
+seed list int fav_gap 12 string stack "101,102" string wx "$WX" \
+  string folder:x '{"name":"F","where":"fav","apps":[],"widgets":[7],"bg":-2093040,"alpha":73,"cols":4}' # widget ids stay local; look travels
 state_unchanged && ok "precondition: stack and wx are on the phone" || ko "precondition: stack='$(sval stack)' wx='$(sval wx)'"
 A shell rm -f "$BK" "$BAD"
 backup_page
@@ -49,8 +48,7 @@ echo "$json" | grep -q '"folder:x"' && ok "the folder is in the file" || ko "fol
 echo "$json" | grep -q 'widgets' && ko "this phone's folder widget ids leaked into the file" || ok "folder widget ids are not in the file"
 
 step "Backup: restore brings the changed setting back, keeps this phone's state"
-setp int fav_gap 20
-setp string folder:x '{"name":"Changed","where":"fav","apps":[],"bg":-7686920,"alpha":12,"cols":2}'
+setp int fav_gap 20 string folder:x '{"name":"Changed","where":"fav","apps":[],"bg":-7686920,"alpha":12,"cols":2}'
 [ "$(pref fav_gap)" = 20 ] && ok "changed fav_gap to 20" || ko "fav_gap = $(pref fav_gap)"
 changed_folder_look() { local f; f=$(sval folder:x | sed 's/&quot;/"/g'); [[ $f == *'"bg":-7686920'* && $f == *'"alpha":12'* && $f == *'"cols":2'* ]]; }
 changed_folder_look && ok "changed all three folder look values before restore" || ko "changed folder:x = $(sval folder:x)"
@@ -95,8 +93,7 @@ done
 A shell rm -f $BAD
 
 step "Backup: one malformed folder:* pref on this phone must not block a restore (suspected bug)"
-setp string folder:bad '{broken'
-setp int fav_gap 20
+setp string folder:bad '{broken' int fav_gap 20
 restore_file ganimede-backup.json
 back2() { [ "$(pref fav_gap)" = 12 ]; }
 wait_until 10 back2 && ok "restore worked despite a broken folder:bad" || ko "restore refused: fav_gap = $(pref fav_gap)"

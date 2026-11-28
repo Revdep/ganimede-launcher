@@ -162,7 +162,7 @@ put_prefs() {
 edit_prefs() {
   local f="$1"; shift
   while [ $# -ge 2 ]; do
-    sed -i "/ name=\"$2\"/d" "$f"
+    sed -i "\\@ name=\"$2\"@d" "$f" # @: keys hold "/" (use:package/class)
     case $1 in
       int|boolean) sed -i "s@</map>@    <$1 name=\"$2\" value=\"$3\" />\n</map>@" "$f" ;;
       string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
@@ -231,9 +231,9 @@ noshows() { ! shows "$@"; }
 fdiff() { compare -metric AE "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
 # seed classic|list [setp's settings ...]: a configured app without the wizard: onboarded, mode, favourites, Italian, the
 # home role, and the settings given, all in one start (the APK must be installed). Leaves the home screen in front.
+SEED_FAV="com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;com.google.android.deskclock/com.android.deskclock.DeskClock&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity" # seed's favourites
 seed() {
-  local f="$OUT/seed.xml" fav
-  fav="com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;com.google.android.deskclock/com.android.deskclock.DeskClock&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity"
+  local f="$OUT/seed.xml"
   A shell am force-stop $PK; noclock
   cat > "$f" <<XML
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
@@ -241,7 +241,7 @@ seed() {
     <boolean name="onboarded" value="true" />
     <boolean name="fab" value="true" />
     <string name="mode">$1</string>
-    <string name="fav">$fav</string>
+    <string name="fav">$SEED_FAV</string>
     <string name="lang">it</string>
     <string name="icon_container">squircle</string>
 </map>
