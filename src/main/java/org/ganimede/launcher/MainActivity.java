@@ -156,7 +156,7 @@ public class MainActivity extends Activity implements Actions.Home {
         Sheets sheets = new Sheets(ui);
         root = new FrameLayout(this);
         landing = new Landing(this, layout, handler);
-        launcher = new Launcher(ui, apps, launcherApps, handler, this::showHome, landing);
+        launcher = new Launcher(ui, apps, launcherApps, handler, () -> { if (listMode) showHome(); }, landing);
         notices = new Notices(ui, apps, root, launcher::launch);
         entries = new Entries(ui, apps, layout, launcher, notices, id -> folders.show(id), e -> menus.forEntry(e));
         widgets = new Widgets(this, ui, layout, handler, this::refreshAll);
