@@ -21,6 +21,15 @@ public class FolderOrderTest {
         eq(1, FolderOrder.nearest(900, -900, XS, YS), "far above-right: the top right slot");
     }
 
+    public static void testADraggedIconNearAnEdgeScrollsTheFolderThatWay() {
+        // the visible part runs from y 100 to y 900; the edge zones are 100 tall, at most 30 px per step
+        eq(0, FolderOrder.autoscroll(500, 100, 900, 100, 30), "in the middle: no scroll");
+        eq(-15, FolderOrder.autoscroll(150, 100, 900, 100, 30), "half way into the top zone: up, half speed");
+        eq(15, FolderOrder.autoscroll(850, 100, 900, 100, 30), "half way into the bottom zone: down, half speed");
+        eq(-30, FolderOrder.autoscroll(-400, 100, 900, 100, 30), "far above the view: up, never faster than the maximum");
+        eq(30, FolderOrder.autoscroll(2000, 100, 900, 100, 30), "far below the view: down, never faster than the maximum");
+    }
+
     public static void testMovingForwardShiftsTheOthersBack() {
         eq(List.of("b", "c", "a", "d"), FolderOrder.move(List.of("a", "b", "c", "d"), 0, 2), "a goes to place 2");
     }

@@ -33,6 +33,8 @@ final class FolderDrag {
     private float[] sx, sy;                              // top-left of each layout slot on screen
     private List<String> committed;                      // the keys as last saved
     private final List<ViewGroup> unclipped = new ArrayList<>(); // parents that stopped clipping while an icon is carried
+    private ScrollView scroller;                           // the pop-up's, scrolled while an icon is carried near its edge
+    private float fingerY, dx, dy;                       // where the finger is now, and how far it moved from where it went down
     private List<View> before;                         // the order when the drag began, to go back to on cancel
     private View touched, held; // the icon the last finger went down on; the one picked up by a long-press
     private int active; // the id of the finger that holds the icon (Android's "active pointer")
@@ -145,7 +147,7 @@ final class FolderDrag {
         if (a == MotionEvent.ACTION_MOVE) {
             int i = e.findPointerIndex(active);
             if (i < 0) return true;
-            float dx = rawX(e, i) - downX, dy = rawY(e, i) - downY;
+            dx = rawX(e, i) - downX; dy = rawY(e, i) - downY; fingerY = rawY(e, i);
             if (!dragging && !Gestures.pickedUp(dx, dy, ui.slop())) return true; // held in place: the menu stays
             if (!dragging) { closeMenu.run(); lift(v); }
             follow(v, dx, dy);
@@ -173,6 +175,25 @@ final class FolderDrag {
             unclipped.add((ViewGroup) p); // the icon leaves its row while it moves; the card itself keeps clipping
         for (ViewGroup g : unclipped) g.setClipChildren(false);
         raise(v, ui.dp(8));
+        ViewParent top = unclipped.isEmpty() ? null : unclipped.get(unclipped.size() - 1).getParent();
+        scroller = top instanceof ScrollView ? (ScrollView) top : null;
+        if (scroller != null) scroller.postOnAnimation(() -> autoscroll(v));
+    }
+
+    /** Every frame while the icon is carried: the pop-up scrolls when the finger is near its top or bottom edge, so every row can be reached. */
+    private void autoscroll(View v) {
+        if (!dragging) return;
+        int[] at = new int[2];
+        scroller.getLocationOnScreen(at);
+        int by = FolderOrder.autoscroll(fingerY, at[1], at[1] + scroller.getHeight(), ui.dp(56), ui.dp(10));
+        int was = scroller.getScrollY();
+        if (by != 0) scroller.scrollBy(0, by);
+        int moved = scroller.getScrollY() - was;
+        if (moved != 0) { // the slots went the other way on screen
+            for (int i = 0; i < sy.length; i++) sy[i] -= moved;
+            follow(v, dx, dy);
+        }
+        scroller.postOnAnimation(() -> autoscroll(v));
     }
 
     /** The finger moved (dx, dy) from where it went down: the icon goes along, kept inside the slots' bounding box. */

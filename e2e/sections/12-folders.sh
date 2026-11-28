@@ -495,3 +495,21 @@ read -r ax ay <<<"$(cx Contacts)"; hold "$ax" "$ay"
 expect "Rimuovi dalla cartella" && tap "Rimuovi dalla cartella"
 wait_until 5 hasnt "Contacts" && focus && has "Clock" && ok "the pop-up came back without Contacts, widget kept" || ko "pop-up not rebuilt after removing an app (launcher died?)"
 shot 126-folder-widget
+
+step "Folders: a long pop-up reorders past its first screen (the drag scrolls it near the edge)"
+seed list
+comps=$(A shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER | tr -d '\r' \
+  | grep -E '^[A-Za-z0-9_.]+/[A-Za-z0-9_.]+$' | grep -v "^$PK/" | sort -u | head -24)
+[ "$(echo "$comps" | grep -c .)" -ge 12 ] || echo "  INFO: only $(echo "$comps" | grep -c .) launcher apps: the pop-up may not need to scroll"
+json=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
+setp string folder:long '{"name":"Lunga","where":"fav","cols":1,"apps":['"$json"']}' string fav 'f:long'
+longkeys() { pref folder:long | sed 's/&quot;/\n/g' | grep '/' | grep -v '^\[' ; }
+first=$(longkeys | head -1)
+tap Lunga; wait_until 10 has "Lunga"
+# the pop-up's own ScrollView (the last in the dump): its first row is just under the title
+read -r x1 y1 x2 y2 <<<"$(screen | grep -o 'class="android.widget.ScrollView"[^>]*bounds="[^"]*"' | tail -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   ')"
+A shell input draganddrop $(((x1 + x2) / 2)) $((y1 + $(dp 90))) $(((x1 + x2) / 2)) $((H - $(dp 24))) 8000
+last_is_first() { [ "$(longkeys | tail -1)" = "$first" ]; }
+wait_until 5 last_is_first && ok "the first entry was carried to the last place: the drag scrolled the pop-up to reach it" \
+  || ko "the first entry is not last: order ends in $(longkeys | tail -1), expected $first"
+shot 132-folder-long
