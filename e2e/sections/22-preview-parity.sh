@@ -22,9 +22,7 @@ left_of() { local b; b=$(bounds "$1"); [ -n "$b" ] && { set -- $b; nx "$1"; }; }
 
 for mode in list classic; do
   step "Preview parity ($mode): the miniature matches the home"
-  seed $mode
-  setp string fav "$FAV"; setp string "folder:alpha" "$FOLDER"
-  setp boolean event_preview true; setp boolean media_player true
+  seed $mode string fav "$FAV" string "folder:alpha" "$FOLDER" boolean event_preview true boolean media_player true
   wait_until 10 has "Folder Alpha" && ok "the home shows the folder" || ko "no Folder Alpha on the home"
   hasnt "Prossimo evento" && hasnt "Lettore musicale" && ok "the empty blocks are not on the home" || ko "an empty block shows on the home"
   home_frame
@@ -55,5 +53,5 @@ for mode in list classic; do
   fi
   shot "22-preview-$mode"
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-  setp del fav; setp del "folder:alpha"
+  setp del fav del "folder:alpha"
 done

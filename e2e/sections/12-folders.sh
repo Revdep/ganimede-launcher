@@ -263,10 +263,7 @@ shown() { # the pop-up's icons in view-tree order (the dump's, TalkBack's), same
 calendar_up() { A shell dumpsys window | grep mCurrentFocus | grep -q calendar; }
 for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and Contacts are on different rows
   mode=${variant%:*}; cols=${variant#*:}; mode="$mode/$cols col"
-  seed ${variant%:*}
-  setp string folder:ord '{"name":"Ordine","where":"fav","cols":'$cols',"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-  setp string fav 'f:ord'
-  setp del grid
+  seed ${variant%:*} string folder:ord '{"name":"Ordine","where":"fav","cols":'$cols',"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' string fav 'f:ord' del grid
   tap Ordine; expect "Contacts"
   [ "$(order)" = "calendar,deskclock,contacts" ] && ok "$mode: starting order stored" || ko "$mode: start order $(order)"
   read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Contacts)"
@@ -316,9 +313,7 @@ step "Folders: a screen reader's Sposta su/giù reorders the icons in the pop-up
 fixture_install && ok "fixture installed" || ko "fixture not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
 defer "A uninstall $FIX >/dev/null 2>&1"
 a11y_on
-seed classic
-setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:ord'; setp del grid
+seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' string fav 'f:ord' del grid
 tap Ordine; expect "Contacts"; wait_until 5 settled
 a11y list . Calendar
 { A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Sposta giù' && ! A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Sposta su'; } \
@@ -337,10 +332,7 @@ wait_until 5 settled
 a11y_off; A shell input keyevent KEYCODE_BACK
 
 step "Folders: an icon's menu in the pop-up takes it out with Rimuovi dalla cartella, an app or a pinned shortcut (082)"
-seed classic
-setp string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}'
-setp string fav 'f:sc'
-setp del grid
+seed classic string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}' string fav 'f:sc' del grid
 tap Scorciatoie; expect "Zz Posta"; wait_until 5 settled
 read -r ax ay <<<"$(cx "Zz Posta")"; hold "$ax" "$ay"
 wait_until 5 has "Rimuovi dalla cartella" && ok "the shortcut's menu has Rimuovi dalla cartella" || ko "no Rimuovi dalla cartella in the shortcut's menu"
@@ -394,10 +386,7 @@ update_other() { cpu0=$(cpu_ticks); A install -r "$FIXAPK" >/dev/null; } # a pac
 cpu_ticks() { A shell "cat /proc/\$(pidof $PK)/stat" | awk '{print $14 + $15}'; }
 reloaded() { local t; t=$(cpu_ticks); [ "${t:-0}" -gt "${cpu0:-0}" ] && [ "$t" = "${cpu_last:-}" ] && return 0; cpu_last=$t; return 1; }
 popwin() { A shell dumpsys window windows | grep -o "Window{[0-9a-f]* u0 [^}]*$PK[^}]*}" | sort | paste -sd' ' -; } # its windows
-seed classic
-setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:ord'
-setp del grid
+seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' string fav 'f:ord' del grid
 tap Ordine; expect "Contacts"; wait_until 5 settled
 wins=$(popwin) # (not "before": run.sh counts checks in that name)
 cpu_last=; update_other
@@ -425,10 +414,7 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
 A install -r "$FIXAPK" >/dev/null || ko "the fixture app could not be reinstalled" # other sections use it
 
 step "Folders: Choose apps lists the folder's pinned shortcuts; unchecking one takes it out, the order stays (082)"
-seed classic
-setp string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}'
-setp string fav 'f:sc'
-setp del grid
+seed classic string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}' string fav 'f:sc' del grid
 tap Scorciatoie; expect "Zz Posta"
 tap "✎ Modifica pop-up"; tap "Scegli app"; wait_until 5 has "Zz Posta"
 tap "Zz Posta"; tap "Salva"
