@@ -2,6 +2,7 @@ package org.ganimede.launcher.core;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
@@ -28,6 +29,12 @@ public final class Favourites {
         often.removeIf(k -> favs.contains(k) || unsuggested.contains(k) || uses.applyAsInt(k) < 3);
         often.sort((a, b) -> Integer.compare(uses.applyAsInt(b), uses.applyAsInt(a)));
         return often.subList(0, Math.min(2, often.size()));
+    }
+
+    /** What the classic favourites migration reads; the same key means the same (already saved) result. */
+    public static String migrationKey(Map<String, ?> prefs) {
+        return String.join("\u0000", String.valueOf(prefs.get("fav")), String.valueOf(prefs.get("grid")),
+                String.valueOf(prefs.get("dock")), String.valueOf(prefs.get("blocks")));
     }
 
     private Favourites() {}
