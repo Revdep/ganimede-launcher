@@ -18,6 +18,7 @@ import android.os.Build;
 import android.provider.Settings;
 import android.util.Log;
 import android.util.TypedValue;
+import android.view.View;
 import android.view.ViewConfiguration;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -57,6 +58,11 @@ final class Ui {
     /** The dock shelf's colour: white (or black under dark text) at the chosen opacity, 0 = transparent. */
     static int dockColor(SharedPreferences p, boolean darkText) {
         return Colors.alpha(darkText ? 0x000000 : 0xFFFFFF, Math.round(dockAlpha(p) * 2.55f));
+    }
+
+    /** Left-hand use mirrors the home (and its preview): alphabet on the left, everything aligned right. */
+    static int handDirection(SharedPreferences p) {
+        return p.getBoolean("left_handed", false) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR;
     }
 
     /** The dock shelf's opacity in percent; before it had a slider it was only on (20) or off. */

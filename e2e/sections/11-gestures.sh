@@ -188,3 +188,43 @@ else
   A shell cmd statusbar collapse; wait_until 5 focus
 fi
 setp del fab_tap
+
+step "Gestures: left-hand Classic keeps pages and block edges as on screen (finding c1-2)"
+# Left-hand use mirrors the home, not the classic pages: page 1 stays leftmost, a cell's column and a block's left edge
+# are the ones on screen. Mirrored, Home showed page 2, a key gave the focus to the hidden page and the left handle moved the right edge.
+seed classic boolean drawer false boolean left_handed true; wait_until 10 pages_ge2; wait_until 5 has Calendar
+read -r cx0 _ <<<"$(cx Calendar)"
+[ -n "$cx0" ] && [ "$cx0" -lt $((W / 2)) ] && ok "left-handed: Calendar in its left column" || ko "left-handed: Calendar at x ${cx0:-none}, not in the left column"
+swipe_h $((W - $(dp 40))) $(dp 40)
+side_app=$(texts | grep -E 'text="[A-Za-z]' | head -1 | sed 's/ text="//; s/"$//')
+hasnt Calendar && [ -n "$side_app" ] && ok "left-handed: swipe left shows page 2 (“$side_app”)" || ko "left-handed: swipe left did not show page 2"
+A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+wait_until 5 has Calendar && ok "left-handed: Home on page 2 goes to page 1" || ko "left-handed: Home on page 2 did not show page 1"
+swipe_h $((W - $(dp 40))) $(dp 40); wait_until 5 hasnt Calendar
+A shell input keyevent KEYCODE_DPAD_DOWN # a key leaves touch mode: the home hands the focus to a view
+wait_until 5 settled
+hasnt Calendar && has "$side_app" && ok "left-handed: a key keeps the focus on page 2" || ko "left-handed: a key scrolled away from page 2"
+fixture_install && ok "fixture installed (its ScreenReader acts on the handles)" || ko "fixture not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
+defer "A uninstall $FIX >/dev/null 2>&1"
+seed classic boolean left_handed true
+wait_until 5 clock_bounds >/dev/null
+read -r x1 y1 x2 y2 <<<"$(clock_bounds)"
+A shell input swipe $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) 1300
+tap "Ridimensiona"; wait_until 5 hasd "Ridimensiona bordo sinistro"
+read -r lx _ <<<"$(cx "desc:Ridimensiona bordo sinistro")"; read -r rx _ <<<"$(cx "desc:Ridimensiona bordo destro")"
+[ -n "$lx" ] && [ -n "$rx" ] && [ "$lx" -lt "$rx" ] && ok "left-handed: the left handle is on the left" || ko "left-handed: left handle at x ${lx:-none}, right one at ${rx:-none}"
+a11y_on
+a11y label Restringi "Ridimensiona bordo destro"; rm -f "$SCR"
+# clock_bounds reads the screen again on every retry (wait_until), never the one from before the action
+narrowed() { read -r x1 _ x2 _ <<<"$(clock_bounds)"; [ -n "$x2" ] && [ "$x1" -lt $((W / 10)) ] && [ "$x2" -lt $((W - W / 10)) ]; }
+wait_until 5 narrowed && ok "left-handed: Restringi on the right edge pulls in the right edge" || ko "left-handed: Restringi on the right edge: clock at x $x1-$x2"
+a11y label Restringi "Ridimensiona bordo sinistro"; rm -f "$SCR"
+in_left() { read -r nx1 _ nx2 _ <<<"$(clock_bounds)"; [ -n "$nx1" ] && [ "$nx1" -gt $((x1 + W / 10)) ]; }
+wait_until 5 in_left && ok "left-handed: Restringi on the left edge pulls in the left edge" || ko "left-handed: Restringi on the left edge: clock at x ${nx1:-?}-${nx2:-?}"
+a11y label Allarga "Ridimensiona bordo sinistro"; rm -f "$SCR"
+grown_left() { read -r gx1 _ gx2 _ <<<"$(clock_bounds)"; [ -n "$gx1" ] && [ "$gx1" -lt "$nx1" ] && [ "$gx2" -eq "$nx2" ]; }
+wait_until 5 grown_left && ok "left-handed: Allarga on the left edge widens the left edge on screen" \
+  || ko "left-handed: Allarga on the left edge: clock at x ${gx1:-?}-${gx2:-?}, was $nx1-$nx2"
+A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+a11y_off
+setp del left_handed del drawer

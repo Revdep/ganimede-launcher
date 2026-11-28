@@ -394,7 +394,7 @@ final class SettingsPreview extends FrameLayout {
         alpha.setVisibility(p.getBoolean("alpha_home", true) && !classic ? VISIBLE : GONE);
         alpha.setTranslationY(px(p.getInt("alpha_y", 0)));
         // Left-hand use mirrors the whole preview, like the home screen.
-        stage.setLayoutDirection(p.getBoolean("left_handed", false) ? LAYOUT_DIRECTION_RTL : LAYOUT_DIRECTION_LTR);
+        stage.setLayoutDirection(Ui.handDirection(p));
         stage.setBackgroundColor(Colors.veil(p.getInt("dim_home", 0), dark)); // the home wallpaper darkened as on the phone
         QuickButton.paint(fab, p, accent);
         fab.setVisibility(p.getBoolean("fab", false) ? VISIBLE : GONE);

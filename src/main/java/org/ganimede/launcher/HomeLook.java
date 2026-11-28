@@ -85,7 +85,7 @@ final class HomeLook {
         screen.alpha.requestLayout();
         screen.alpha.invalidate();
         // Left-hand use: the whole screen mirrored (alphabet on the left, everything aligned right).
-        screen.root.setLayoutDirection(prefs.getBoolean("left_handed", false) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+        screen.root.setLayoutDirection(Ui.handDirection(prefs));
         boolean cl = layout.classic();
         View[] clockViews = {screen.clock};
         View[] lineViews = lineViews();
