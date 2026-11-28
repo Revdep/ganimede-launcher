@@ -93,6 +93,12 @@ final class Ui {
         return prefs.getBoolean("haptics", true);
     }
 
+    /** Arms a long-press: the system's own tick (the view's haptic feedback) follows the "haptics" setting, not only ours. */
+    void onLongPress(View v, View.OnLongClickListener l) {
+        v.setHapticFeedbackEnabled(haptics());
+        v.setOnLongClickListener(l);
+    }
+
     /** The typeface a font choice names (the one place a font preference becomes a Typeface). */
     static Typeface font(String name) {
         return Typeface.create(name, Typeface.NORMAL);

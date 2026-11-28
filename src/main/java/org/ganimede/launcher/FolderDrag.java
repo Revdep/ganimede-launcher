@@ -80,7 +80,7 @@ final class FolderDrag {
         keys.add(key);
         order.add(v);
         committed = new ArrayList<>(keys);
-        v.setOnLongClickListener(x -> {
+        ui.onLongPress(v, x -> {
             if (touched != null && x != touched) return true; // a finger that came down later elsewhere owns downX/downY
             boolean finger = x == touched; // else TalkBack's long-press: no finger is down, nothing to drag
             DragDrop.longPressed(ui, x, () -> menu.accept(keys.get(views.indexOf(x))), finger);

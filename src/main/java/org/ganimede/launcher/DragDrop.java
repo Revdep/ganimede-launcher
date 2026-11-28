@@ -132,7 +132,7 @@ final class DragDrop {
     /** Long-press opens the entry's menu and arms the drag. */
     private boolean[] arm(View v, Runnable openMenu) {
         boolean[] armed = new boolean[1];
-        v.setOnLongClickListener(x -> {
+        ui.onLongPress(v, x -> {
             longPressed(ui, x, openMenu, true);
             armed[0] = true;
             return true;

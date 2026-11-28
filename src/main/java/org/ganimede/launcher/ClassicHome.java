@@ -676,7 +676,7 @@ final class ClassicHome {
             drag.cell(c, entry, where);
         } else {
             // An empty spot: long-press opens the home menu, as on any empty part of the home screen.
-            s.setOnLongClickListener(v -> { homeMenu.accept(v); return true; });
+            ui.onLongPress(s, v -> { homeMenu.accept(v); return true; });
         }
         s.setOnDragListener(this::onSlotDrag);
         return s;

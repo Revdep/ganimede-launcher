@@ -207,7 +207,7 @@ final class Entries {
         }
         v.setContentDescription(described(name, count));
         v.setOnClickListener(x -> open(entry, x));
-        v.setOnLongClickListener(x -> { menu.accept(entry); return true; });
+        ui.onLongPress(v, x -> { menu.accept(entry); return true; });
         return v;
     }
 
