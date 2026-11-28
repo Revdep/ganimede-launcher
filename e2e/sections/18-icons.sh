@@ -344,6 +344,87 @@ white=$(colour_pixels "$OUT/icons-original-builtin-text.png" "#FFFFFF"); red=$(c
 [ "${white:-0}" -gt 20 ] && [ "${red:-0}" -eq 0 ] && ok "Original + built-in set + Text colour: Calendar's glyph is white ($white px), no red" \
   || ko "Original + built-in set + Text colour: white $white, red $red px"
 
+# Issue 079: an app with no Arcticons entry takes its glyph from its own icon (here the fixture's alpha silhouette): same
+# colours as the Arcticons glyph, fitted to 26/48 of the plate and centred on its own pixels.
+centre_box() { # png: "x y w h" of the white glyph, centred on the red plate within 2 px, or nothing
+  local gx gy gw gh qx qy qw qh dx dy
+  read -r gx gy gw gh <<<"$(box "$1" "#FFFFFF")" && [ -n "$gx" ] && read -r qx qy qw qh <<<"$(box "$1" "$RED")" && [ -n "$qx" ] || return 1
+  dx=$(( (2 * gx + gw) - (2 * qx + qw) )); dy=$(( (2 * gy + gh) - (2 * qy + qh) )) # twice the offset of the centres
+  echo "$gx $gy $gw $gh $dx $dy $qx $qy $qw $qh"
+}
+for mode in list classic; do
+  step "Fallback glyph matches Arcticons on the plate: $mode mode"
+  seed "$mode"
+  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open"
+  setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true
+  if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi # at 80 dp the cell cuts the plate's sides
+  look line circle solid accent
+  cal="$OUT/icons-$mode-fallback-calendar.png" fix="$OUT/icons-$mode-fallback-fixture.png"
+  capture Calendar "$cal" || ko "$mode: no Calendar"
+  capture Fixture "$fix" || ko "$mode: no fixture app"
+  if read -r gx gy gw gh dx dy qx qy qw qh <<<"$(centre_box "$fix")" && [ -n "$gx" ] && read -r cx_ cy_ cw ch _ <<<"$(centre_box "$cal")" && [ -n "$cx_" ]; then
+    ok "$mode: the fixture has a red plate and a white glyph, as Calendar"
+    [ ${dx#-} -le 4 ] && [ ${dy#-} -le 4 ] && ok "$mode: fallback glyph centred on its plate (offset $dx/2, $dy/2 px)" \
+      || ko "$mode: fallback glyph off centre by $dx/2, $dy/2 px (glyph $gx $gy $gw $gh, plate $qx $qy $qw $qh)"
+    long=$gw; [ "$gh" -gt "$long" ] && long=$gh; clong=$cw; [ "$ch" -gt "$clong" ] && clong=$ch
+    near "$long" "$clong" 3 && ok "$mode: fallback glyph's longer side $long px, Calendar's $clong px" \
+      || ko "$mode: fallback glyph's longer side $long px, Calendar's $clong px (more than 3 apart)"
+  else ko "$mode: no white glyph on a red plate (fixture: '$(centre_box "$fix")', Calendar: '$(centre_box "$cal")')"; fi
+
+  step "Fallback glyph on a soft plate: $mode mode"
+  look line circle soft accent
+  capture Calendar "$OUT/icons-$mode-fallback-calendar-soft.png" || ko "$mode: no Calendar (soft)"
+  capture Fixture "$OUT/icons-$mode-fallback-fixture-soft.png" || ko "$mode: no fixture app (soft)"
+  edges=""
+  for a in calendar fixture; do
+    img="$OUT/icons-$mode-fallback-$a-soft.png"
+    read -r rx ry rw rh <<<"$(box "$img" "$RED")"
+    [ -n "$rx" ] && alike "$(pixel "$img" $((rx + 1)) $((ry + rh / 2)))" E01010 && edges="$edges $a"
+  done
+  [ "$edges" = " calendar fixture" ] && ok "$mode: soft: a red border on both plates" || ko "$mode: soft: red border only on:$edges"
+  white=$(colour_pixels "$OUT/icons-$mode-fallback-fixture-soft.png" "#FFFFFF"); red=$(colour_pixels "$OUT/icons-$mode-fallback-fixture-soft.png" "$RED")
+  [ "${white:-0}" -eq 0 ] && [ "${red:-0}" -gt 20 ] && ok "$mode: soft: the fallback glyph is red ($red px), no white" \
+    || ko "$mode: soft: fixture white $white, red $red px"
+
+  step "Fallback glyph with no plate: $mode mode"
+  look original none solid accent
+  capture Fixture "$OUT/icons-$mode-fallback-fixture-own.png" || ko "$mode: no fixture app (Original)"
+  look line none solid accent
+  capture Fixture "$OUT/icons-$mode-fallback-fixture-nop.png" || ko "$mode: no fixture app (no plate)"
+  f="$OUT/icons-$mode-fallback-fixture-nop.png" o="$OUT/icons-$mode-fallback-fixture-own.png"
+  red=$(colour_pixels "$f" "$RED")
+  read -r w h <<<"$(magick "$f" -format "%w %h" info:)"
+  # the frame reaches the crop's corners, so the wallpaper shows only through its hole: the same in its own icon
+  [ "${red:-0}" -gt 20 ] && alike "$(pixel "$f" $((w / 2)) $((h / 2)))" "$(pixel "$o" $((w / 2)) $((h / 2)))" \
+    && ok "$mode: no plate: a red fallback glyph ($red px), the wallpaper through its middle" \
+    || ko "$mode: no plate: fixture red $red px, middle #$(pixel "$f" $((w / 2)) $((h / 2))) against its own icon's #$(pixel "$o" $((w / 2)) $((h / 2)))"
+
+  step "Monochrome-layer fallback matches Arcticons on the plate: $mode mode"
+  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Mono"
+  look line circle solid accent
+  mono="$OUT/icons-$mode-fallback-mono.png"
+  capture "Fixture mono" "$mono" || ko "$mode: no Fixture mono"
+  if read -r gx gy gw gh dx dy qx qy qw qh <<<"$(centre_box "$mono")" && [ -n "$gx" ] && read -r cx_ cy_ cw ch _ <<<"$(centre_box "$cal")" && [ -n "$cx_" ]; then
+    [ ${dx#-} -le 4 ] && [ ${dy#-} -le 4 ] && ok "$mode: monochrome glyph centred on its plate (offset $dx/2, $dy/2 px)" \
+      || ko "$mode: monochrome glyph off centre by $dx/2, $dy/2 px (glyph $gx $gy $gw $gh, plate $qx $qy $qw $qh)"
+    long=$gw; [ "$gh" -gt "$long" ] && long=$gh; clong=$cw; [ "$ch" -gt "$clong" ] && clong=$ch
+    near "$long" "$clong" 3 && ok "$mode: monochrome glyph's longer side $long px, Calendar's $clong px" \
+      || ko "$mode: monochrome glyph's longer side $long px, Calendar's $clong px (more than 3 apart)"
+  else ko "$mode: no white monochrome glyph on a red plate ('$(centre_box "$mono")')"; fi
+done
+
+step "Folder thumbnails draw a fallback app's glyph, not its own colours (Classic)"
+seed classic
+setp string folder:fb "{\"name\":\"Fb\",\"where\":\"fav\",\"apps\":[\"$FIXTURE/$FIXTURE.Open\",\"com.google.android.calendar/com.android.calendar.AllInOneActivity\"]}"
+setp string fav 'f:fb'
+setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
+look line circle solid accent
+if capture Fb "$OUT/icons-folder-fallback.png"; then
+  green=$(colour_pixels "$OUT/icons-folder-fallback.png" "#2E7D32"); red=$(colour_pixels "$OUT/icons-folder-fallback.png" "$RED")
+  [ "${green:-0}" -eq 0 ] && [ "${red:-0}" -gt 20 ] && ok "folder: the fixture is a red glyph as Calendar ($red px), not its green" \
+    || ko "folder: fixture green $green, red $red px (expected no green, red glyphs)"
+else ko "folder Fb not found"; fi
+
 step "App pages with their own icons (Classic, drawer off)"
 seed classic
 setp boolean drawer false

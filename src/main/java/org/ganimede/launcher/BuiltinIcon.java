@@ -20,8 +20,8 @@ import java.util.List;
 
 /**
  * One icon of the built-in set (core/IconSet), drawn with an icon-model treatment (issue 078): Line until told otherwise,
- * white until tinted. Icons.apply draws it into the icon cache with the chosen look; the drawable itself (a placeholder,
- * a folder thumbnail) draws by the same rule.
+ * white until tinted. Icons.apply draws it into the icon cache with the chosen look (folder thumbnails too); the drawable
+ * itself, the placeholder until then, draws by the same rule.
  */
 final class BuiltinIcon extends Drawable {
     private static final IconLook LINE = IconLook.of("line", "none", "solid", "accent");

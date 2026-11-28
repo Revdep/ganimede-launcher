@@ -86,7 +86,7 @@ final class Entries {
         boolean folder = entry.startsWith("f:");
         if (!folder && !entry.startsWith("s:")) {
             Item it = apps.find(entry);
-            return it == null ? null : ui.icon(it.icon, it.fromPack, size, look); // Apps.load already applied a picked icon
+            return it == null ? null : ui.icon(it, size, look); // Apps.load already applied a picked icon
         }
         Drawable picked = Icons.picked(ui.a, ui.prefs, entry);
         if (picked != null) return ui.icon(picked, true, size, look);
@@ -107,10 +107,10 @@ final class Entries {
         bg.setCornerRadius(size / 3f);
         bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
         g.setBackground(bg);
-        List<Drawable> inside = new ArrayList<>();
+        List<Item> inside = new ArrayList<>();
         for (String k : id == null ? List.<String>of() : layout.folderApps(id)) {
             Item a = apps.find(k);
-            if (a != null) inside.add(a.icon);
+            if (a != null) inside.add(a);
             if (inside.size() == 4) break;
         }
         if (inside.isEmpty()) g.setBackground(new LayerDrawable(new Drawable[]{bg,
@@ -119,7 +119,8 @@ final class Entries {
             LinearLayout line = new LinearLayout(ui.a);
             for (int k = r * 2; k < Math.min(inside.size(), r * 2 + 2); k++) {
                 ImageView iv = new ImageView(ui.a);
-                iv.setImageDrawable(Icons.thumbnail(inside.get(k), look, ui.accent, ui.fg)); // drawn in the look of the page the tile is on
+                Item a = inside.get(k); // drawn in the look of the page the tile is on, the tile as its plate
+                Icons.apply(iv, a.icon, a.fromPack, a.info.getUser(), look.inFolder(), ui.fg, ui.accent, mini);
                 LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(mini, mini);
                 if (k % 2 == 1) ml.setMarginStart(pad);
                 line.addView(iv, ml);

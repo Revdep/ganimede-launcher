@@ -94,7 +94,7 @@ final class Apps {
                         Drawable packed = Icons.picked(c, prefs, it.key);
                         if (packed == null) packed = Icons.fromPack(info.getComponentName());
                         it.fromPack = packed != null;
-                        it.icon = packed != null ? packed : info.getBadgedIcon(0);
+                        it.icon = packed != null ? packed : info.getIcon(0); // unbadged: Icons.apply badges what it draws
                         out.add(it);
                     } catch (RuntimeException oneApp) { // one app being updated can't take the whole list down
                         // left out until the next load

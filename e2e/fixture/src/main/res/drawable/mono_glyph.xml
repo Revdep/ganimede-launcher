@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The mono fixture's glyph (issue 079): a block left of the centre of the 108 dp adaptive square, so a glyph drawn
+     as the layer is (unfitted) sits off the plate's centre. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF" android:pathData="M30,34 h30 v40 h-30 z" />
+</vector>

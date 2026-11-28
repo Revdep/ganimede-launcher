@@ -64,6 +64,25 @@ public class GlyphFitTest {
         eq(Cap.ROUND, IconLook.of("line", "none", "solid", "accent").stroke().dotCap(), "Line's dots are round anyway");
     }
 
+    /** 96x96, alpha 255 in x 10..29, y 20..59: bounds (10,20)-(30,60), 20x40. */
+    private static int[] block() {
+        int[] p = new int[96 * 96];
+        for (int y = 20; y < 60; y++) for (int x = 10; x < 30; x++) p[y * 96 + x] = 0xFF000000;
+        return p;
+    }
+
+    public static void testPixelBoundsCentred() {
+        // a bitmap glyph (issue 079): its longer side 40 -> 52 = 26/48 of 96; centre (20, 40) -> (48, 48); no stroke
+        fit(GlyphFit.onContainer(GlyphFit.bounds(block(), 96), 0, 96), 1.3, 22, -4, 0);
+    }
+
+    public static void testPixelBoundsIgnoreFaintAlpha() {
+        // the threshold is IconMask's 0x20: anti-aliasing noise under it (alpha 8 here) is not part of the glyph
+        int[] p = block();
+        p[0] = 0x08000000;
+        fit(GlyphFit.onContainer(GlyphFit.bounds(p, 96), 0, 96), 1.3, 22, -4, 0);
+    }
+
     private static List<Float> toList(float[] a) {
         Float[] out = new Float[a.length];
         for (int i = 0; i < a.length; i++) out[i] = a[i];

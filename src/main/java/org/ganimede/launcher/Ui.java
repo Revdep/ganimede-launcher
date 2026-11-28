@@ -110,14 +110,20 @@ final class Ui {
         return t;
     }
 
-    ImageView icon(Drawable d, boolean fromPack, int size) {
-        return icon(d, fromPack, size, look);
+    /** An app's icon (another profile's keeps its badge). */
+    ImageView icon(Apps.Item it, int size, IconLook iconLook) {
+        return icon(it.icon, it.fromPack, it.info.getUser(), size, iconLook);
     }
 
+    /** An icon that is no app's own: a picked one, a shortcut's. */
     ImageView icon(Drawable d, boolean fromPack, int size, IconLook iconLook) {
+        return icon(d, fromPack, null, size, iconLook);
+    }
+
+    private ImageView icon(Drawable d, boolean fromPack, android.os.UserHandle user, int size, IconLook iconLook) {
         ImageView icon = new ImageView(a);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        Icons.apply(icon, d, fromPack, iconLook, fg, accent, size);
+        Icons.apply(icon, d, fromPack, user, iconLook, fg, accent, size);
         return icon;
     }
 

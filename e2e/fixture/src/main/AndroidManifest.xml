@@ -10,6 +10,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- A second launcher entry with an adaptive icon that has a monochrome layer (issue 079's monochrome fallback). -->
+        <activity-alias android:name=".Mono" android:targetActivity=".Open" android:exported="true"
+            android:label="Fixture mono" android:icon="@drawable/mono_icon">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- Behaves like phone Clock apps that accept SHOW_ALARMS only from callers holding SET_ALARM. -->
         <activity android:name=".Alarms" android:exported="true" android:label="Sveglie fixture"
             android:permission="com.android.alarm.permission.SET_ALARM">
