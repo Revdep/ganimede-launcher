@@ -71,8 +71,9 @@ final class BuiltinIcon extends Drawable {
             IconSet.PathData p = data.get(i);
             Path path = new Path(shapes[i]);
             path.transform(m);
+            float a = p.alpha() * alpha / 255f; // the path's own alpha and the drawable's, for fill and stroke alike
             paint.setColor(color);
-            paint.setAlpha(Math.round(Color.alpha(color) * p.alpha() * alpha / 255f));
+            paint.setAlpha(Math.round(Color.alpha(color) * a));
             if (p.fill()) {
                 paint.setStyle(Paint.Style.FILL);
                 c.drawPath(path, paint);
@@ -82,9 +83,11 @@ final class BuiltinIcon extends Drawable {
                 Path closed = path(p, true);
                 closed.transform(m);
                 paint.setColor(fill);
+                paint.setAlpha(Math.round(Color.alpha(fill) * a));
                 paint.setStyle(Paint.Style.FILL);
                 c.drawPath(closed, paint);
                 paint.setColor(color);
+                paint.setAlpha(Math.round(Color.alpha(color) * a));
             }
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(s.width() * px / 48f);
