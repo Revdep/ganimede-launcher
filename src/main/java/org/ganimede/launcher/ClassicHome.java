@@ -662,6 +662,7 @@ final class ClassicHome {
         };
         fill[0].run();
         dlg[0] = Motion.pop(ui, box, null);
+        dlg[0].setTitle(ui.tr("Arrange pages")); // what TalkBack announces when the window opens
         dlg[0].show();
     }
 

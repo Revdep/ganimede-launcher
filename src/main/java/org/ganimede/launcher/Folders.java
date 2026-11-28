@@ -294,6 +294,7 @@ final class Folders {
         }
         Motion shown = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
         dlg[0] = popup = shown;
+        shown.setTitle(name(id, layout.folder(id))); // what TalkBack announces when the window opens
         shown.setOnDismissListener(x -> { // an older pop-up ending after its rebuild must not clear the new one
             if (sv.getChildAt(0) instanceof ViewGroup) ((ViewGroup) sv.getChildAt(0)).removeAllViews(); // Widgets keeps its host views: a closed card must not hold them
             if (popup == shown) { popup = null; popupId = null; popupLook = null; popupDrag = null; }
