@@ -170,12 +170,12 @@ final class Layout {
         }
     }
 
-    /** The inputs of the last {@link #ensureFavourites} run: the same inputs give the same (already saved) result. */
+    /** The prefs of the last {@link #ensureFavourites} run: the same inputs give the same (already saved) result. */
     private String ensured;
 
+    /** Every pref: the run reads fav, grid, dock, blocks, cols/rows and the folders, so any change must redo it. */
     private String ensureKey() {
-        return String.join("\u0000", prefs.getString("fav", ""), prefs.getString("grid", ""),
-                prefs.getString("dock", ""), prefs.getString("blocks", ""), String.valueOf(per()));
+        return String.valueOf(new java.util.TreeMap<>(prefs.getAll()));
     }
 
     /** Adds favourites missing from an older classic grid without changing any existing placement. */
