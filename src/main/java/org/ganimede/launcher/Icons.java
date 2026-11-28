@@ -370,7 +370,7 @@ final class Icons {
             dot.setShape(GradientDrawable.OVAL);
             dot.setColor(colours.glyph());
             v.setImageDrawable(null);
-            int pad = size * 7 / 20;
+            int pad = px * 7 / 20;
             v.setPadding(pad, pad, pad, pad);
             v.setBackground(new android.graphics.drawable.InsetDrawable(dot, pad));
             return;
