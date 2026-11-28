@@ -68,6 +68,14 @@ public final class Search {
         return beginsWith(l, q) ? 2 : 1;
     }
 
+    /** A contact stays when its name or any other entry (email, company, nickname) has a word beginning with the text. */
+    public static boolean contactMatches(String name, List<String> others, String query) {
+        String q = typed(query);
+        if (scoreTyped(name, q) > 0) return true;
+        for (String o : others) if (o != null && scoreTyped(o, q) > 0) return true;
+        return false;
+    }
+
     /** The items whose name matches, best score first; ties go to the one opened most. Each scored once. */
     public static <T> List<T> rank(List<T> items, Function<T, String> name, ToIntFunction<T> uses, String query) {
         Map<T, Integer> scores = new HashMap<>();

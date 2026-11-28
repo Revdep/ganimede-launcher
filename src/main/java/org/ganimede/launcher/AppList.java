@@ -255,17 +255,16 @@ final class AppList {
 
     /**
      * How many contacts match, starred first then by name, with the details (number, email) of only the rows shown:
-     * the first few, or all of them after "Show all". Only names the search rule matches are counted and shown.
+     * the first few, or all of them after "Show all". Only contacts the search rule matches (name, email, company or nickname) are counted and shown.
      */
     private ContactHits queryContacts(String q, boolean all) {
         return queryContacts(q, all, REACHABLE);
     }
 
     private ContactHits queryContacts(String q, boolean all, String where) {
-        List<Long> ids = new ArrayList<>();
-        List<Uri> looks = new ArrayList<>();
-        List<String> names = new ArrayList<>();
-        int count = 0;
+        List<Long> found = new ArrayList<>();
+        List<Uri> foundLooks = new ArrayList<>();
+        List<String> foundNames = new ArrayList<>();
         boolean byNumber = Search.isNumberQuery(q); // digits: the contacts whose number holds them, not the name filter
         Uri u = byNumber ? ContactsContract.Contacts.CONTENT_URI
                 : Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(q));
@@ -274,15 +273,27 @@ final class AppList {
                 byNumber ? ContactsContract.Contacts._ID + " IN (" + numberContactIds(q) + ")" : where, null,
                 ContactsContract.Contacts.STARRED + " DESC, " + ContactsContract.Contacts.SORT_KEY_PRIMARY)) {
             while (c != null && c.moveToNext()) {
-                // the provider also matches mid-word: each name passes the app search's own rule
-                if (c.getString(2) == null || !byNumber && Search.score(c.getString(2), q) == 0) continue;
-                if (ids.size() >= Search.shownContacts(++count, all)) continue;
-                ids.add(c.getLong(0));
-                looks.add(ContactsContract.Contacts.getLookupUri(c.getLong(0), c.getString(1)));
-                names.add(c.getString(2));
+                if (c.getString(2) == null) continue;
+                found.add(c.getLong(0));
+                foundLooks.add(ContactsContract.Contacts.getLookupUri(c.getLong(0), c.getString(1)));
+                foundNames.add(c.getString(2));
             }
         } catch (Exception unavailable) { // provider busy or gone; or one without the AOSP view_data table: then unfiltered
             return where != null ? queryContacts(q, all, null) : null;
+        }
+        // the provider also matches mid-word and on other entries: each contact passes the search rule on its name or
+        // on its email, company or nickname
+        Map<Long, List<String>> others = byNumber ? Map.of() : otherEntries(found);
+        List<Long> ids = new ArrayList<>();
+        List<Uri> looks = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        int count = 0;
+        for (int i = 0; i < found.size(); i++) {
+            if (!byNumber && !Search.contactMatches(foundNames.get(i), others.getOrDefault(found.get(i), List.of()), q)) continue;
+            if (ids.size() >= Search.shownContacts(++count, all)) continue;
+            ids.add(found.get(i));
+            looks.add(foundLooks.get(i));
+            names.add(foundNames.get(i));
         }
         Map<String, String> data = contactData(ids);
         List<Extra> people = new ArrayList<>();
@@ -300,6 +311,29 @@ final class AppList {
             people.add(e);
         }
         return new ContactHits(count, people);
+    }
+
+    /** The email addresses, companies and nicknames of each contact, by contact id. */
+    private Map<Long, List<String>> otherEntries(List<Long> all) {
+        Map<Long, List<String>> out = new HashMap<>();
+        for (int from = 0; from < all.size(); from += 500) {
+            List<Long> ids = all.subList(from, Math.min(all.size(), from + 500));
+            String[] args = new String[ids.size() + 3];
+            StringBuilder in = new StringBuilder();
+            for (int i = 0; i < ids.size(); i++) { in.append(i == 0 ? "?" : ",?"); args[i] = String.valueOf(ids.get(i)); }
+            args[ids.size()] = Email.CONTENT_ITEM_TYPE;
+            args[ids.size() + 1] = ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE;
+            args[ids.size() + 2] = ContactsContract.CommonDataKinds.Nickname.CONTENT_ITEM_TYPE;
+            try (Cursor d = ui.a.getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+                    new String[]{ContactsContract.Data.CONTACT_ID, ContactsContract.Data.DATA1},
+                    ContactsContract.Data.CONTACT_ID + " IN (" + in + ") AND " + ContactsContract.Data.MIMETYPE + " IN (?,?,?)",
+                    args, null)) {
+                while (d != null && d.moveToNext()) out.computeIfAbsent(d.getLong(0), k -> new ArrayList<>()).add(d.getString(1));
+            } catch (Exception e) {
+                // the name alone decides
+            }
+        }
+        return out;
     }
 
     /** Ids (comma separated) of the contacts with a phone number holding the typed digits; the rule is Search.numberMatches. */

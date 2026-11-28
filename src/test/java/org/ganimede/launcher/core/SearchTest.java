@@ -139,6 +139,15 @@ public class SearchTest {
         eq(List.of("#", "A", "Z"), new java.util.ArrayList<>(Search.sections(List.of("Zz Prova", "alfa", "Àlpha", "9 Nove"))), "sorted, once each, # first");
     }
 
+    public static void testContactStaysOnAnyEntryWithAWordStartingWithTheText() {
+        java.util.List<String> other = java.util.List.of("anna@acme.com", "Acme Srl", "Boss");
+        yes(Search.contactMatches("Zz Prova", other, "acme"), "company or email word");
+        yes(Search.contactMatches("Zz Prova", other, "boss"), "nickname");
+        yes(Search.contactMatches("Zz Prova", other, "pro"), "the name");
+        yes(!Search.contactMatches("Zz Prova", other, "cme"), "letters mid-word stay out");
+        yes(!Search.contactMatches("Zz Prova", java.util.List.of(), "rova"), "no other entries, mid-word name");
+    }
+
     public static void testNumberQueryNeedsThreeDigitsAndNothingElse() {
         yes(Search.isNumberQuery("347 12"), "digits and a space");
         yes(Search.isNumberQuery("+39 347-1"), "plus and dash are allowed");
