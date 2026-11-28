@@ -254,6 +254,6 @@ A shell input tap $p1
 wait_until 10 plays 480044 && ok "bubble: the first plays instead" || ko "bubble, copies after tapping the first: $(copies)"
 A shell input tap $p1
 wait_until 5 copies_are "" && ok "bubble: paused, no copy left" || ko "bubble, copies after pausing: $(copies)"
-has "Notifiche" && ko "a tap on a player opened the pop-up" || ok "the player's taps stay in the player"
+hasnt "Notifiche" && ok "the player's taps stay in the player" || ko "a tap on a player opened the pop-up"
 bound_home # the seeded favourites again, no preview
 wipe; A uninstall $FIX >/dev/null

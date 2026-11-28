@@ -264,7 +264,7 @@ shot 122-fav-added
 
 step "App menu: Hide leaves the list, search finds it under Nascoste"
 drawer_find sett
-has "Nascoste" && ko "Settings listed as hidden before hiding" || ok "visible app: no “Nascoste” section"
+hasnt "Nascoste" && ok "visible app: no “Nascoste” section" || ko "Settings listed as hidden before hiding"
 read -r sx sy <<<"$(cx Settings)"; hold "$sx" "$sy"
 expect "Rimuovi dai preferiti"; tap "Nascondi"
 wait_until 5 hasnt "Rimuovi dai preferiti"
@@ -277,7 +277,7 @@ has "Settings" && ok "…and it still finds Settings" || ko "Settings not found 
 pref fav | grep -q 'com.android.settings' && ko "hidden app stayed in the favourites" || ok "Hide also took it out of the favourites"
 shot 123-hidden
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"' # keyboard, then search
-has "Settings" && ko "hidden app still on the home screen" || ok "Settings left the home screen"
+hasnt "Settings" && ok "Settings left the home screen" || ko "hidden app still on the home screen"
 
 step "App menu: Unhide from Settings"
 A shell input swipe 540 1500 540 1500 1500; tap "Impostazioni Ganimede"
@@ -287,7 +287,7 @@ tap "Mostra di nuovo"
 wait_until 5 hasnt "Mostra di nuovo"
 A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -A3 'name="hidden"' | grep -q 'settings' && ko "hidden set still holds Settings" || ok "the hidden set is empty again"
 start_home; drawer_find sett
-has "Nascoste" && ko "still under Nascoste after Unhide" || ok "after Unhide a search lists it normally"
+hasnt "Nascoste" && ok "after Unhide a search lists it normally" || ko "still under Nascoste after Unhide"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK
 
 step "Classic: Remove from favourites takes the icon off the grid"
@@ -295,7 +295,7 @@ seed classic
 read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
 expect "Rimuovi dai preferiti" && tap "Rimuovi dai preferiti"
 wait_until 5 hasnt "Calendar"
-has "Calendar" && ko "Calendar icon still on the grid" || ok "the grid icon is gone"
+hasnt "Calendar" && ok "the grid icon is gone" || ko "Calendar icon still on the grid"
 pref fav | grep -q 'calendar' && ko "still a favourite" || ok "no longer a favourite"
 pref grid | grep -q 'calendar' && ko "grid pref still holds Calendar" || ok "grid pref lost it too"
 has "Clock" && has "Contacts" && ok "the other icons stay" || ko "other icons disappeared"
@@ -309,13 +309,13 @@ hasd "Clock" && ok "Clock is in the dock" || ko "Clock not in the dock"
 read -r dx dy <<<"$(cx "desc:Clock")"; hold "$dx" "$dy"
 expect "Nascondi" && tap "Nascondi"
 wait_until 5 nod Clock
-hasd "Clock" || has "Clock" && ko "Clock still on the home screen (dock or grid)" || ok "Hide: gone from dock and grid"
+nod "Clock" && hasnt "Clock" && ok "Hide: gone from dock and grid" || ko "Clock still on the home screen (dock or grid)"
 pref dock | grep -q 'deskclock' && ko "dock pref still holds it" || ok "dock pref cleared"
 pref grid | grep -q 'deskclock' && ko "grid pref still holds it" || ok "grid pref cleared"
 read -r ax ay <<<"$(cx Contacts)"; hold "$ax" "$ay"
 expect "Nascondi" && tap "Nascondi"
 wait_until 5 hasnt "Contacts"
-has "Contacts" && ko "Contacts still on the grid after Hide" || ok "Hide on a grid icon removes it from the grid"
+hasnt "Contacts" && ok "Hide on a grid icon removes it from the grid" || ko "Contacts still on the grid after Hide"
 shot 125-classic-hidden
 
 step "Folders: a folder with a widget opens, loses an app, opens again (the widget moves to the new pop-up)"

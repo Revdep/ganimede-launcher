@@ -44,12 +44,12 @@ for mode in list classic; do
     parity "favourites start" "$h_apps_left" "$p_apps_left"
     parity "clock top" "$h_clock_top" "$p_clock_top"
     hasd "Segnaposto: Prossimo evento" && hasd "Segnaposto: Lettore musicale" && ok "empty blocks are marked placeholders in the preview" || ko "placeholders not marked"
-    hasd "Segnaposto: App musicali" && ko "music apps placeholder with no apps chosen" || ok "no music placeholder without chosen apps"
+    nod "Segnaposto: App musicali" && ok "no music placeholder without chosen apps" || ko "music apps placeholder with no apps chosen"
   else
     p_apps_top=$(top_of "desc:Anteprima: griglia"); p_apps_left=$(left_of "desc:Anteprima: griglia")
     parity "grid top" "$h_apps_top" "$p_apps_top"
     parity "grid start" "$h_apps_left" "$p_apps_left"
-    hasd "Segnaposto: Prossimo evento" && ko "placeholder in Classic" || ok "no placeholders in Classic"
+    nod "Segnaposto: Prossimo evento" && ok "no placeholders in Classic" || ko "placeholder in Classic"
   fi
   shot "22-preview-$mode"
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus

@@ -6,7 +6,7 @@ seed classic
 pg_settings
 stap "Personalizza"
 wait_until 5 has "Griglia delle app" && has "Dock" && ok "classic bricks offered by name" || ko "classic bricks missing"
-has "Alfabeto" && ko "list bricks shown in classic" || ok "no list-only bricks in classic"
+hasnt "Alfabeto" && ok "no list-only bricks in classic" || ko "list bricks shown in classic"
 expect "Sistema icone, widget e orologio"                  # classic bricks are arranged on the home itself
 pill "Temi"
 expect "Temi"; pill "Orologio"; expect "Orologio"; hasnt "Cassetto" && ok "drawer on: no Drawer pill" || ko "Drawer pill shown with the drawer on"

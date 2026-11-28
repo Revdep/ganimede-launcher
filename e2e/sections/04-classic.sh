@@ -22,8 +22,8 @@ shot 21-classic-blocks
 
 step "Classic: labels on/off"
 setp boolean hide_labels true
-wait_until 5 hasd "Calendar"   # the icons are up
-has "Calendar" && ko "labels still shown" || ok "labels hidden"
+wait_until 5 hasd "Calendar" || ko "the icons did not come up"
+hasnt "Calendar" && ok "labels hidden" || ko "labels still shown"
 hasd "Calendar" && ok "icons still there (named for accessibility)" || ko "icons gone with the labels"
 setp boolean hide_labels false
 

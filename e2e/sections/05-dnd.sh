@@ -12,7 +12,7 @@ read -r ax ay <<<"$(cx Clock)"; read -r tx ty <<<"$(cx Contacts)"
 A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 1500
 wait_until 5 has "Cartella"
 has "Cartella" && ok "app dropped on app makes a folder" || ko "no folder made"
-has "Clock" && ko "Clock still loose on the grid" || ok "both apps went into the folder"
+hasnt "Clock" && ok "both apps went into the folder" || ko "Clock still loose on the grid"
 shot 23-folder
 tap "Cartella"; expect "Clock"; expect "Contacts"; shot 24-folder-open; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Clock"
 read -r ax ay <<<"$(cx Calendar)"
@@ -24,7 +24,7 @@ read -r dx dy <<<"$(cx "desc:Calendar")"
 shot 25-dock
 A shell input draganddrop "$dx" "$dy" "$((W / 4))" "$(dp 90)" 1500   # onto Remove, top left
 wait_until 5 nod Calendar
-hasd "Calendar" && ko "Calendar still on the home screen" || ok "dropped on Remove: off the home screen"
+nod "Calendar" && ok "dropped on Remove: off the home screen" || ko "Calendar still on the home screen"
 read -r fx fy <<<"$(cx Cartella)"
 A shell input draganddrop "$fx" "$fy" "$fx" "$fy" 1500       # dropped where it was: its menu
 expect "Scegli app" && A shell input keyevent KEYCODE_BACK
