@@ -196,6 +196,12 @@ final class VoicePlayer {
         });
     }
 
+    /** Whether any kept copy (or half) is on disk: with none, a sweep has nothing to delete. */
+    static boolean hasKept(Context c) {
+        String[] files = keptDir(c).list();
+        return files != null && files.length > 0;
+    }
+
     private static Handler watchdog() {
         HandlerThread t = new HandlerThread("voice-watchdog");
         t.start();

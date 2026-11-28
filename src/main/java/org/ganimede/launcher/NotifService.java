@@ -222,6 +222,7 @@ public class NotifService extends NotificationListenerService {
 
     /** Kept voice notes stay while their notification is shown or held for the summary. */
     private void sweepVoice(StatusBarNotification[] all, long snapshot) {
+        if (!VoicePlayer.hasKept(this)) return; // nothing to delete: skip the call for the snoozed ones
         try {
             List<StatusBarNotification> l = new ArrayList<>(Arrays.asList(all));
             StatusBarNotification[] held = getSnoozedNotifications();
