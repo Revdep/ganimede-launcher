@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.FolderOrder;
 import org.ganimede.launcher.core.Gestures;
+import org.ganimede.launcher.core.Morph;
 
 import android.os.Bundle;
 import android.view.MotionEvent;
@@ -246,7 +247,7 @@ final class FolderDrag {
             parent[i].addView(w, index[i], params[i]);
             w.setTranslationX(tx[i]);
             w.setTranslationY(ty[i]);
-            w.animate().translationX(0).translationY(0).setDuration(150);
+            Anim.to(w, Morph.SNAP_MS).translationX(0).translationY(0);
         }
         views.clear();
         views.addAll(order);
@@ -279,7 +280,7 @@ final class FolderDrag {
         for (int i = 0; i < order.size(); i++) {
             View w = order.get(i);
             int home = views.indexOf(w);
-            if (w != except) w.animate().translationX(sx[i] - sx[home]).translationY(sy[i] - sy[home]).setDuration(150);
+            if (w != except) Anim.to(w, Morph.SNAP_MS).translationX(sx[i] - sx[home]).translationY(sy[i] - sy[home]);
         }
     }
 
