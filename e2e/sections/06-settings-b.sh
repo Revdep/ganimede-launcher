@@ -48,8 +48,11 @@ for mode in classic list; do
       v=$(pref list_clock_y); sy=$(screen | grep -o 'text="x [^"]* y [-+]*[0-9]* dp"' | head -1 | sed 's/.* y \([-+]*[0-9]*\) dp"$/\1/'); sy=${sy#+}
       [ -n "$v" ] && [ "$v" = "$sy" ] && [ "$v" -lt 0 ] && [ $((v % 4)) -eq 0 ]
     }
+    # On a FAIL: the files now (a .bak = a write still in flight), then whether the value reaches the file late (slow disk) or never (not saved).
     wait_until 5 clocked && ok "clock dragged in the preview: list_clock_y = $v dp, as “Posizione” shows" \
-      || ko "drag in the preview: list_clock_y = ${v:-unset}, “Posizione” shows y ${sy:-nothing}; files: $(A exec-out run-as $PK ls shared_prefs | tr '\n' ' ')"
+      || { files=$(A exec-out run-as $PK ls shared_prefs | tr '\n' ' '); t=$SECONDS; late() { lv=$(pref list_clock_y); [ -n "$lv" ]; }
+        wait_until 20 late && lt="the file got $lv $((SECONDS - t)) s later" || lt="still not in the file 20 s later"
+        ko "drag in the preview: list_clock_y = ${v:-unset}, “Posizione” shows y ${sy:-nothing}; files: $files; $lt"; }
     dragged=${v:-0}
     wait_until 5 hasd "Orologio: Sposta su" && ok "the dragged brick's controls show" || ko "dragging did not pick the brick"
     tap "Annulla"
