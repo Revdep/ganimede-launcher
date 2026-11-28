@@ -184,7 +184,7 @@ final class Icons {
     static void applySample(ImageView v, Drawable placeholder, IconLook look, int fg, int accent, int size) {
         BuiltinIcon s = sample;
         if (s != null) { apply(v, s, false, null, null, look, fg, accent, size); return; }
-        apply(v, placeholder, false, null, null, look, fg, accent, size);
+        v.setImageDrawable(placeholder); // as it is: drawn in the look, it would be thrown away at once
         Context c = v.getContext().getApplicationContext();
         RENDER.execute(() -> {
             try {
