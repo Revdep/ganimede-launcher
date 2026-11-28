@@ -106,7 +106,9 @@ if emu_only "icons: a work profile is created on the emulator"; then
         && ok "badge: the work $label has a badge in its corner ($*)" || ko "badge: the work $label has no badge ($*)"
       # a badge drawn smaller than the icon (Fable c1-icons 1) lands in its top-left quarter: that quarter stays as the own app's
       rest "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-r.png"; rest "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-r.png"
-      same "$OUT/icons-badge-own-r.png" "$OUT/icons-badge-work-r.png" \
+      # FUZZ 20%: the own app's original icon is drawn live by the ImageView, the work copy once into the cache bitmap: the circle's
+      # anti-aliased edge differs by up to 15% on a few pixels (run 46112177069); a badge is a solid 100% change
+      FUZZ=20% same "$OUT/icons-badge-own-r.png" "$OUT/icons-badge-work-r.png" \
         && ok "badge: the work $label is the own one's outside the corner ($*)" || ko "badge: the work $label differs outside the badge corner ($*)"
     }
     badge_of Fixture "$FIXTURE/$FIXTURE.Open" "$BUILTIN" original circle solid accent
