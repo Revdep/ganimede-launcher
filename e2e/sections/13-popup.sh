@@ -3,7 +3,6 @@ emu_only "popup: grants the notification listener" || return 0
 # the second app is the Clock timer. The shell command cannot set a category or a visibility, so a secret notification and an
 # alarm-category one cannot be posted from here (see the notes at the two steps that would need them).
 A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1
-listening() { A shell settings get secure enabled_notification_listeners | grep -q NotifService; }
 bound() { A shell dumpsys notification | sed -n '/Live notification listeners/,/Snoozed notification listeners/p' | grep -q NotifService; }
 tagged() { A shell dumpsys notification | grep -q "tag=$1 "; }                 # still in the system's list
 untagged() { ! tagged "$1"; }
@@ -16,8 +15,6 @@ expect_popup() {
   popup; ko "doesn't see “$1”"; return 1
 }
 post() { A shell cmd notification post -t "$1" "$2" "$3" >/dev/null; }         # post title tag word
-timer() { A shell am start -a android.intent.action.SET_TIMER --ei android.intent.extra.alarm.LENGTH 900 \
-  --ez android.intent.extra.alarm.SKIP_UI true >/dev/null 2>&1; t() { A shell dumpsys notification | grep -q "pkg=com.google.android.deskclock.*Timers"; }; wait_until 10 t; }
 # every clearable notification away, through the pop-up's own button
 wipe() { popup; if wait_until 3 has "Cancella tutte"; then tap "Cancella tutte"; else A shell input keyevent KEYCODE_BACK; fi
   wait_until 5 hasnt "Notifiche"; noclock; }

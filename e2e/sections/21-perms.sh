@@ -7,7 +7,6 @@ perm_settings() {
   nonotif; seed classic
   pg_settings; tapn "$1" 8
 }
-bpref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "name=\"$1\" value=\"true\""; }
 NP="Anteprima delle notifiche sotto i preferiti"
 
 step "Notification preview: asking for access explains the restricted setting first"
@@ -20,7 +19,6 @@ shows "1\." "Info app" && ok "the explanation lists steps (“1.” … “Info 
 
 step "Notification preview: a rotation with the explanation open keeps the switch on and the explanation (issue 063)"
 A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
-turned() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; } # the dump's root says the display is turned
 wait_until 8 turned || ko "the screen did not turn"
 wait_until 5 shows "Consenti impostazioni con restrizioni" && ok "the explanation is back after the rotation" || ko "the explanation vanished on rotation"
 bpref notif_preview && ok "the rotation left notif_preview on" || ko "the rotation turned notif_preview off"

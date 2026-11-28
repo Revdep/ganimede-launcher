@@ -208,6 +208,24 @@ settled() { local a; a=$(screen); [ -n "$a" ] && [ "$a" = "$(dump)" ]; }
 # it re-arms the timers it saved, so a 15-minute timer of an earlier run rings mid-run and its heads-up over the screen
 # top takes the taps meant for the home.
 noclock() { is_emulator || return 0; A shell pm clear com.google.android.deskclock >/dev/null 2>&1; }
+# timer: a 15-minute Clock timer, waited until Android lists its notification (timer_up); noclock takes it away
+timer() { A shell am start -a android.intent.action.SET_TIMER --ei android.intent.extra.alarm.LENGTH 900 \
+  --ez android.intent.extra.alarm.SKIP_UI true >/dev/null 2>&1; wait_until 10 timer_up; }
+timer_up() { A shell dumpsys notification | grep -q "pkg=com.google.android.deskclock.*Timers"; }
+listening() { A shell settings get secure enabled_notification_listeners | grep -q NotifService; } # Ganimede is a notification listener
+bpref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "name=\"$1\" value=\"${2:-true}\""; } # bpref key [true|false]: the stored boolean
+turned() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; } # the dump's root says the display is turned
+docked() { read -r _ y <<<"$(cx "desc:Calendar")"; [ -n "$y" ] && [ "$y" -gt $((H - $(dp 200))) ]; } # Calendar sits in the dock
+# clock_bounds: the clock's bounds, empty (and false) unless they are a real box inside the screen
+clock_bounds() {
+  local b
+  b=$(bounds "desc:Orologio, tocca per le sveglie")
+  [ -n "$b" ] || return 1
+  set -- $b
+  [ "$1" -ge 0 ] && [ "$2" -ge 0 ] && [ "$3" -le "$W" ] && [ "$4" -le "$H" ] \
+    && [ "$3" -gt "$1" ] && [ "$4" -gt "$2" ] || return 1
+  echo "$b"
+}
 # home_menu [row]: long-presses an empty spot (1900) until the home menu shows that row (default Impostazioni Ganimede).
 # Issue 067: in the appicon run of 27 Nov, both emulators loaded by parallel runs, `setp` → HOME → `focus` → long-press
 # lost the press 3 of 3 times, in a classic seed; the same sequence later passed 3/3 in list and classic, and the whole

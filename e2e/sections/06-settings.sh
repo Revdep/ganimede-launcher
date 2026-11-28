@@ -42,7 +42,6 @@ if read -r ux uy <<<"$(cx "desc:Dock: Sposta su")" && [ -n "$ux" ]; then
 else ko "dock arrows missing after the rebuild"; fi
 # The Drawer pill is the app pages: the drawer off, every page after the first holds apps. Switch the drawer off here.
 pill "Tutto lo schermo"; tap "Tutto lo schermo"; see "Attiva cassetto app" && tap "Attiva cassetto app"
-bpref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "name=\"$1\" value=\"$2\""; }
 wait_until 5 bpref drawer false && ok "the drawer switch is saved off" || ko "drawer not saved off"
 pill "Orologio"
 tap "Orologio"; wait_until 5 has "✓ Sovrapposto" && ok "Classic clock pill: the clock styles" || ko "clock pill shows no clock styles"
@@ -189,7 +188,6 @@ else ko "App: no right arrow"; fi
 
 step "Settings: List clock and line move independently on home"
 seed list
-clock_bounds() { bounds "desc:Orologio, tocca per le sveglie"; }
 line_bounds() { bounds "☁ imposta meteo"; }
 read -r _ clock_y0 _ _ <<<"$(clock_bounds)"
 read -r _ line_y0 _ _ <<<"$(line_bounds)"

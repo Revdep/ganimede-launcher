@@ -361,7 +361,6 @@ expect "Icona…" && tap "Icona…"; expect "Tutti i pacchetti di icone" && tap 
 expect "Annulla"
 A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
 defer 'A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1'
-turned() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; }
 wait_until 8 turned || ko "the screen did not turn"
 find_box() { screen | grep -o 'class="android.widget.EditText"[^>]*' | grep -q 'bounds='; }
 wait_until 5 find_box && wait_until 5 has "Annulla" && ok "landscape: the search field and Annulla are both on the screen" \

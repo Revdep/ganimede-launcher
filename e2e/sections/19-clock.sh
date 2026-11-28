@@ -1,16 +1,6 @@
 emu_only "clock: disables apps and sets accessibility" || return 0
 # Every clock style has an on-screen view and exposes its complete value in List and a user-resized Classic block.
 # ClockFitTest checks the draw bounds themselves; screenshots cannot separate translucent ink from a moving wallpaper.
-clock_bounds() {
-  local b
-  b=$(bounds "desc:Orologio, tocca per le sveglie")
-  [ -n "$b" ] || return 1
-  set -- $b
-  [ "$1" -ge 0 ] && [ "$2" -ge 0 ] && [ "$3" -le "$W" ] && [ "$4" -le "$H" ] \
-    && [ "$3" -gt "$1" ] && [ "$4" -gt "$2" ] || return 1
-  echo "$b"
-}
-
 clock_complete() {
   screen | grep -qE 'text="[0-9]{2}:[0-9]{2} · [^"]+, [^"]+ [0-9]+"'
 }

@@ -48,7 +48,6 @@ seed classic string dock "f:777"
 read -r ax ay <<<"$(cx Calendar)"
 A shell input draganddrop "$ax" "$ay" "$((W / 10))" "$((H - $(dp 90)))" 1500
 wait_until 5 hasd "Calendar" # (the grid icon's label is text, the dock icon's is a content-desc)
-docked() { read -r _ y <<<"$(cx "desc:Calendar")"; [ -n "$y" ] && [ "$y" -gt $((H - $(dp 200))) ]; }
 wait_until 5 docked && ok "Calendar is in the dock slot" || ko "Calendar not docked"
 [ "$(nfold)" = 0 ] && hasnt "Cartella" && ok "no folder revived in the dock" || ko "a folder came back: stored $(nfold)"
 
