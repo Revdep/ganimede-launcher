@@ -5,6 +5,7 @@ import org.ganimede.launcher.core.IconLook;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -131,9 +132,21 @@ final class Ui {
         return new Ask(this);
     }
 
-    /** The settings' dialogs, in the system's dark style. */
+    /** A screen that closes its dialogs itself when it goes: no leaked window, and each dialog's OnDismiss runs. */
+    interface Owner {
+        void own(Dialog d);
+    }
+
+    /** The settings' dialogs, in the system's dark style; an Owner screen is told of each one. */
     static AlertDialog.Builder dialog(Context c) {
-        return new AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+        return new AlertDialog.Builder(c, android.R.style.Theme_DeviceDefault_Dialog_Alert) {
+            @Override
+            public AlertDialog create() {
+                AlertDialog d = super.create();
+                if (c instanceof Owner o) o.own(d);
+                return d;
+            }
+        };
     }
 
     void open(Intent i) {
@@ -174,8 +187,8 @@ final class Ui {
     }
 
     /** The notification-access explanation, then Android's screen; declined runs if the person does not go on (may be null). */
-    static void explainNotif(Activity a, Runnable declined) {
-        explainRestricted(a, "Notification access", "Switch on \"Ganimede\" on the next screen. Message text never leaves your phone.",
+    static AlertDialog explainNotif(Activity a, Runnable declined) {
+        return explainRestricted(a, "Notification access", T.t(a, "Switch on \"Ganimede\" on the next screen. Message text never leaves your phone."),
                 Build.VERSION.SDK_INT >= 30
                         ? new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
                         Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, new ComponentName(a, NotifService.class).flattenToString())
@@ -183,9 +196,10 @@ final class Ui {
     }
 
     /** The Accessibility (Quick Lock and button actions) explanation, then Android's screen. */
-    static void explainLock(Activity a, Runnable declined) {
-        explainRestricted(a, "Quick Lock",
-                "Switch on \"Ganimede Quick Lock\" under Accessibility. It only runs system actions (lock, screenshot, recent apps…) and reads nothing on screen.",
+    static AlertDialog explainLock(Activity a, Runnable declined) {
+        // the label as Android's Accessibility screen shows it: in the system language, which may differ from Ganimede's
+        return explainRestricted(a, "Quick Lock", T.f(a, "Switch on \"%s\" under Accessibility. It only runs system actions (lock, screenshot, recent apps…) and reads nothing on screen.",
+                        a.getString(R.string.lock_service_label)),
                 new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS), declined);
     }
 
@@ -194,11 +208,11 @@ final class Ui {
      * their switch stays grey until the person allows it in App info. This says how, then opens the right screen.
      * Cancel, App info or a dismissed dialog run declined (may be null): the caller puts its switch back off.
      */
-    private static void explainRestricted(Activity a, String what, String message, Intent target, Runnable declined) {
+    private static AlertDialog explainRestricted(Activity a, String what, String message, Intent target, Runnable declined) {
         boolean[] opened = {false};
-        dialog(a)
+        return dialog(a)
                 .setTitle(T.t(a, what))
-                .setMessage(T.t(a, message) + "\n\n" + T.t(a, "1. Open and switch it on.\n2. If Android blocks it, press OK.\n"
+                .setMessage(message + "\n\n" + T.t(a, "1. Open and switch it on.\n2. If Android blocks it, press OK.\n"
                         + "3. App info → ⋮ (top right) → \"Allow restricted settings\".\n4. Come back and switch it on again.\n"
                         + "Android asks this of every app installed from a file instead of a store."))
                 .setPositiveButton(T.t(a, "Open"), (d, w) -> {

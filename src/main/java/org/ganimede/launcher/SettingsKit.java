@@ -60,6 +60,9 @@ final class SettingsKit {
 
     void render() { render.run(); }
 
+    /** Redraws the preview only, leaving the page (and its focus) as it is. */
+    void refresh() { refresh.run(); }
+
     void open(Page page) { open.accept(page); }
 
     /**
@@ -75,7 +78,7 @@ final class SettingsKit {
             step.run();
             button.postDelayed(repeat[0], 60);
         };
-        button.setOnClickListener(v -> step.run()); // taps from accessibility services
+        button.setOnClickListener(v -> step.run()); // one tap, from the finger (below) or an accessibility service
         button.setOnTouchListener((v, ev) -> {
             switch (ev.getActionMasked()) {
                 case android.view.MotionEvent.ACTION_DOWN:
@@ -84,7 +87,7 @@ final class SettingsKit {
                     v.postDelayed(repeat[0], 380);
                     break;
                 case android.view.MotionEvent.ACTION_UP:
-                    if (!held[0]) step.run();
+                    if (!held[0]) v.performClick(); // the click listener steps once, as for accessibility services
                     // fall through
                 case android.view.MotionEvent.ACTION_CANCEL:
                     v.setPressed(false);
@@ -95,7 +98,7 @@ final class SettingsKit {
         });
     }
 
-    /** A round 44 dp button showing a line icon (e.g. an arrow), or the mark itself when there's no such icon. */
+    /** A round 48 dp button showing a line icon (e.g. an arrow), or the mark itself when there's no such icon. */
     FrameLayout glyphButton(String glyph, float rotation, String description) {
         TextView icon = text(Glyph.has(glyph) ? "" : glyph, 26, ui.accent);
         icon.setGravity(Gravity.CENTER);
@@ -106,7 +109,7 @@ final class SettingsKit {
         touch.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), null, oval(Colors.WHITE)));
         touch.addView(icon, new FrameLayout.LayoutParams(ui.dp(40), ui.dp(40), Gravity.CENTER));
         touch.setContentDescription(description);
-        touch.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
+        touch.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
         return touch;
     }
 
@@ -154,7 +157,7 @@ final class SettingsKit {
         repeating(less, () -> bar.setProgress(bar.getProgress() - 1));
         repeating(more, () -> bar.setProgress(bar.getProgress() + 1));
         line.addView(less);
-        line.addView(bar, new LinearLayout.LayoutParams(0, ui.dp(40), 1));
+        line.addView(bar, new LinearLayout.LayoutParams(0, ui.dp(48), 1));
         line.addView(more);
         r.addView(line);
         card.addView(r, new LinearLayout.LayoutParams(-1, -2));

@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
+import android.content.res.XmlResourceParser;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -121,8 +122,8 @@ final class Icons {
     private static void readAppfilter(Resources r, String pack, BiPredicate<String, String> item) throws Exception {
         int id = r.getIdentifier("appfilter", "xml", pack);
         InputStream in = null;
+        XmlPullParser x = null;
         try {
-            XmlPullParser x;
             if (id != 0) {
                 x = r.getXml(id);
             } else {
@@ -134,6 +135,7 @@ final class Icons {
                 if (e == XmlPullParser.START_TAG && "item".equals(x.getName())
                         && !item.test(x.getAttributeValue(null, "component"), x.getAttributeValue(null, "drawable"))) return;
         } finally {
+            if (x instanceof XmlResourceParser) ((XmlResourceParser) x).close(); // a resource parser holds a native block
             if (in != null) in.close();
         }
     }

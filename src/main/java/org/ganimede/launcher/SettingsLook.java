@@ -129,24 +129,23 @@ final class SettingsLook {
                 () -> Ui.start(kit.activity(), Intent.createChooser(new Intent(Intent.ACTION_SET_WALLPAPER), kit.ui.tr("Wallpaper"))));
     }
 
-    /** List or classic, as two tappable miniatures of the real home screen. */
+    /** List or classic, as two tappable miniatures of the real home screen. A tap marks its card; the miniatures stay. */
     void modeChooser(LinearLayout c) {
         LinearLayout pair = new LinearLayout(kit.activity());
         pair.setPadding(kit.ui.dp(12), kit.ui.dp(8), kit.ui.dp(12), kit.ui.dp(12));
         String mode = kit.prefs().getString("mode", "list");
         String[][] modes = {{"list", "List", "Favourites and an A–Z list, like a minimalist launcher"},
                 {"classic", "Classic", "A grid of icons, a dock and an app drawer"}};
-        for (String[] m : modes) {
+        TextView[] names = new TextView[modes.length];
+        for (int i = 0; i < modes.length; i++) {
+            String[] m = modes[i];
+            int at = i;
             LinearLayout cardBox = new LinearLayout(kit.activity());
             cardBox.setOrientation(LinearLayout.VERTICAL);
             cardBox.setGravity(Gravity.CENTER_HORIZONTAL);
             cardBox.setPadding(kit.ui.dp(8), kit.ui.dp(10), kit.ui.dp(8), kit.ui.dp(10));
-            boolean on = m[0].equals(mode);
-            GradientDrawable g = kit.round(on ? Colors.alpha(kit.ui.accent, 0x33) : 0x14FFFFFF, 20);
-            if (on) g.setStroke(kit.ui.dp(2), kit.ui.accent);
-            cardBox.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), g, null));
             cardBox.addView(new SettingsPreview(kit.activity(), kit.ui.dp(230), m[0]), new LinearLayout.LayoutParams(-2, -2));
-            TextView name = kit.text((on ? "✓ " : "") + kit.ui.tr(m[1]), 16, Colors.WHITE);
+            TextView name = names[i] = kit.text("", 16, Colors.WHITE);
             name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             name.setPadding(0, kit.ui.dp(8), 0, kit.ui.dp(2));
             cardBox.addView(name);
@@ -154,13 +153,26 @@ final class SettingsLook {
             d.setGravity(Gravity.CENTER);
             cardBox.addView(d);
             cardBox.setContentDescription(kit.ui.tr(m[1]));
-            SettingsKit.selectable(cardBox, on);
-            cardBox.setOnClickListener(v -> kit.put("mode", m[0]));
+            markMode(name, m[1], m[0].equals(mode));
+            cardBox.setOnClickListener(v -> {
+                kit.save("mode", m[0]);
+                for (int j = 0; j < modes.length; j++) markMode(names[j], modes[j][1], j == at);
+            });
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1); // both cards as tall as the taller
             lp.setMargins(kit.ui.dp(4), 0, kit.ui.dp(4), 0);
             pair.addView(cardBox, lp);
         }
         c.addView(pair, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    /** A mode's card as chosen or not: its outline, the ✓ before its name, and its state for TalkBack. */
+    private void markMode(TextView name, String title, boolean on) {
+        View card = (View) name.getParent();
+        GradientDrawable g = kit.round(on ? Colors.alpha(kit.ui.accent, 0x33) : 0x14FFFFFF, 20);
+        if (on) g.setStroke(kit.ui.dp(2), kit.ui.accent);
+        card.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), g, null));
+        name.setText((on ? "✓ " : "") + kit.ui.tr(title));
+        SettingsKit.selectable(card, on);
     }
 
     // ---- pieces shared by the settings pages and the setup wizard
@@ -302,11 +314,12 @@ final class SettingsLook {
     }
 
     private void pickApp(java.util.function.Consumer<Apps.Item> then) {
-        List<Apps.Item> l = Apps.named(kit.activity());
-        String[] names = new String[l.size()];
-        for (int i = 0; i < names.length; i++) names[i] = l.get(i).label;
-        Ui.dialog(kit.activity()).setTitle(kit.ui.tr("Open an app…"))
-                .setItems(names, (d, w) -> then.accept(l.get(w))).show();
+        Apps.named(kit.activity(), l -> {
+            String[] names = new String[l.size()];
+            for (int i = 0; i < names.length; i++) names[i] = l.get(i).label;
+            Ui.dialog(kit.activity()).setTitle(kit.ui.tr("Open an app…"))
+                    .setItems(names, (d, w) -> then.accept(l.get(w))).show();
+        });
     }
 
     private void pickShortcut(String gesture, Apps.Item app) {

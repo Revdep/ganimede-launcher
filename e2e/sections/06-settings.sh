@@ -33,6 +33,13 @@ for s in 1.15 "$fs"; do # Android builds the settings again: the picked brick st
   setting system font_scale "$s" || continue; sleep 2; wait_until 5 settled
   dockarrows() { [ -n "$(cx "desc:Dock: Sposta su")" ]; }; wait_until 5 dockarrows && ok "font scale $s: the Dock stays picked" || ko "font scale $s: the picked Dock was lost"
 done
+# The undo steps outlive the rebuild too (issue 063)
+if read -r ux uy <<<"$(cx "desc:Dock: Sposta su")" && [ -n "$ux" ]; then
+  A shell input tap "$ux" "$uy"; wait_until 5 moved4
+  for s in 1.15 "$fs"; do setting system font_scale "$s" || continue; wait_until 5 settled; done
+  wait_until 5 has "Annulla" && tap "Annulla"; wait_until 5 undone
+  [ -z "$(pref classic_dock_y)" ] && ok "Undo still takes the move back after Android rebuilt the settings" || ko "undo lost on a rebuild: classic_dock_y = $(pref classic_dock_y)"
+else ko "dock arrows missing after the rebuild"; fi
 # The Drawer pill is the app pages: the drawer off, every page after the first holds apps. Switch the drawer off here.
 pill "Tutto lo schermo"; tap "Tutto lo schermo"; see "Attiva cassetto app" && tap "Attiva cassetto app"
 bpref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "name=\"$1\" value=\"$2\""; }

@@ -90,6 +90,7 @@ final class HomeScreen {
         // A finger that moves is a swipe, never a long-press: cancel the long-press as soon as it travels.
         float slop = ui.slop();
         float[] down = new float[2];
+        //noinspection ClickableViewAccessibility: it watches double-taps and travel and consumes nothing; the long-click still runs
         home.setOnTouchListener((v, e) -> {
             homeTaps.onTouchEvent(e);
             if (e.getActionMasked() == MotionEvent.ACTION_DOWN) { down[0] = e.getX(); down[1] = e.getY(); }
