@@ -42,6 +42,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -68,6 +69,9 @@ final class VoicePlayer {
     // Notifications with notes waiting for a copy, the latest per key; one copy task drains them (SCHEDULED).
     private static final Latest<StatusBarNotification> WAITING = new Latest<>(Voice.QUEUE_MAX);
     private static final AtomicBoolean SCHEDULED = new AtomicBoolean();
+    // When each copy kept by this process started, by file name: in ms, unlike File.lastModified(), and from before the
+    // copy's end, so a sweep can tell a note queued after its snapshot from a slow copy of one already gone.
+    private static final Map<String, Long> STARTED = new ConcurrentHashMap<>();
     private static final AudioAttributes SPEECH = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
 
@@ -122,8 +126,10 @@ final class VoicePlayer {
                 for (StatusBarNotification s : WAITING.drain()) for (Uri uri : notes(s)) {
                     File f = kept(c, s, uri);
                     if (f.isFile() || !granted(c, uri) || !Voice.room(used(f.getParentFile()))) continue;
+                    long start = System.currentTimeMillis();
                     File part = copyAside(c.getContentResolver(), s.getPackageName(), uri, new File(f.getPath() + ".part")); // never half a note
-                    if (part != null && !part.renameTo(f)) part.delete();
+                    if (part == null) continue;
+                    if (part.renameTo(f)) STARTED.put(f.getName(), start); else part.delete();
                 }
             } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
                 Log.w("Ganimede", "Voice note not kept: " + e.getClass().getName());
@@ -173,7 +179,7 @@ final class VoicePlayer {
     /**
      * Deletes the kept notes no longer in any of these notifications: removed, dismissed, gone from the chat, or turned
      * secret. Null (no notification access): deletes every one, halves being written too. After the copies already
-     * queued, so none lands once its note is gone. snapshot: when all was read; a copy made since is not swept.
+     * queued, so none lands once its note is gone. snapshot: when all was read; a copy started since is not swept.
      */
     static void sweep(Context c, Iterable<StatusBarNotification> all, long snapshot) {
         KEEPER.execute(() -> {
@@ -184,13 +190,16 @@ final class VoicePlayer {
                 Set<String> wanted = all == null ? null : new HashSet<>();
                 if (all != null) for (StatusBarNotification s : all) for (Uri uri : notes(s)) wanted.add(Voice.keptName(s.getKey(), uri.toString()));
                 String[] names = new String[files.length];
-                long[] modified = new long[files.length];
+                long[] since = new long[files.length];
                 long now = System.currentTimeMillis();
                 for (int i = 0; i < files.length; i++) {
                     names[i] = files[i].getName();
-                    modified[i] = files[i].lastModified();
+                    since[i] = names[i].endsWith(".part") ? files[i].lastModified() : STARTED.getOrDefault(names[i], 0L);
                 }
-                for (String name : Voice.drop(names, modified, wanted, snapshot, now)) new File(dir, name).delete();
+                for (String name : Voice.drop(names, since, wanted, snapshot, now)) {
+                    new File(dir, name).delete();
+                    STARTED.remove(name);
+                }
             } catch (RuntimeException e) { // as in keep: never take the home's process down
                 Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
             }

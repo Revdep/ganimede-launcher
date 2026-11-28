@@ -47,18 +47,19 @@ public class VoiceTest {
         eq("[a, b, c.part, d.part]", Voice.drop(names, modified, null, now, now).toString(), "no access: everything, a young half too");
     }
 
-    public static void testSweepSparesACopyMadeAfterItsSnapshot() {
-        long snap = 1_000_000;
+    public static void testSweepSparesOnlyACopyStartedSinceItsSnapshot() {
+        long snap = 1_000_700;
         String[] names = {"old", "fresh"};
-        long[] modified = {snap - 10, snap + 10}; // fresh was copied after the notifications were read: not in the snapshot
-        eq("[old]", Voice.drop(names, modified, Set.of(), snap, snap + 20).toString(), "only the copy older than the snapshot goes");
-        eq("[old, fresh]", Voice.drop(names, modified, null, snap, snap + 20).toString(), "no access: still everything");
+        long[] started = {snap - 10, snap}; // fresh's note was queued after the notifications were read: not in the snapshot
+        eq("[old]", Voice.drop(names, started, Set.of(), snap, snap + 20).toString(), "only the copy started before the snapshot goes");
+        eq("[old, fresh]", Voice.drop(names, started, null, snap, snap + 20).toString(), "no access: still everything");
     }
 
-    public static void testSweepSparesACopyMadeInTheSnapshotSecondWhenTimesAreWholeSeconds() {
-        long snap = 1_000_700; // File.lastModified() on Android is whole seconds: a copy at 1_000_900 reads as 1_000_000
-        eq("[]", Voice.drop(new String[]{"fresh"}, new long[]{1_000_000}, Set.of(), snap, snap + 20).toString(), "same second: spared");
-        eq("[old]", Voice.drop(new String[]{"old"}, new long[]{999_000}, Set.of(), snap, snap + 20).toString(), "an earlier second goes");
+    public static void testSweepDropsASlowCopyStartedBeforeItsSnapshotEvenInTheSameSecond() {
+        long snap = 1_000_700; // started 200 ms before the read, the copy ends seconds later: its note was in the snapshot, and gone
+        eq("[slow]", Voice.drop(new String[]{"slow"}, new long[]{1_000_500}, Set.of(), snap, snap + 5_000).toString(),
+                "no later sweep comes for it: this one deletes it");
+        eq("[earlier]", Voice.drop(new String[]{"earlier"}, new long[]{0}, Set.of(), snap, snap).toString(), "copied before this process: goes");
     }
 
     public static void testKeepsANoteOnlyIfAWholeOneStillFits() {
