@@ -203,8 +203,13 @@ final class Icons {
     private static IconSet builtin(Context c) throws IOException {
         IconSet set = builtin;
         if (set == null) {
-            try (InputStream in = c.getAssets().open("icons.bin")) {
-                builtin = set = IconSet.of(LimitedInputStream.readAll(in, 16 << 20)); // the set is 4 MB
+            synchronized (Icons.class) { // the home's pack and the settings' sample may ask at once: one 4 MB read
+                set = builtin;
+                if (set == null) {
+                    try (InputStream in = c.getAssets().open("icons.bin")) {
+                        builtin = set = IconSet.of(LimitedInputStream.readAll(in, 16 << 20)); // the set is 4 MB
+                    }
+                }
             }
         }
         return set;
