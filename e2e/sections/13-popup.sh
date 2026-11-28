@@ -74,8 +74,8 @@ wait_until 10 listening; wait_until 10 bound
 c0=$(pref summary_count); c0=${c0:-0}
 SUM=sum$(date +%s) # a fresh key: Android keeps an earlier run's snoozed key silent for hours, so a repeated tag is never seen
 post "TitoloRiep" $SUM uno
-held() { [ "$(pref summary_count)" = $((c0 + 1)) ]; }
-wait_until 8 held && ok "the post was snoozed for the summary (counter +1)" || ko "post not held back by the summary"
+summary_counted() { [ "$(pref summary_count)" = $((c0 + 1)) ]; }
+wait_until 8 summary_counted && ok "the post was snoozed for the summary (counter +1)" || ko "post not held back by the summary"
 untagged_now() { ! tagged $SUM; }; wait_until 5 untagged_now && ok "it left the active list" || ko "still in the active list"
 timer                                                    # Clock is not in summary_apps: shown at once
 expect_popup "CLOCK"
