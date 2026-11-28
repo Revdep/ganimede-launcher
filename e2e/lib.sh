@@ -5,6 +5,8 @@
 # making Ganimede the Home app on a listed test phone
 # (emu_only, setting); every setting changed is put back on exit, also on Ctrl-C or a failure (keep, defer).
 case "$SERIAL" in emulator-*) ;; *) case " ${E2E_DEVICES:-} " in *" $SERIAL "*) ;; *) echo "emulators only: $SERIAL (or list it in E2E_DEVICES)" >&2; exit 2;; esac;; esac
+ADB=$(command -v adb || echo "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb")
+"$ADB" start-server >/dev/null 2>&1 # before fd 9 exists: a server started by our first adb call would inherit the lock and keep it after the run
 exec 9>"/tmp/ganimede-e2e-$SERIAL.lock"; flock 9
 OUT="$HERE/out/$SERIAL"; mkdir -p "$OUT"; rm -f "$OUT"/fail-* # per device: two runs from one checkout keep apart; fail-N is this run's
 SCR="$OUT/screen.xml" # the last screen read, a file so that subshells share it
@@ -14,7 +16,6 @@ A() {
   case "$*" in "exec-out run-as $PK cat "*|"exec-out screencap "*|"exec-out uiautomator "*|"shell dumpsys "*|"shell settings get "*) ;; *) rm -f "$SCR";; esac
   "$ADB" -s "$SERIAL" "$@"
 }
-ADB=$(command -v adb || echo "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb")
 command -v magick >/dev/null && command -v compare >/dev/null || { echo "ImageMagick (magick, compare) is missing: the wallpaper and pixel checks need it." >&2; exit 2; }
 # The fixture app (e2e/fixture), built only when its APK is missing or older than its sources (CI builds it once, in the build job), then installed.
 fixture_install() {
