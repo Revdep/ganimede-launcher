@@ -200,10 +200,16 @@ wait_until 15 kept_is 0 && ok "the copy that ended after its notification went i
 
 step "A note whose app does not open it stalls nothing; that app's notes wait until the open returns (fixture app)"
 wipe; wait_until 10 kept_is 0
-voice --es shape x # its open returns after 20 s
-voice # the chat again, two good notes, queued behind that open
-# no event marks "skipped": without the bound they are copied once the open is given up (11 s), well within 16 s
-wait_until 16 eval '! kept_is 0' && ko "copied while the app's open still hangs: $(kept)" || ok "the app's next notes are not copied while its open hangs"
+voice --ei id 3; wait_until 10 kept_is 2 || ko "the other chat's notes were not kept: $(kept)"
+voice --es shape x # its open fails only after 20 s
+# Android holds a post for the assistant and lets a later cancel overtake it: cancelled only once it is posted, not enqueued
+posted() { A shell dumpsys notification | sed -n '/^  Notification List:/,/^  [^ ]/p' | grep -q "pkg=$FIX user=[^ ]* id=$1 "; }
+wait_until 5 posted 1 || ko "the hung note's notification was not posted"
+voice --ei id 3 --ez cancel true # its sweep is queued behind that open
+wait_until 15 kept_is 0 && ok "the queue gave up the hung open at about 11 s, not 20: the sweep behind it ran" || ko "the sweep waited for the hung open: $(kept)"
+voice # the chat again, two good notes, queued after the open was given up
+# no event marks "skipped": without the bound they are copied at once, well within 5 s (and before the open returns at 20 s)
+wait_until 5 eval '! kept_is 0' && ko "copied while the app's open still hangs: $(kept)" || ok "the app's next notes are not copied while its open hangs"
 wait_until 20 eval 'voice; kept_is 2' && ok "re-posted until its open returned: the app's notes are kept again" || ko "kept after the open returned: $(kept)"
 
 step "Summary holds a chat with voice notes: they are kept before it is snoozed (fixture app)"
