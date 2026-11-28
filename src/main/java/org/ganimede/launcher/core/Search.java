@@ -68,12 +68,11 @@ public final class Search {
         return beginsWith(l, q) ? 2 : 1;
     }
 
-    /** A contact stays when its name or any other entry (email, company, nickname) has a word beginning with the text. */
+    /** A contact stays when the typed words each begin a different word of its name and other entries (email, company, nickname) taken together. */
     public static boolean contactMatches(String name, List<String> others, String query) {
-        String q = typed(query);
-        if (scoreTyped(name, q) > 0) return true;
-        for (String o : others) if (o != null && scoreTyped(o, q) > 0) return true;
-        return false;
+        StringBuilder all = new StringBuilder(name);
+        for (String o : others) if (o != null) all.append(' ').append(o);
+        return score(all.toString(), query) > 0;
     }
 
     /** The items whose name matches, best score first; ties go to the one opened most. Each scored once. */
@@ -118,6 +117,8 @@ public final class Search {
         String saved = digits(number), typed = digits(query), q = query.trim();
         if (saved.contains(typed)) return true;
         if (!q.startsWith("+") && !q.startsWith("00")) return false;
+        // 0039 typed, +39 saved (its plus is gone from the digits): the saved number begins with what follows the 00
+        if (q.startsWith("00") && typed.length() >= 5 && saved.startsWith(typed.substring(2))) return true;
         // typed with a prefix the saved number may lack: the country code is 1 to 3 digits, the rest must still be 3+
         // and begin the saved number (its leading zeros dropped), not sit anywhere in it
         String local = saved.replaceFirst("^0+", "");

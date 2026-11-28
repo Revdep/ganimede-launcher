@@ -8,7 +8,7 @@ shot 12-search
 
 step "Search: letters scattered in a name do not match"
 seed classic; A shell input swipe 540 1900 540 600 150; expect "Cerca app"
-A shell input text "cl"
+typ "cl"
 wait_until 5 has "Clock" && ok "cl finds Clock" || ko "cl misses Clock"
 hasnt "Calendar" && ok "cl leaves out Calendar (c and l scattered)" || ko "cl still finds Calendar"
 
@@ -95,10 +95,14 @@ A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_u
 A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "pro"
 wait_until 5 has "Zz Prova A" && ok "pro finds Zz Prova (a word start)" || ko "pro misses Zz Prova"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'pro"' # keyboard, then search
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "example"
+wait_until 5 has "Zz Prova C" && ok "example finds Zz Prova C by its email" || ko "example misses Zz Prova C (email word)"
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'example"'
 A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "pro pro"
 wait_until 5 has 'pro pro"' || ko "pro pro not typed"
-# the provider matches each typed word to a name token, the same token twice too; the rule wants two different words
-wait_until 3 has "Zz Prova A" && ko "pro pro finds Zz Prova (one word for two)" || ok "pro pro leaves out Zz Prova (one word cannot serve two)"
+# Zz Prova C has "prova" in its name and in its email: two different words, so it stays; Zz Prova A has one
+expect "Zz Prova C"
+hasnt 'Zz Prova A"' && ok "pro pro leaves out Zz Prova A (one word cannot serve two)" || ko "pro pro finds Zz Prova A (one word for two)"
 
 step "Search: a contact is found by its phone number, digits only"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'pro pro"'
@@ -112,8 +116,13 @@ A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_u
 open_drawer; typ "+39 347 1234567"
 wait_until 5 has "Zz Prova Num" && ok "the whole number typed with +39 finds the contact saved without prefix" || ko "number with prefix misses the contact"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt '1234567"'
+A shell "content insert --uri $CONTACTS/raw_contacts --bind account_type:s:org.ganimede.e2e --bind account_name:s:e2e"
+id=$(A shell content query --uri $CONTACTS/raw_contacts --projection _id --sort "'_id DESC'" | head -1 | grep -o '_id=[0-9]*' | cut -d= -f2)
+A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/name --bind data1:s:'Zz Prova Nove'"
+A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:'347 9912345' --bind data2:i:2"
 open_drawer; typ "347 99"
-wait_until 3 has "Zz Prova Num" && ko "other digits find the contact" || ok "other digits leave it out"
+expect "Zz Prova Nove" # the contact that has these digits, on the same screen
+hasnt 'Zz Prova Num"' && ok "other digits leave it out" || ko "other digits find the contact"
 
 step "Search: a chat contact (WhatsApp, Telegram) that did not merge with the phone contact is not a second row"
 # the same person twice: the phone contact, and a raw contact of a messenger account with a name and no number or email
