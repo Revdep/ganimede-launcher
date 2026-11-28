@@ -101,10 +101,12 @@ public final class Search {
         if (saved.contains(typed)) return true;
         if (!q.startsWith("+") && !q.startsWith("00")) return false;
         // typed with a prefix the saved number may lack: the country code is 1 to 3 digits, the rest must still be 3+
+        // and begin the saved number (its leading zeros dropped), not sit anywhere in it
+        String local = saved.replaceFirst("^0+", "");
         int from = q.startsWith("+") ? 0 : 2;
         for (int cc = 1; cc <= 3; cc++) {
             String rest = typed.substring(Math.min(typed.length(), from + cc));
-            if (rest.length() >= 3 && saved.contains(rest)) return true;
+            if (rest.length() >= 3 && local.startsWith(rest)) return true;
         }
         return false;
     }
