@@ -101,12 +101,14 @@ players() { screen | grep -o 'text="\(Messaggio vocale\|[0-9]:[0-9][0-9] / [0-9]
 nplayers() { [ "$(players | awk -F'|' '{print NF}')" = "$1" ]; }
 play_at() { screen | grep -o 'content-desc="Riproduci il messaggio vocale"[^>]*bounds="[^"]*"' | sed -n "$1p" \
   | grep -o '[0-9]*' | tail -4 | paste -sd' ' | awk '{print int(($1 + $3) / 2), int(($2 + $4) / 2)}'; }
-# While a clock ticks the screen never idles and can't be dumped: what plays is told by the private copy's size instead
-# (WAV header 44 + 16000 bytes a second), which also shows one copy at a time, deleted when playback stops.
-copies() { A exec-out run-as $PK sh -c 'ls -l cache/voice 2>/dev/null' | awk '/note/{print $5}' | paste -sd' '; }
+# What plays is told by the row that shows "m:ss / m:ss" (only a row whose player is ready does), as the size its note's
+# WAV has (header 44 + 16000 bytes a second): one note at a time, none once playback stops. The notes are played from
+# the copy kept on arrival, so there is no other file to look at.
+copies() { screen | grep -o 'text="[0-9]:[0-9][0-9] / [0-9]:[0-9][0-9]"' | sed 's/.*\/ \([0-9]\):\([0-9][0-9]\)"/\1 \2/' \
+  | awk '{print 44 + 16000 * ($1 * 60 + $2)}' | paste -sd' '; }
 copies_are() { [ "$(copies)" = "$1" ]; }
-# The copy is whole before its player is ready, and a tap meanwhile does nothing ("Loading…", run 46083578007): a note
-# plays once its copy is there and the app's player is started in the audio service's list.
+# A tap while the note loads does nothing ("Loading…", run 46083578007): a note plays once its row shows its length and the
+# app's player is started in the audio service's list.
 uid=$(A shell cmd package list packages -U $PK | grep -o 'uid:[0-9]*' | head -1 | cut -d: -f2)
 plays() { copies_are "$1" && A shell dumpsys audio | grep -q "u/pid:$uid/.*state:started"; }
 voice; expect_popup "FIXTURE"
@@ -118,9 +120,9 @@ p1=$(play_at 1); p2=$(play_at 2)
 A shell input tap $p2
 wait_until 10 plays 640044 && ok "the second note (40 s) plays, alone" || ko "copies after tapping the second: $(copies)"
 A shell input tap $p1
-wait_until 10 plays 480044 && ok "the first (30 s) plays instead, the second's copy is gone" || ko "copies after tapping the first: $(copies)"
+wait_until 10 plays 480044 && ok "the first (30 s) plays instead of the second" || ko "copies after tapping the first: $(copies)"
 A shell input tap $p1
-wait_until 5 copies_are "" && ok "paused: no copy left" || ko "copies after pausing: $(copies)"
+wait_until 5 copies_are "" && ok "paused: no row plays" || ko "copies after pausing: $(copies)"
 read -r ax ay <<<"$(cx Anna)"; A shell input swipe "$ax" "$ay" "$ax" "$ay" 1500   # long-press the card: the message on its own
 wait_until 5 nplayers 2 && ok "long-press view: two players" || ko "long-press view players: $(players)"
 A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
@@ -167,6 +169,20 @@ kept_is 2 && ok "the last chat's two notes are kept privately" || ko "kept notes
 wipe; wait_until 10 kept_is 0 && ok "notification cancelled: its kept notes are deleted" || ko "kept notes after cancelling: $(kept)"
 voice; wait_until 10 kept_is 2; voice --ez secret true
 wait_until 10 kept_is 0 && ok "the chat turned secret: its kept notes are deleted" || ko "kept notes of a secret chat: $(kept)"
+
+step "A note playing while its copy is kept and the chat is re-posted: its row stays on Pause (fixture app)"
+wipe; wait_until 10 kept_is 0
+voice --es shape s; expect_popup "FIXTURE"   # the slow note takes 5 s to copy: note A is not kept yet
+wait_until 5 nplayers 2 || ko "players before playing: $(players)"
+A shell input tap "$(play_at 2)"
+wait_until 10 plays 480044 || ko "note A did not play (copied from the chat app): $(copies)"
+wait_until 15 kept_is 2 || ko "the chat's notes were not kept while A plays: $(kept)"
+voice --es shape s   # the re-post rebuilds the rows, now with kept copies
+paused_rows() { screen | grep -c 'content-desc="Pausa"'; }
+wait_until 10 eval '[ "$(paused_rows)" = 1 ]' && plays 480044 \
+  && ok "A is still playing and its row still shows Pause after the re-post" || ko "the row lost its playing state: $(paused_rows) on Pause, $(copies)"
+A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
 
 step "Voice notes posted while the listener was off are kept when it reconnects (fixture app)"
 wipe; voice; wait_until 10 kept_is 2 || ko "kept notes before the listener goes off: $(kept)"
@@ -253,7 +269,7 @@ wait_until 10 plays 640044 && ok "bubble: the second note plays" || ko "bubble, 
 A shell input tap $p1
 wait_until 10 plays 480044 && ok "bubble: the first plays instead" || ko "bubble, copies after tapping the first: $(copies)"
 A shell input tap $p1
-wait_until 5 copies_are "" && ok "bubble: paused, no copy left" || ko "bubble, copies after pausing: $(copies)"
+wait_until 5 copies_are "" && ok "bubble: paused, no row plays" || ko "bubble, copies after pausing: $(copies)"
 hasnt "Notifiche" && ok "the player's taps stay in the player" || ko "a tap on a player opened the pop-up"
 bound_home # the seeded favourites again, no preview
 wipe; A uninstall $FIX >/dev/null

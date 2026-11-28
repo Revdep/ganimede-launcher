@@ -97,6 +97,12 @@ public class SummaryTest {
         yes(Summary.hold(stored, "j", 6_000_000L, 5_000_000L).size() == 1, "expired entries are forgotten");
     }
 
+    public static void testReleaseDropsOnlyThatKey() {
+        java.util.Set<String> held = java.util.Set.of("0|a|b|9000000", "0|a|9000000", "x|9000000");
+        eq(java.util.Set.of("0|a|9000000", "x|9000000"), Summary.release(held, "0|a|b"), "a key with '|' inside is matched whole");
+        eq(held, Summary.release(held, "0|a|"), "a prefix of a key is not the key");
+    }
+
     public static void testMalformedHeldEntriesAreSkipped() {
         java.util.Set<String> bad = java.util.Set.of("nobar", "k|abc", "ok|9000000");
         yes(Summary.due(bad, "nobar") == null && Summary.due(bad, "k") == null, "malformed entries are not found");

@@ -54,16 +54,18 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Voice notes in notifications, heard privately: the audio a chat app attaches to its notification is copied into
- * this app's own cache and played from there, so the chat app's player never runs and can't send a "listened"
- * receipt. One at a time; the copy is deleted as soon as playback stops.
+ * Voice notes in notifications, heard privately: the audio a chat app attaches to its notification is played by this
+ * app, so the chat app's player never runs and can't send a "listened" receipt. One at a time.
  * A chat app may withdraw its earlier notes' audio when it re-posts the conversation (issue 083), so each note this app
- * may read is also kept, on arrival, in its no-backup storage until the note leaves every notification.
+ * may read is copied on arrival into its no-backup storage (out of backups) and kept until the note leaves every
+ * notification, shown or held for the summary. Playback reads that kept copy; only a note not kept yet (not shared
+ * at arrival) is copied into the cache for the time it plays, and that copy is deleted when playback stops.
  */
 final class VoicePlayer {
     // Copies on arrival and deletions, in order: a deletion queued after a copy sees its file. Each copy waits at most COPY_MS.
-    private static final ExecutorService KEEPER = Executors.newSingleThreadExecutor();
-    private static final Handler WATCHDOG = watchdog(); // off the main thread: a busy screen must not delay a cut
+    // Both are made on first use (a home with no voice note never starts them), as daemons: they never hold the process up.
+    private static ExecutorService keeper;
+    private static Handler watchdog; // off the main thread: a busy screen must not delay a cut
     private static final Set<String> BUSY = ConcurrentHashMap.newKeySet(); // apps with a kept copy whose thread has not returned
     private static final int BUSY_MAX = 2;
     // Notifications with notes waiting for a copy, the latest per key; one copy task drains them (SCHEDULED).
@@ -82,7 +84,7 @@ final class VoicePlayer {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<Row> rows = new ArrayList<>(); // the rows on screen now
     private final Runnable tick = this::tick;
-    private Uri current; // being copied, or loaded
+    private Uri current; // the note's URI in its notification, being copied or loaded: what identifies a row
     private MediaPlayer player;
     private boolean ready;
     private int run; // grows on every stop, so a copy that finishes after it is thrown away
@@ -96,20 +98,12 @@ final class VoicePlayer {
                 .setWillPauseWhenDucked(true).setOnAudioFocusChangeListener(c -> { if (c < 0) pause(); }, main).build();
     }
 
-    /** A player row for each voice note of the notification this app may read, in the chat's order; none if it is secret. */
+    /** A player row for each voice note of the notification this app may read (kept, or shared now), in the chat's order; none if it is secret. */
     void addRows(StatusBarNotification s, ViewGroup into) {
-        for (Uri uri : find(s)) into.addView(new Row(uri));
-    }
-
-    /** Each note: its kept copy, else from the chat app while it shares it. */
-    private List<Uri> find(StatusBarNotification s) {
-        List<Uri> found = new ArrayList<>();
         for (Uri uri : notes(s)) {
             File kept = kept(ui.a, s, uri);
-            if (kept.isFile()) found.add(Uri.fromFile(kept));
-            else if (granted(ui.a, uri)) found.add(uri);
+            if (kept.isFile() || granted(ui.a, uri)) into.addView(new Row(uri, kept));
         }
-        return found;
     }
 
     /**
@@ -120,7 +114,7 @@ final class VoicePlayer {
         boolean queued = false;
         for (StatusBarNotification s : all) if (!notes(s).isEmpty()) queued |= WAITING.offer(s.getKey(), s); // full: not kept; the sweep and the holds still queue
         if (!queued || !SCHEDULED.compareAndSet(false, true)) return;
-        KEEPER.execute(() -> {
+        keeper().execute(() -> {
             SCHEDULED.set(false); // an arrival from now on schedules the next drain
             try {
                 for (StatusBarNotification s : WAITING.drain()) for (Uri uri : notes(s)) {
@@ -139,7 +133,7 @@ final class VoicePlayer {
 
     /** Runs r after the copies already queued: snoozing a notification takes its audio grants back (issue 083). */
     static void afterKept(Runnable r) {
-        KEEPER.execute(r);
+        keeper().execute(r);
     }
 
     /**
@@ -182,7 +176,7 @@ final class VoicePlayer {
      * queued, so none lands once its note is gone. snapshot: when all was read; a copy started since is not swept.
      */
     static void sweep(Context c, Iterable<StatusBarNotification> all, long snapshot) {
-        KEEPER.execute(() -> {
+        keeper().execute(() -> {
             try {
                 File dir = keptDir(c);
                 File[] files = dir.listFiles();
@@ -212,10 +206,23 @@ final class VoicePlayer {
         return files != null && files.length > 0;
     }
 
-    private static Handler watchdog() {
-        HandlerThread t = new HandlerThread("voice-watchdog");
-        t.start();
-        return new Handler(t.getLooper());
+    private static synchronized ExecutorService keeper() {
+        if (keeper == null) keeper = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "voice-keeper");
+            t.setDaemon(true);
+            return t;
+        });
+        return keeper;
+    }
+
+    private static synchronized Handler watchdog() {
+        if (watchdog == null) {
+            HandlerThread t = new HandlerThread("voice-watchdog");
+            t.setDaemon(true);
+            t.start();
+            watchdog = new Handler(t.getLooper());
+        }
+        return watchdog;
     }
 
     private static File kept(Context c, StatusBarNotification s, Uri uri) {
@@ -254,7 +261,8 @@ final class VoicePlayer {
         }
     }
 
-    private void toggle(Uri uri) {
+    /** The row's note: its kept copy plays as it is; without one it is copied from the chat app first. */
+    private void toggle(Uri uri, File kept) {
         if (uri.equals(current)) {
             if (!ready) return; // still copying
             if (player.isPlaying()) pause(); else play();
@@ -262,6 +270,11 @@ final class VoicePlayer {
         }
         stop();
         current = uri;
+        if (kept.isFile()) {
+            load(kept);
+            refresh();
+            return;
+        }
         int mine = run;
         ContentResolver cr = ui.a.getContentResolver();
         new Thread(() -> {
@@ -281,7 +294,7 @@ final class VoicePlayer {
     private static File copy(ContentResolver cr, Uri uri, File f) {
         CancellationSignal stop = new CancellationSignal();
         Runnable cut = stop::cancel;
-        WATCHDOG.postDelayed(cut, Voice.COPY_MS);
+        watchdog().postDelayed(cut, Voice.COPY_MS);
         try (AssetFileDescriptor afd = cr.openAssetFileDescriptor(uri, "r", stop)) {
             if (afd == null) return null;
             f.getParentFile().mkdirs();
@@ -300,7 +313,7 @@ final class VoicePlayer {
             f.delete();
             return null;
         } finally {
-            WATCHDOG.removeCallbacks(cut);
+            watchdog().removeCallbacks(cut);
         }
     }
 
@@ -366,13 +379,13 @@ final class VoicePlayer {
 
     /** Play or pause, a thin bar to drag through the note, and the time: the app's accent, its line icons. */
     private final class Row extends LinearLayout {
-        final Uri uri;
+        final Uri uri; // the notification's: the same whether the note is played from its kept copy or the chat app
         final ImageView button = new ImageView(ui.a);
         final SeekBar bar = new SeekBar(ui.a);
         final TextView time = ui.plain(12, false, 0xCCFFFFFF);
         final Glyph play = new Glyph("play", ui.accent), pause = new Glyph("pause", ui.accent);
 
-        Row(Uri uri) {
+        Row(Uri uri, File kept) {
             super(ui.a);
             this.uri = uri;
             setGravity(Gravity.CENTER_VERTICAL);
@@ -382,7 +395,7 @@ final class VoicePlayer {
             pill.setColor(Colors.alpha(ui.accent, 0x26));
             setBackground(pill);
             button.setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(14)); // the same 20 dp glyph in a 48 dp target
-            button.setOnClickListener(v -> toggle(uri));
+            button.setOnClickListener(v -> toggle(uri, kept));
             addView(button, new LayoutParams(ui.dp(48), ui.dp(48)));
             ColorStateList accent = ColorStateList.valueOf(ui.accent);
             bar.setProgressTintList(accent);

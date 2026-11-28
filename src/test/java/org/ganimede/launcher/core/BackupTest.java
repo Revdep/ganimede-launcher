@@ -28,6 +28,7 @@ public class BackupTest {
             eq("s", Backup.typeOf(k), k + " travels with the backup");
             eq("s", Backup.typeOf("drawer_" + k), "drawer_" + k + " travels with the backup");
         }
+        for (String k : IconLook.LEGACY) yes(Backup.restorable(k) && !Backup.travels(k), k + " is read from an old backup, never written to a new one");
         eq("i", Backup.typeOf("drawer_label_scale"), "independent drawer label size");
         eq("i", Backup.typeOf("folder_bg"), "default folder background colour");
         eq("i", Backup.typeOf("folder_alpha"), "default folder background opacity");

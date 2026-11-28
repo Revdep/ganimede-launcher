@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import android.Manifest;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ComponentName;
@@ -10,6 +11,7 @@ import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.LinearLayout;
 
 import java.util.Set;
@@ -19,7 +21,11 @@ final class SettingsPerms {
     static final int REQ_PERM = 23, REQ_HOME = 24;
     private final SettingsKit kit;
     private AlertDialog explaining; // the open notification-access or Quick Lock explanation, what it is for in explainKind/explainKey
-    private String explainKind, explainKey;
+    private Access explainKind;
+    private String explainKey;
+
+    /** The two accesses a switch can need explained first. */
+    private enum Access { NOTIF, LOCK }
 
     SettingsPerms(SettingsKit kit) {
         this.kit = kit;
@@ -28,8 +34,12 @@ final class SettingsPerms {
     boolean notifAllowed() { return Ui.notifAllowed(kit.activity()); }
 
     boolean lockAllowed() {
-        String s = Settings.Secure.getString(kit.activity().getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        return s != null && s.contains(new ComponentName(kit.activity(), LockService.class).flattenToString());
+        ComponentName mine = new ComponentName(kit.activity(), LockService.class);
+        for (AccessibilityServiceInfo i : kit.activity().getSystemService(AccessibilityManager.class)
+                .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK))
+            if (i.getResolveInfo().serviceInfo.packageName.equals(mine.getPackageName())
+                    && i.getResolveInfo().serviceInfo.name.equals(mine.getClassName())) return true;
+        return false;
     }
 
     boolean isHome() {
@@ -89,31 +99,31 @@ final class SettingsPerms {
 
     private void homeList() { Ui.start(kit.activity(), new Intent(Settings.ACTION_HOME_SETTINGS)); }
 
-    void fixNotif() { explain("notif", null); }
+    void fixNotif() { explain(Access.NOTIF, null); }
 
     /**
      * Toggle callback for a feature that needs notification access: switching it on without access explains first;
      * if the person does not go on, the switch goes back off.
      */
-    Runnable needNotif(String key, Runnable then) { return guard(key, this::notifAllowed, "notif", then); }
+    Runnable needNotif(String key, Runnable then) { return guard(key, this::notifAllowed, Access.NOTIF, then); }
 
     /** Same for Accessibility (Quick Lock). */
-    Runnable needLock(String key, Runnable then) { return guard(key, this::lockAllowed, "lock", then); }
+    Runnable needLock(String key, Runnable then) { return guard(key, this::lockAllowed, Access.LOCK, then); }
 
-    private Runnable guard(String key, java.util.function.BooleanSupplier allowed, String kind, Runnable then) {
+    private Runnable guard(String key, java.util.function.BooleanSupplier allowed, Access kind, Runnable then) {
         return () -> {
             if (kit.prefs().getBoolean(key, false) && !allowed.getAsBoolean()) explain(kind, key);
             if (then != null) then.run();
         };
     }
 
-    /** The explanation of kind "notif" or "lock"; if the person does not go on, the switch key (may be null) goes back off. */
-    private void explain(String kind, String key) {
+    /** The explanation of an access; if the person does not go on, the switch key (may be null) goes back off. */
+    private void explain(Access kind, String key) {
         Runnable declined = key == null ? null : () -> {
             kit.save(key, false);
             if (!kit.activity().isDestroyed()) kit.render(); // also run from onDestroy, where the page is not built again
         };
-        explaining = kind.equals("lock") ? Ui.explainLock(kit.activity(), declined) : Ui.explainNotif(kit.activity(), declined);
+        explaining = kind == Access.LOCK ? Ui.explainLock(kit.activity(), declined) : Ui.explainNotif(kit.activity(), declined);
         explainKind = kind;
         explainKey = key;
     }
@@ -121,7 +131,7 @@ final class SettingsPerms {
     /** An explanation open now, for a rebuilt screen (rotation) to show again. */
     void save(Bundle out) {
         if (explaining == null || !explaining.isShowing()) return;
-        out.putString("explain", explainKind);
+        out.putString("explain", explainKind.name());
         out.putString("explain_key", explainKey);
     }
 
@@ -129,7 +139,7 @@ final class SettingsPerms {
     void reopen(Bundle in) {
         String key = in.getString("explain_key");
         // destroyed without a rotation, the dialog's dismiss already put the switch off: nothing left to explain
-        if (in.getString("explain") != null && (key == null || kit.prefs().getBoolean(key, false))) explain(in.getString("explain"), key);
+        if (in.getString("explain") != null && (key == null || kit.prefs().getBoolean(key, false))) explain(Access.valueOf(in.getString("explain")), key);
     }
 
     /** The media-player switch, with the notification-access row under it while the player is on without access. */
@@ -143,7 +153,7 @@ final class SettingsPerms {
     void homeRow(LinearLayout c, String why) { kit.perm(c, isHome(), kit.ui.tr("Default home app"), kit.ui.tr(why), this::fixHome); }
     void notifRow(LinearLayout c, String why) { kit.perm(c, notifAllowed(), kit.ui.tr("Notification access"), kit.ui.tr(why), this::fixNotif); }
 
-    void fixLock() { explain("lock", null); }
+    void fixLock() { explain(Access.LOCK, null); }
 
     void ask(String perm) {
         if (granted(perm)) return;
