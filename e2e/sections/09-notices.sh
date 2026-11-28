@@ -1,8 +1,7 @@
 emu_only "notices: grants the notification listener" || return 0
 step "Notifications pop-up shows a preview, doesn't open anything"
 seed list
-A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1
-wait_until 5 listening
+notif_on
 A shell cmd notification post -t "Prova" e2etag "Anteprima" >/dev/null   # (the shell sends one word)
 posted() { A shell dumpsys notification | grep -q e2etag; }; wait_until 5 posted
 home_menu "Notifiche"; tap "Notifiche"  # long-press an empty spot (list mode)

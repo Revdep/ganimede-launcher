@@ -355,6 +355,21 @@ timer() { A shell am start -a android.intent.action.SET_TIMER --ei android.inten
   --ez android.intent.extra.alarm.SKIP_UI true >/dev/null 2>&1; wait_until 10 timer_up; }
 timer_up() { A shell dumpsys notification | grep -q "pkg=com.google.android.deskclock.*Timers"; }
 listening() { A shell settings get secure enabled_notification_listeners | grep -q NotifService; } # Ganimede is a notification listener
+notif_bound() { A shell dumpsys notification | sed -n '/Live notification listeners/,/Snoozed notification listeners/p' | grep -q NotifService; } # Android has bound it
+# notif_on: notification access granted and the listener bound, the precondition of every step that reads notifications; call
+# it after the seed/setp that restarts the home, never before. The setting alone is not enough: run 46130905709 (popup, shard 0)
+# granted it, the bind started a process (am_proc_start NotifService) and the seed force-stopped it 28 ms later, then again
+# 0.6 s later; the listener stayed unbound for minutes, every "Notifiche" opened Settings (Notices.show without a connection),
+# and the unchecked waits let four steps run on it. Android binds again on a fresh grant: denied and granted a second time.
+notif_on() {
+  local _
+  for _ in 1 2; do
+    A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1
+    wait_until 10 notif_bound && return 0
+    A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1
+  done
+  ko "Ganimede's notification listener was not bound after two grants (setting: $(A shell settings get secure enabled_notification_listeners | tr -d '\r'))"
+}
 bpref() { [ "$(pref "$1")" = "${2:-true}" ]; } # bpref key [true|false]: the stored boolean is that
 turned() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; } # the dump's root says the display is turned
 docked() { read -r _ y <<<"$(cx "desc:Calendar")"; [ -n "$y" ] && [ "$y" -gt $((H - $(dp 200))) ]; } # Calendar sits in the dock

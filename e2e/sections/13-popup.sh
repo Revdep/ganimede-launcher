@@ -2,8 +2,6 @@ emu_only "popup: grants the notification listener" || return 0
 # Notification pop-up. Posts come from `cmd notification post` (package com.android.shell, label "Shell"),
 # the second app is the Clock timer. The shell command cannot set a category or a visibility, so a secret notification and an
 # alarm-category one cannot be posted from here (see the notes at the two steps that would need them).
-A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1
-bound() { A shell dumpsys notification | sed -n '/Live notification listeners/,/Snoozed notification listeners/p' | grep -q NotifService; }
 tagged() { A shell dumpsys notification | grep -q "tag=$1 "; }                 # still in the system's list
 untagged() { ! tagged "$1"; }
 headers() { dump | grep -o "text=\"$1\"" | wc -l; }                            # how many group headers a name has
@@ -18,7 +16,7 @@ post() { A shell cmd notification post -t "$1" "$2" "$3" >/dev/null; }         #
 # every clearable notification away, through the pop-up's own button
 wipe() { popup; if wait_until 3 has "Cancella tutte"; then tap "Cancella tutte"; else A shell input keyevent KEYCODE_BACK; fi
   wait_until 5 hasnt "Notifiche"; noclock; }
-bound_home() { seed list; wait_until 10 listening; wait_until 10 bound; }
+bound_home() { seed list; notif_on; }
 
 step "Two posts from one app are grouped under one header"
 bound_home; wipe
@@ -69,7 +67,7 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Nessuna notifica"
 
 step "Summary on: a non-urgent post of a chosen app is held back, other apps are not"
 setp del summary_held boolean summary true set summary_apps com.android.shell # del: no key held by an earlier run
-wait_until 10 listening; wait_until 10 bound
+notif_on
 c0=$(pref summary_count); c0=${c0:-0}
 SUM=sum$(date +%s) # a fresh key: Android keeps an earlier run's snoozed key silent for hours, so a repeated tag is never seen
 post "TitoloRiep" $SUM uno
@@ -199,12 +197,12 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
 
 step "Voice notes posted while the listener was off are kept when it reconnects (fixture app)"
 wipe; voice; wait_until 10 kept_is 2 || ko "kept notes before the listener goes off: $(kept)"
-A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 eval '! bound'
+A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 eval '! notif_bound'
 wait_until 10 kept_is 0 && ok "access off: the kept notes are deleted" || ko "kept after access went off: $(kept)"
 voice --es shape e --ei upto 3 # text, link, note A: nobody listening
 # no event marks "nothing copied": a bound listener's copy of note A takes well under these 3 s
 wait_until 3 eval '! kept_is 0' && ko "kept while not listening: the listener was still bound ($(kept))" || ok "nothing kept while not listening"
-A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 bound
+A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 notif_bound
 wait_until 10 kept_is 1 && ok "reconnected: note A is kept" || ko "kept notes after reconnecting: $(kept)"
 voice --es shape e --ei upto 4; wait_until 10 kept_is 2 # B arrives, A's grant withdrawn
 expect_popup "FIXTURE"
@@ -243,7 +241,7 @@ wait_until 20 eval 'voice; kept_is 2' && ok "re-posted until its open returned: 
 step "Summary holds a chat with voice notes: they are kept before it is snoozed (fixture app)"
 wipe; wait_until 10 kept_is 0
 setp del summary_held boolean summary true boolean summary_skip_chats false set summary_apps $FIX
-wait_until 10 listening; wait_until 10 bound
+notif_on
 c0=$(pref summary_count); c0=${c0:-0}
 NID=$((RANDOM + 2)) # a fresh id: Android keeps a snoozed key silent for hours
 A shell am broadcast -n $FIX/.Post --es shape s --ei id $NID >/dev/null # snoozing takes the chat app's grant away (issue 083)
@@ -255,13 +253,13 @@ bound_home
 
 step "Notification access off: kept voice notes are wiped when the home starts"
 wipe
-A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 eval '! bound'
+A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 eval '! notif_bound'
 wait_until 10 kept_is 0 || ko "kept after access went off: $(kept)" # that deletion done before the leftover is planted
 A shell "run-as $PK sh -c 'mkdir -p no_backup/voice && echo x > no_backup/voice/left'"   # left while the home was not running
 kept_is 1 || ko "the leftover copy was not planted: $(kept)"
 A shell am force-stop $PK; start_home
 wait_until 10 kept_is 0 && ok "access off: no kept note survives the home's start" || ko "kept with access off: $(kept)"
-A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1; wait_until 10 listening; wait_until 10 bound
+notif_on
 
 step "Favourite bubble (List, preview on): a player per voice note under the fixture's name, each plays, no overlap"
 wipe; voice
