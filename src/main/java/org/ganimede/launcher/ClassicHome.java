@@ -636,8 +636,7 @@ final class ClassicHome {
                     snapPage(pg);
                 });
                 if (pg > 0) card.setOnLongClickListener(v -> {
-                    v.startDragAndDrop(null, new View.DragShadowBuilder(v), pg, 0);
-                    v.setAlpha(0.3f);
+                    if (v.startDragAndDrop(null, new View.DragShadowBuilder(v), pg, 0)) v.setAlpha(0.3f);
                     return true;
                 });
                 if (pg > 0) card.setOnDragListener((v, ev) -> {

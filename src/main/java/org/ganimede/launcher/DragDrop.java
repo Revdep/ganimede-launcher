@@ -115,8 +115,8 @@ final class DragDrop {
         if (ui.haptics()) v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         if (bar.getChildCount() > 1) bar.getChildAt(1).setVisibility(from.startsWith("b:") ? View.GONE : View.VISIBLE);
         bar.setVisibility(View.VISIBLE); // before the drag starts, so its targets hear about it
-        v.startDragAndDrop(ClipData.newPlainText("ganimede", entry), new View.DragShadowBuilder(v), new Drag(entry, from), 0);
-        v.setAlpha(0.25f);
+        if (v.startDragAndDrop(ClipData.newPlainText("ganimede", entry), new View.DragShadowBuilder(v), new Drag(entry, from), 0)) v.setAlpha(0.25f);
+        else bar.setVisibility(View.GONE); // the system refused: no drag will end to hide it
     }
 
     /**
