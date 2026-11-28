@@ -19,6 +19,16 @@ public final class Expect {
             throw new AssertionError(what + ": expected " + show(expected) + ", got " + show(actual));
     }
 
+    public interface Work { void run() throws Exception; }
+
+    /** The bytes the current thread allocates while {@code w} runs (HotSpot's count): a test of a memory peak. */
+    public static long allocated(Work w) throws Exception {
+        com.sun.management.ThreadMXBean m = (com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean();
+        long before = m.getCurrentThreadAllocatedBytes();
+        w.run();
+        return m.getCurrentThreadAllocatedBytes() - before;
+    }
+
     private static String show(Object o) {
         if (o instanceof int[]) return java.util.Arrays.toString((int[]) o);
         if (o instanceof Object[]) return java.util.Arrays.toString((Object[]) o);

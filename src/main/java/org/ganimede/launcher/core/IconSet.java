@@ -173,7 +173,7 @@ public final class IconSet {
             int style = r.u8();
             float alpha = r.u8() / 255f;
             Op[] ops = new Op[r.count()];
-            int[] q = new int[ops.length * 6];
+            int[] q = new int[(int) Math.min(6L * ops.length, r.end - r.pos)]; // a point takes a byte at least: no more than the bytes left
             int used = 0, move = -1, first = 0;
             boolean z = false;
             for (int o = 0; o < ops.length; o++) {
