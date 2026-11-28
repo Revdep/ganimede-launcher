@@ -20,7 +20,7 @@ CATS = (os.path.join(FIXTURE, "categories", "curated.tsv"), os.path.join(FIXTURE
 GLYPHS = dict.fromkeys(pack.GLYPHS, "square") | {"FINANCE": "arc"}  # the fixture has no emoji icons
 
 
-def fixture_bytes(categories=None, glyphs=pack.GLYPHS):
+def fixture_bytes(categories=CATS, glyphs=GLYPHS):
     return pack.pack(FIXTURE, os.path.join(FIXTURE, "appfilter.xml"), pack.ARCTICONS_COMMIT, categories, glyphs)[0]
 
 
@@ -217,7 +217,7 @@ class PackTest(unittest.TestCase):
         self.assertEqual([("M", 4, 9), ("L", 4, 4), ("L", 9, 4)], [(o[0], round(o[1], 6), round(o[2], 6)) for o in ops[:3]])
 
     def test_category_round_trip(self):
-        blob = fixture_bytes(CATS, GLYPHS)
+        blob = fixture_bytes()
         self.assertEqual(b"ICN2", blob[:4])
         self.assertEqual(("FINANCE", self.glyph("arc")), category_of(blob, "com.example.bank"))
         self.assertIsNone(category_of(blob, "com.example.nothing"), "the empty type is dropped")
@@ -226,7 +226,7 @@ class PackTest(unittest.TestCase):
         return sorted(n[:-4] for n in os.listdir(FIXTURE) if n.endswith(".svg")).index(name)
 
     def test_curated_beats_dataset(self):
-        self.assertEqual("SHOPPING", category_of(fixture_bytes(CATS, GLYPHS), "com.example.shop")[0])
+        self.assertEqual("SHOPPING", category_of(fixture_bytes(), "com.example.shop")[0])
 
     def test_every_dataset_type_has_a_category(self):
         types = ("Action|Adventure|Arcade|Art & Design|Auto & Vehicles|Beauty|Board|Board Games|Books & Reference|Brain Games|"
@@ -249,13 +249,13 @@ class PackTest(unittest.TestCase):
 
     def test_missing_glyph_fails(self):
         with self.assertRaises(SystemExit) as e:
-            fixture_bytes(CATS, GLYPHS | {"WEATHER": "no_such_svg"})
+            fixture_bytes(glyphs=GLYPHS | {"WEATHER": "no_such_svg"})
         self.assertIn("WEATHER", str(e.exception.code))
         with self.assertRaises(SystemExit):
-            fixture_bytes(CATS)  # the real glyphs are not among the fixture's SVGs
+            fixture_bytes(glyphs=pack.GLYPHS)  # the real glyphs are not among the fixture's SVGs
 
     def test_arcticons_packages_dropped(self):
-        self.assertIsNone(category_of(fixture_bytes(CATS, GLYPHS), "pkgA"), "pkgA has an Arcticons icon: the category is never read")
+        self.assertIsNone(category_of(fixture_bytes(), "pkgA"), "pkgA has an Arcticons icon: the category is never read")
 
     def test_other_dataset_commit_refused(self):
         with self.assertRaises(SystemExit) as e:
@@ -265,15 +265,11 @@ class PackTest(unittest.TestCase):
     def test_fixture_is_current(self):
         with open(os.path.join(FIXTURE, "icons-fixture.bin"), "rb") as f:
             self.assertEqual(f.read(), fixture_bytes(), "rewrite it: python3 -I tools/icons/test_pack.py write")
-        with open(os.path.join(FIXTURE, "icons-fixture2.bin"), "rb") as f:
-            self.assertEqual(f.read(), fixture_bytes(CATS, GLYPHS), "rewrite it: python3 -I tools/icons/test_pack.py write")
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["write"]:
         with open(os.path.join(FIXTURE, "icons-fixture.bin"), "wb") as f:
             f.write(fixture_bytes())
-        with open(os.path.join(FIXTURE, "icons-fixture2.bin"), "wb") as f:
-            f.write(fixture_bytes(CATS, GLYPHS))
     else:
         unittest.main()
