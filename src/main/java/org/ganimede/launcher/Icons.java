@@ -192,7 +192,7 @@ final class Icons {
                     sample = glyph(set, set.index().find("com.google.android.calendar",
                             "com.android.calendar.AllInOneActivity").orElse(0));
                 }
-                v.post(() -> apply(v, sample, false, null, null, look, fg, accent, size));
+                MAIN.post(() -> apply(v, sample, false, null, null, look, fg, accent, size));
             } catch (IOException | RuntimeException e) {
                 // an unreadable set: the placeholder stays
             }
@@ -485,6 +485,8 @@ final class Icons {
 
     /** Renders on one background thread: a drawer of hundreds of apps must not block the UI. */
     private static final java.util.concurrent.Executor RENDER = java.util.concurrent.Executors.newSingleThreadExecutor();
+    /** Results go back through the main looper: View.post on a view not yet attached queues until it attaches, and can be lost. */
+    private static final android.os.Handler MAIN = new android.os.Handler(android.os.Looper.getMainLooper());
 
     /**
      * Shows a drawn icon in the view: at once when it was drawn before, otherwise the placeholder first and the drawn
@@ -506,7 +508,7 @@ final class Icons {
                 Bitmap drawn = CACHE.get(k); // the same icon queued twice before the first was drawn: once
                 if (drawn == null) CACHE.put(k, drawn = badged(c, faded(draw.get(), alpha), user)); // the badge goes into the cached picture
                 Bitmap shown = drawn;
-                v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
+                MAIN.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
             } catch (RuntimeException e) { // a drawable that fails to draw: the placeholder stays, the home goes on
             }
         });
