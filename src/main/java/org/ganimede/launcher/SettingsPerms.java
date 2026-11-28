@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import android.Manifest;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ComponentName;
@@ -10,6 +11,7 @@ import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.LinearLayout;
 
 import java.util.Set;
@@ -28,8 +30,12 @@ final class SettingsPerms {
     boolean notifAllowed() { return Ui.notifAllowed(kit.activity()); }
 
     boolean lockAllowed() {
-        String s = Settings.Secure.getString(kit.activity().getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        return s != null && s.contains(new ComponentName(kit.activity(), LockService.class).flattenToString());
+        ComponentName mine = new ComponentName(kit.activity(), LockService.class);
+        for (AccessibilityServiceInfo i : kit.activity().getSystemService(AccessibilityManager.class)
+                .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK))
+            if (i.getResolveInfo().serviceInfo.packageName.equals(mine.getPackageName())
+                    && i.getResolveInfo().serviceInfo.name.equals(mine.getClassName())) return true;
+        return false;
     }
 
     boolean isHome() {
