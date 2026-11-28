@@ -341,10 +341,10 @@ json=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
 setp string folder:long '{"name":"Lunga","where":"fav","cols":1,"apps":['"$json"']}' string fav 'f:long'
 longkeys() { pref folder:long | sed 's/&quot;/\n/g' | grep '/' | grep -v '^\[' ; }
 first=$(longkeys | head -1)
-tap Lunga; wait_until 10 has "Lunga"
-# the pop-up's own ScrollView (the last in the dump): its first row is just under the title
-read -r x1 y1 x2 y2 <<<"$(screen | grep -o 'class="android.widget.ScrollView"[^>]*bounds="[^"]*"' | tail -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   ')"
-lab=$(screen | grep -o 'text="[^"]*"' | grep -A1 -x 'text="Lunga"' | tail -1 | sed 's/^text="//; s/"$//') # the first row's label
+tap Lunga; wait_until 10 card_settled # (has "Lunga" is true at once: the home's own folder label)
+read -r x1 y1 x2 y2 <<<"$(card)" # the pop-up's own ScrollView: its first row is just under the title
+# the first row's label: the next text after the pop-up's title (the last "Lunga"), skipping the rows' text-less nodes
+lab=$(screen | grep -o 'text="[^"]*"' | grep -vx 'text=""' | grep -A1 -x 'text="Lunga"' | tail -1 | sed 's/^text="//; s/"$//')
 A shell input draganddrop $(((x1 + x2) / 2)) $((y1 + $(dp 90))) $(((x1 + x2) / 2)) $((H - $(dp 24))) 8000
 last_is_first() { [ "$(longkeys | tail -1)" = "$first" ]; }
 wait_until 5 last_is_first && ok "the first entry was carried to the last place: the drag scrolled the pop-up to reach it" \
