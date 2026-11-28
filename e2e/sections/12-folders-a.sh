@@ -343,8 +343,9 @@ n=$(echo "$comps" | grep -c .)
 [ "$n" -ge 12 ] && ok "$n launcher activities: enough for a pop-up longer than the screen" || ko "only $n launcher activities: the pop-up would not need to scroll"
 json=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
 setp string folder:long '{"name":"Lunga","where":"fav","cols":1,"apps":['"$json"']}' string fav 'f:long'
-longkeys() { pref folder:long | sed 's/&quot;/\n/g' | grep '/' | grep -v '^\[' ; }
-first=$(longkeys | head -1)
+# the entries as stored: written by setp with plain quotes, by the app with &quot; and JSON's escaped "\/"
+longkeys() { pref folder:long | sed 's/&quot;/"/g; s|\\/|/|g' | tr '"' '\n' | grep / ; }
+first=$(echo "$comps" | head -1)
 tap Lunga; wait_until 10 card_settled # (has "Lunga" is true at once: the home's own folder label)
 read -r x1 y1 x2 y2 <<<"$(card)" # the pop-up's own ScrollView: its first row is just under the title
 # the first row's label: the next text after the pop-up's title (the last "Lunga"), skipping the rows' text-less nodes
