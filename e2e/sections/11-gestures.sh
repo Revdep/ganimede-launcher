@@ -174,7 +174,9 @@ if ! wait_until 5 eval '[ -n "$(torch_tile)" ]'; then
   A shell cmd statusbar collapse
 else
   torch_on || qs_torch
-  defer 'A shell cmd statusbar expand-settings; sleep 1; torch_on && qs_torch; A shell cmd statusbar collapse' # never leave the torch on
+  torch_tile_up() { [ -n "$(torch_tile)" ]; }
+  torch_off_again() { A shell cmd statusbar expand-settings; wait_until 5 torch_tile_up; torch_on && qs_torch; A shell cmd statusbar collapse; }
+  defer torch_off_again # never leave the torch on
   wait_until 5 torch_on && ok "quick settings turned the torch on" || ko "the Torcia tile did not turn on"
   A shell cmd statusbar collapse; wait_until 5 focus
   read -r fx fy <<<"$(cx "desc:Pulsante Ganimede")"; A shell input tap "$fx" "$fy"
