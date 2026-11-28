@@ -269,6 +269,7 @@ final class SettingsPreview extends FrameLayout {
         new Thread(() -> {
             Icons.load(c, want);
             Icons.preload(c, p); // a picked built-in icon needs the set read, or the preview shows the original
+            for (Apps.Item a : items) Apps.resolveIcon(c, p, a); // the icons (a disk read each) off the main thread
             post(() -> {
                 if (!want.equals(pack)) return;
                 refresh();
