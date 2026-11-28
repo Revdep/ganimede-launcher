@@ -115,6 +115,9 @@ final class T {
         it("Resize right edge", "Ridimensiona bordo destro");
         it("Resize top edge", "Ridimensiona bordo superiore");
         it("Resize bottom edge", "Ridimensiona bordo inferiore");
+        it("Grow", "Allarga");
+        it("Shrink", "Restringi");
+        it("Width %d, height %d", "Larghezza %d, altezza %d");
         it("Remove a widget", "Rimuovi un widget");
         it("Create pop-up folder", "Crea cartella pop-up");
         it("Notifications", "Notifiche");

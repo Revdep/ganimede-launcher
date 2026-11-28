@@ -1,5 +1,4 @@
 # dock slots, clock block resize/remove, widgets add/remove
-prefstr() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | sed "s/^[^>]*>//"; }
 docked_n() { prefstr dock | sed 's/&#10;/\n/g' | grep -c .; } # filled dock slots
 hostviews() { dump | grep -o 'class="android.appwidget.AppWidgetHostView"' | wc -l; }
 longpress() { A shell input swipe "$1" "$2" "$1" "$2" 1300; }
