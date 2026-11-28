@@ -482,6 +482,46 @@ if capture Fb "$OUT/icons-folder-fallback.png"; then
     || ko "folder: fixture green $green, red $red px (expected no green, red glyphs)"
 else ko "folder Fb not found"; fi
 
+# Issue 079: another profile's app keeps its badge (the briefcase) with the original icon, a glyph and in a folder thumbnail.
+# A managed profile from the shell needs the emulator and a build that lets `pm create-user --managed` run without a DPC:
+# when the system refuses, the step says so and is skipped (the badge then stays checked by hand).
+step "Work-profile app keeps its badge: original, fallback glyph, Arcticons, folder thumbnail (Classic)"
+if emu_only "icons: a work profile is created on the emulator"; then
+  wuid=$(A shell pm create-user --profileOf 0 --managed ganimede-work 2>&1 | grep -oE 'id [0-9]+' | grep -oE '[0-9]+')
+  if [ -z "$wuid" ]; then
+    SKIPS=$((SKIPS + 1)); echo "  SKIP: this system refuses 'pm create-user --profileOf 0 --managed' (no work profile to badge)"
+  else
+    defer "A shell pm remove-user $wuid"
+    A shell am start-user -w "$wuid" >/dev/null 2>&1
+    for pk in $FIXTURE com.google.android.calendar; do A shell pm install-existing --user "$wuid" "$pk" >/dev/null 2>&1; done
+    serial=$(A shell dumpsys user | grep -E "UserInfo\{$wuid:" | grep -oE 'serialNo=[0-9]+' | head -1 | cut -d= -f2)
+    corner() { magick "$1" -gravity SouthEast -crop "40%x40%+0+0" +repage "$2"; } # where the badge sits
+    badge_of() { # badge_of label component look...: the cell as the user's own app and as the work copy; the work copy's corner differs
+      local label="$1" comp="$2"; shift 2
+      seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 64; setp boolean hide_labels true
+      look "$@"
+      setp string fav "$comp"; capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
+      setp string fav "$comp#$serial"; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
+      corner "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-c.png"; corner "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-c.png"
+      ! same "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
+        && ok "badge: the work $label has a badge in its corner ($*)" || ko "badge: the work $label has no badge ($*)"
+    }
+    badge_of Fixture "$FIXTURE/$FIXTURE.Open" original circle solid accent
+    badge_of Fixture "$FIXTURE/$FIXTURE.Open" line circle solid accent
+    badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" line circle solid accent
+    # a folder thumbnail goes through the same render: the folder with the work copy differs from the one with the own app
+    seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
+    look line circle solid accent
+    for who in own work; do
+      k="$FIXTURE/$FIXTURE.Open"; [ $who = work ] && k="$k#$serial"
+      setp string folder:bw "{\"name\":\"Bw\",\"where\":\"fav\",\"apps\":[\"$k\"]}"; setp string fav 'f:bw'
+      capture Bw "$OUT/icons-badge-folder-$who.png" || ko "badge: no folder Bw ($who)"
+    done
+    [ -f "$OUT/icons-badge-folder-own.png" ] && [ -f "$OUT/icons-badge-folder-work.png" ] && ! same "$OUT/icons-badge-folder-own.png" "$OUT/icons-badge-folder-work.png" \
+      && ok "badge: the folder thumbnail of the work copy differs from the own app's (its badge)" || ko "badge: folder thumbnails of the own and the work app look alike"
+  fi
+fi
+
 step "App pages with their own icons (Classic, drawer off)"
 seed classic
 setp boolean drawer false

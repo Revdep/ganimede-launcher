@@ -332,10 +332,10 @@ final class Icons {
                 : s != IconSource.MONOCHROME || mono != null);
         if (source == IconSource.ARCTICONS) { // built-in geometry, with the treatment's stroke (original draws as Line)
             BuiltinIcon fresh = (BuiltinIcon) copy(icon); // its own tint, alpha and look: the shared one stays as it is
-            renderInto(v, ((BuiltinIcon) plain(icon, colours.glyph())).look(look), idOf(icon) + "|" + look + "|" + colours.glyph() + "|" + colours.fill() + "|" + px, () -> {
+            renderInto(v, ((BuiltinIcon) plain(icon, colours.glyph())).look(look), user, idOf(icon) + "|" + user + "|" + look + "|" + colours.glyph() + "|" + colours.fill() + "|" + px, () -> {
                 Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
                 fresh.render(new Canvas(b), look, colours.glyph(), colours.fill(), px);
-                return badged(c, b, user);
+                return b;
             });
         } else if (look.glyph().equals("original")) { // the app's own icon, cut to the container if there is one
             v.setImageDrawable(badged(c, look.container().equals("none") ? copy(icon) : clip(icon, look.container(), px), user));
@@ -347,8 +347,8 @@ final class Icons {
             Drawable layer = source == IconSource.MONOCHROME ? mono : null;
             Drawable placeholder = copy(layer != null ? layer : icon); // the monochrome layer already looks as it will
             if (layer != null) placeholder.setTint(tint);
-            renderInto(v, placeholder, idOf(icon) + "|" + source + "|" + fit + "|" + tintGreys + "|" + tint + "|" + px,
-                    () -> badged(c, styled(icon, layer, fit, tint, tintGreys, px), user));
+            renderInto(v, placeholder, user, idOf(icon) + "|" + user + "|" + source + "|" + fit + "|" + tintGreys + "|" + tint + "|" + px,
+                    () -> styled(icon, layer, fit, tint, tintGreys, px));
         }
         if (look.plated()) v.setBackground(plate(look.container(), colours, px));
     }
@@ -356,15 +356,6 @@ final class Icons {
     /** An icon of another profile's app with that profile's badge (the work briefcase); others as they are. */
     static Drawable badged(Context c, Drawable d, UserHandle user) {
         return user == null || user.equals(Process.myUserHandle()) ? d : c.getPackageManager().getUserBadgedIcon(d, user);
-    }
-
-    private static Bitmap badged(Context c, Bitmap b, UserHandle user) {
-        if (user == null || user.equals(Process.myUserHandle())) return b;
-        Bitmap out = Bitmap.createBitmap(b.getWidth(), b.getHeight(), Bitmap.Config.ARGB_8888);
-        Drawable d = badged(c, new BitmapDrawable(c.getResources(), b), user);
-        d.setBounds(0, 0, b.getWidth(), b.getHeight());
-        d.draw(new Canvas(out));
-        return out;
     }
 
     /** The icon as it is; a built-in icon is drawn in {@code tint}. */
@@ -402,7 +393,8 @@ final class Icons {
      * Shows a drawn icon in the view: at once when it was drawn before, otherwise the placeholder first and the drawn
      * one as soon as it is ready (if the view still shows the placeholder).
      */
-    private static void renderInto(ImageView v, Drawable placeholder, String key, java.util.function.Supplier<Bitmap> draw) {
+    private static void renderInto(ImageView v, Drawable placeholder, UserHandle user, String key, java.util.function.Supplier<Bitmap> draw) {
+        Context c = v.getContext();
         Bitmap cached = CACHE.get(key);
         if (cached != null) {
             v.setImageDrawable(new BitmapDrawable(null, cached));
@@ -411,8 +403,16 @@ final class Icons {
         v.setImageDrawable(placeholder);
         RENDER.execute(() -> {
             Bitmap b = draw.get();
-            CACHE.put(key, b);
-            v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, b)); });
+            if (user != null && !user.equals(Process.myUserHandle())) { // the badge goes into the cached picture
+                Bitmap out = Bitmap.createBitmap(b.getWidth(), b.getHeight(), Bitmap.Config.ARGB_8888);
+                Drawable d = badged(c, new BitmapDrawable(c.getResources(), b), user);
+                d.setBounds(0, 0, b.getWidth(), b.getHeight());
+                d.draw(new Canvas(out));
+                b = out;
+            }
+            final Bitmap shown = b;
+            CACHE.put(key, shown);
+            v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
         });
     }
 
