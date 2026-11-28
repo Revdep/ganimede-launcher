@@ -205,12 +205,12 @@ final class VoicePlayer {
             setGravity(Gravity.CENTER_VERTICAL);
             setPaddingRelative(ui.dp(2), 0, ui.dp(12), 0);
             GradientDrawable pill = new GradientDrawable();
-            pill.setCornerRadius(ui.dp(20));
+            pill.setCornerRadius(ui.dp(24));
             pill.setColor(Colors.alpha(ui.accent, 0x26));
             setBackground(pill);
-            button.setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10));
+            button.setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(14)); // the same 20 dp glyph in a 48 dp target
             button.setOnClickListener(v -> toggle(uri));
-            addView(button, new LayoutParams(ui.dp(40), ui.dp(40)));
+            addView(button, new LayoutParams(ui.dp(48), ui.dp(48)));
             ColorStateList accent = ColorStateList.valueOf(ui.accent);
             bar.setProgressTintList(accent);
             bar.setThumbTintList(accent);
@@ -223,7 +223,7 @@ final class VoicePlayer {
                 @Override public void onStartTrackingTouch(SeekBar b) {}
                 @Override public void onStopTrackingTouch(SeekBar b) {}
             });
-            addView(bar, new LayoutParams(0, ui.dp(32), 1));
+            addView(bar, new LayoutParams(0, ui.dp(48), 1));
             addView(time);
             LayoutParams lp = new LayoutParams(-1, -2);
             lp.topMargin = ui.dp(8);

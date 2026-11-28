@@ -1,8 +1,10 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.History;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
@@ -11,7 +13,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -21,14 +22,16 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Settings: a home page with a live preview of the home screen and one card per category, each opening its own
  * page in this same activity (Back goes up one level). Built in code; every text goes through T (Italian in ItSettings).
  */
-public class SettingsActivity extends Activity {
+public class SettingsActivity extends Activity implements Ui.Owner {
     private static final int SCRIM = 0x99000000;
-    private static final int REQ_BUTTON_ICON = 25;
 
     private SettingsKit kit;
     private SettingsPerms perms;
@@ -45,6 +48,10 @@ public class SettingsActivity extends Activity {
     private SettingsWizard wizard;
     private SettingsBricks bricks;
     private SettingsPages pages;
+    private final List<Dialog> dialogs = new ArrayList<>(); // the ones open now, closed with this screen
+
+    /** What goes on to the screen Android builds in place of this one, as a ViewModel would: a file job, the undo steps. */
+    private record Kept(Object job, History<Map<String, Object>> undo) {}
 
     @Override
     protected void onCreate(Bundle b) {
@@ -53,11 +60,12 @@ public class SettingsActivity extends Activity {
         kit = new SettingsKit(this, p, this::render, this::open, () -> preview.refresh());
         perms = new SettingsPerms(kit);
         SettingsSamples samples = new SettingsSamples(kit);
-        look = new SettingsLook(kit, perms, samples, this::pickButtonIcon);
         pages = new SettingsPages(kit, perms, () -> { start(Page.W_LANG); render(); },
                 this::restored);
+        look = new SettingsLook(kit, perms, samples, pages::pickButtonIcon);
         wizard = new SettingsWizard(kit, perms, look, pages);
-        pages.adopt(getLastNonConfigurationInstance()); // a backup or restore the screen before this one started
+        Kept kept = (Kept) getLastNonConfigurationInstance();
+        if (kept != null) pages.adopt(kept.job); // a file job the screen before this one started
         if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
         else getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
@@ -132,12 +140,14 @@ public class SettingsActivity extends Activity {
         preview.onIcons(this::render);
         preview.edit.onPicked = this::pick;
         bricks = new SettingsBricks(kit, perms, look, samples, preview, undo);
+        if (kept != null) bricks.adopt(kept.undo);
         if (b == null) start(getIntent().getBooleanExtra("wizard", false) ? Page.W_LANG : Page.HOME);
         else { // rebuilt by Android (rotation): back where it was
             for (String page : b.getStringArray("stack")) stack.addLast(Page.valueOf(page));
             scrolls.putAll(b.getBundle("scrolls"));
             bricks.pick(b.getString("brick", Brick.SCREEN));
-            if (b.getString("restore") != null) pages.confirmRestore(Uri.parse(b.getString("restore"))); // the dialog turned with the screen
+            pages.reopen(b); // the dialog turned with the screen
+            perms.reopen(b);
         }
     }
 
@@ -148,17 +158,31 @@ public class SettingsActivity extends Activity {
         scrolls.putInt(shown, sv.getScrollY());
         out.putBundle("scrolls", scrolls);
         out.putString("brick", bricks.picked());
-        if (pages.confirming() != null) out.putString("restore", pages.confirming().toString());
+        pages.save(out);
+        perms.save(out);
     }
 
-    /** Android rebuilds this screen (rotation): a running backup or restore goes on to the new one, as a ViewModel would. */
+    /** Android rebuilds this screen (rotation): a running file job and the undo steps go on to the new one. */
     @Override
-    public Object onRetainNonConfigurationInstance() { return pages.running(); }
+    public Object onRetainNonConfigurationInstance() { return new Kept(pages.running(), bricks.history()); }
+
+    @Override
+    public void own(Dialog d) {
+        dialogs.removeIf(o -> !o.isShowing());
+        dialogs.add(d);
+    }
 
     @Override
     protected void onDestroy() {
-        bricks.stop();
+        bricks.stop(); // first: a switch a dialog puts back off below is no undo step
         pages.stop();
+        boolean turning = isChangingConfigurations();
+        for (Dialog d : dialogs) {
+            // A rebuild (rotation) is not the person's answer: no OnDismiss, and save() opened it again on the new screen.
+            // Any other end runs it, so a guarded switch is never left on without access.
+            if (turning) d.setOnDismissListener(null);
+            if (d.isShowing()) d.dismiss();
+        }
         super.onDestroy();
     }
 
@@ -297,17 +321,6 @@ public class SettingsActivity extends Activity {
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
         if (req == SettingsPerms.REQ_HOME) perms.homeResult(res); // onResume, next, shows the page again
-        else if (req == REQ_BUTTON_ICON) {
-            if (res == RESULT_OK && data != null && data.getData() != null) pages.buttonIcon(data.getData());
-        } else pages.fileResult(req, res, data);
-    }
-
-    private void pickButtonIcon() {
-        try {
-            startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"),
-                    REQ_BUTTON_ICON);
-        } catch (RuntimeException e) {
-            kit.ui.toast(kit.ui.tr("No file picker on this phone"));
-        }
+        else pages.fileResult(req, res, data);
     }
 }

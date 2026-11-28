@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Search;
 
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** The installed apps (every profile that isn't paused), with the names, icons and launch counts the home shows. */
 final class Apps {
@@ -46,6 +48,14 @@ final class Apps {
                 out.add(new Item(info, info.getComponentName().flattenToString()));
         out.sort((a, b) -> a.label.compareToIgnoreCase(b.label));
         return out;
+    }
+
+    /** The same list read off the main thread (a label each, from the system), then handed over on it while a is open. */
+    static void named(Activity a, Consumer<List<Item>> then) {
+        new Thread(() -> {
+            List<Item> l = named(a);
+            a.runOnUiThread(() -> { if (!a.isDestroyed()) then.accept(l); });
+        }).start();
     }
 
     private final Context c;

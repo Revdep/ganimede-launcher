@@ -361,6 +361,9 @@ final class T {
         it("Loading…", "Caricamento…");
         it("Can't play this voice message", "Impossibile riprodurre questo messaggio vocale");
         it("Open", "Apri");
+        it("Call %s", "Chiama %s");
+        it("Message %s", "Messaggio a %s");
+        it("Email %s", "Email a %s");
         it("The home screen is full: long-press an empty spot → Create page", "La Home è piena: tieni premuto un punto vuoto → Crea pagina");
         it("The home screen is full", "La Home è piena");
         it("Folder created: tap it to open, long-press to rename", "Cartella creata: toccala per aprirla, tienila premuta per rinominarla");

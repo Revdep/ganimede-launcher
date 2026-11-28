@@ -14,6 +14,8 @@ import java.util.stream.Stream;
 
 /** Every English text the screens look up through T / ui.tr / ui.f has an Italian entry (read from the sources). */
 public class TranslationsTest {
+    private static String read(Path p) throws IOException { return new String(Files.readAllBytes(p), java.nio.charset.StandardCharsets.UTF_8); } // Files.readString is not in the android.jar the tests compile against
+
     private static final Path MAIN = Path.of("src/main/java/org/ganimede/launcher");
     private static final Pattern PART = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"");
     /** One literal, or several joined by "+", not continued by a computed part. */
@@ -33,7 +35,7 @@ public class TranslationsTest {
         try (Stream<Path> all = Files.list(MAIN)) {
             for (Path f : (Iterable<Path>) all.filter(x -> x.toString().endsWith(".java"))::iterator) {
                 if (files.length > 0 && !Set.of(files).contains(f.getFileName().toString())) continue;
-                Matcher m = p.matcher(Files.readString(f));
+                Matcher m = p.matcher(read(f));
                 while (m.find()) {
                     StringBuilder text = new StringBuilder();
                     Matcher part = PART.matcher(m.group(1));
@@ -50,7 +52,7 @@ public class TranslationsTest {
         Set<String> out = new TreeSet<>();
         try (Stream<Path> all = Files.list(MAIN)) {
             for (Path f : (Iterable<Path>) all.filter(x -> x.toString().endsWith(".java"))::iterator) {
-                String src = Files.readString(f);
+                String src = read(f);
                 Matcher call = CALL.matcher(src);
                 while (call.find()) {
                     int depth = 1, end = call.end();
@@ -66,6 +68,29 @@ public class TranslationsTest {
             }
         }
         return out;
+    }
+
+    /** Names Android shows in its own screens (Accessibility, Recents): the product name, or a translated string. */
+    public static void testManifestLabelsAreTranslated() throws IOException {
+        String manifest = read(Path.of("src/main/AndroidManifest.xml"));
+        Set<String> en = resources("values"), it = resources("values-it"), wrong = new TreeSet<>();
+        Matcher m = Pattern.compile("android:(?:label|description)=\"([^\"]*)\"").matcher(manifest);
+        while (m.find()) {
+            String v = m.group(1);
+            if (v.startsWith("@string/") ? !en.contains(v.substring(8)) || !it.contains(v.substring(8))
+                    : !Set.of("Ganimede", "Ganimede Launcher").contains(v)) wrong.add(v);
+        }
+        eq(Set.of(), wrong, "manifest labels that are fixed English text or lack an Italian string");
+        Set<String> untranslated = new TreeSet<>(en);
+        untranslated.removeAll(it);
+        eq(Set.of(), untranslated, "strings.xml entries without an Italian one");
+    }
+
+    private static Set<String> resources(String dir) throws IOException {
+        Set<String> names = new TreeSet<>();
+        Matcher m = Pattern.compile("<string name=\"([^\"]+)\"").matcher(read(Path.of("src/main/res", dir, "strings.xml")));
+        while (m.find()) names.add(m.group(1));
+        return names;
     }
 
     public static void testEveryUsedEnglishTextHasItalian() throws IOException {

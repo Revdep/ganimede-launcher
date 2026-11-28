@@ -75,7 +75,7 @@ final class IconPicker {
         grid.setNumColumns(5);
         grid.setVerticalSpacing(ui.dp(12));
         grid.setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12));
-        box.addView(grid, new LinearLayout.LayoutParams(-1, ui.dp(420)));
+        box.addView(grid, new LinearLayout.LayoutParams(-1, Math.min(ui.dp(420), ui.a.getResources().getDisplayMetrics().heightPixels / 2))); // half the screen at most: landscape or split screen keep the search and Cancel in view
         List<String> all = new ArrayList<>(), shown = new ArrayList<>(); // "pack|drawable"
         LruCache<String, Drawable> loaded = new LruCache<>(240);
         BaseAdapter ad = new BaseAdapter() {

@@ -85,6 +85,13 @@ for s in 1.15 "$fs"; do # a configuration change makes Android build the setting
   setting system font_scale "$s" || continue; sleep 2; wait_until 5 settled
   has "Aggiungi una scorciatoia" && ok "font scale $s: still on the shortcuts page" || ko "font scale $s: the shortcuts page was lost"
 done
+# The add form, and what is typed in it, outlive a rebuild of the screen (issue 063)
+tap "Aggiungi una scorciatoia"; wait_until 5 has "Nome, per esempio Casa" || ko "the add-a-shortcut form did not open"
+tap "Nome, per esempio Casa"; A shell input text "Rotta"; wait_until 5 has "Rotta"
+for s in 1.15 "$fs"; do setting system font_scale "$s" || continue; wait_until 5 settled; done
+wait_until 5 has "Rotta" && ok "the shortcut form keeps its typed name across a rebuild" || ko "the shortcut form or its typed name was lost on a rebuild"
+formgone() { has "Rotta" && A shell input keyevent KEYCODE_BACK; hasnt "Rotta"; } # Back hides the keyboard, then closes the form
+wait_until 8 formgone || ko "the shortcut form did not close"
 A shell input keyevent KEYCODE_BACK
 wait_until 5 has "Scorri in su nella schermata Home per cercare" && ok "Back from the shortcuts returns to the search page" || ko "Back from the shortcuts did not return to search"
 pg_back

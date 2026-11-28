@@ -63,7 +63,11 @@ STEP_T=
 step_time() { [ -z "$STEP_T" ] || echo "  (step: $((SECONDS - STEP_T)) s)"; STEP_T=; }
 step() { step_time; echo; echo "== $*"; STEP_T=$SECONDS; }
 ok() { echo "  PASS: $*"; PASS=$((PASS + 1)); }
-ko() { echo "  FAIL: $*"; FAIL=$((FAIL + 1)); A exec-out screencap -p > "$OUT/fail-$FAIL.png"; } # the screen at the failure
+ko() { # the screen at the failure, and who is in front and which activity or process went (a stray Camera in front of Settings, run imp/5)
+  echo "  FAIL: $*"; FAIL=$((FAIL + 1)); A exec-out screencap -p > "$OUT/fail-$FAIL.png"
+  { A shell dumpsys activity activities | grep -E "topResumedActivity|ResumedActivity|\* Task"
+    A logcat -d -b events | grep -E "am_finish_activity|am_proc_died|am_kill|am_anr|wm_task_moved|am_proc_start|am_create_activity" | tail -80; } > "$OUT/fail-$FAIL-activities.txt" 2>/dev/null
+}
 # One adb call straight to stdout (~2 s: uiautomator starts a VM and waits for 1 s of idle): a failed dump is no XML,
 # never the previous screen's file. A whole dump is kept in $SCR.
 dump() { rm -f "$SCR"; A exec-out uiautomator dump /dev/tty 2>/dev/null | tee "$SCR"; grep -q '</hierarchy>' "$SCR" || rm -f "$SCR"; }
@@ -192,6 +196,7 @@ start_home() {
     || A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1 # another launcher holding HOME would start a second task
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" || { ko "Ganimede doesn't hold the HOME role"; return 1; }
   A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME; wait_until 10 focus && wait_until 10 drawn && wait_until 10 settled; }
+target48() { local b; b=$(bounds "$1"); [ -n "$b" ] || return 1; set -- $b; [ $(($3 - $1)) -ge $(($(dp 48) - 1)) ] && [ $(($4 - $2)) -ge $(($(dp 48) - 1)) ]; } # target48 text|desc:…: the node is at least 48 x 48 dp
 hasd() { screen | grep -q "content-desc=\"$1\""; }  # a node with this content-desc
 valid() { screen >/dev/null; [ -s "$SCR" ]; } # a screen read that worked: an absent node means nothing without one
 hasnt() { valid && ! has "$1"; }
