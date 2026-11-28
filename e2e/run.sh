@@ -16,10 +16,13 @@ done
 [ ${#picked[@]} -gt 0 ] || { echo "no section matches ONLY=${ONLY:-}" >&2; exit 2; }
 TIMES="$HOME/.cache/ganimede/e2e-times" # "name seconds" after every section run; the last line of a name counts
 if [ -n "${PLAN:-}" ]; then # PLAN=n: print n ONLY regexes splitting the picked sections by time (longest first, onto the lightest), run nothing
+  # PLAN=auto: n = ceil(total seconds / PLAN_TARGET), 1..12 (PLAN_TARGET default 600), so a longer suite adds shards instead of minutes
   for f in "${picked[@]}"; do name=$(basename "$f" .sh); echo "${name#*-}"; done \
     | awk -v f="$TIMES" 'BEGIN { while ((getline l < f) > 0) { split(l, a, " "); t[a[1]] = a[2] } } { print ($1 in t ? t[$1] : 120), $1 }' \
-    | sort -nr | awk -v k="$PLAN" '{ i = 0; for (j = 1; j < k; j++) if (load[j] < load[i]) i = j; load[i] += $1; s[i] = s[i] (s[i] == "" ? "" : "|") $2 }
-      END { for (j = 0; j < k; j++) if (s[j] != "") print "^(" s[j] ")$" }'
+    | sort -nr | awk -v k="$PLAN" -v target="${PLAN_TARGET:-600}" '{ w[NR] = $1; n[NR] = $2; sum += $1 }
+      END { if (k == "auto") { k = int((sum + target - 1) / target); if (k > 12) k = 12; if (k < 1) k = 1 }
+        for (r = 1; r <= NR; r++) { i = 0; for (j = 1; j < k; j++) if (load[j] < load[i]) i = j; load[i] += w[r]; s[i] = s[i] (s[i] == "" ? "" : "|") n[r] }
+        for (j = 0; j < k; j++) if (s[j] != "") print "^(" s[j] ")$" }'
   exit 0
 fi
 . "$HERE/lib.sh"
