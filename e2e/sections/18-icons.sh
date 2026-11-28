@@ -392,12 +392,10 @@ centre_box() { # png: "x y w h" of the white glyph, centred on the red plate wit
 }
 for mode in list classic; do
   step "Fallback glyph matches Arcticons on the plate: $mode mode"
-  seed "$mode"
-  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Open"
-  setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true
-  setp boolean icon_category false # the fixture declares a category (issue 087): these steps are about its silhouette
-  if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi # at 80 dp the cell cuts the plate's sides
-  look line circle solid accent
+  # icon_category false: the fixture declares a category (issue 087), these steps are about its silhouette; 64 dp: at 80 the cell cuts the plate's sides
+  sz=icon_size; [ "$mode" = classic ] && sz=grid_icon
+  seed "$mode" string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Open" int accent -2093040 \
+    string icon_pack "$BUILTIN" boolean hide_labels true boolean icon_category false int $sz 64 $(model line circle solid accent)
   cal="$OUT/icons-$mode-fallback-calendar.png" fix="$OUT/icons-$mode-fallback-fixture.png"
   capture Calendar "$cal" || ko "$mode: no Calendar"
   capture Fixture "$fix" || ko "$mode: no fixture app"
@@ -453,12 +451,9 @@ for mode in list classic; do
 done
 
 step "Folder thumbnails draw a fallback app's glyph, not its own colours (Classic)"
-seed classic
-setp string folder:fb "{\"name\":\"Fb\",\"where\":\"fav\",\"apps\":[\"$FIXTURE/$FIXTURE.Open\",\"com.google.android.calendar/com.android.calendar.AllInOneActivity\"]}"
-setp string fav 'f:fb'
-setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
-setp boolean icon_category false # the fixture declares a category (issue 087): this step is about its silhouette
-look line circle solid accent
+# icon_category false: the fixture declares a category (issue 087), this step is about its silhouette
+seed classic string folder:fb "{\"name\":\"Fb\",\"where\":\"fav\",\"apps\":[\"$FIXTURE/$FIXTURE.Open\",\"com.google.android.calendar/com.android.calendar.AllInOneActivity\"]}" string fav 'f:fb' \
+  int accent -2093040 string icon_pack "$BUILTIN" int grid_icon 80 boolean hide_labels true boolean icon_category false $(model line circle solid accent)
 if capture Fb "$OUT/icons-folder-fallback.png"; then
   green=$(colour_pixels "$OUT/icons-folder-fallback.png" "#2E7D32"); red=$(colour_pixels "$OUT/icons-folder-fallback.png" "$RED")
   [ "${green:-0}" -eq 0 ] && [ "${red:-0}" -gt 20 ] && ok "folder: the fixture is a red glyph as Calendar ($red px), not its green" \
@@ -482,9 +477,8 @@ if emu_only "icons: a work profile is created on the emulator"; then
     rest() { magick "$1" -gravity NorthWest -crop "50%x50%+0+0" +repage "$2"; } # where a badge at the icon's scale never reaches
     badge_of() { # badge_of label component pack look...: the cell as the user's own app and as the work copy; only the work copy's corner differs
       local label="$1" comp="$2" pack="$3"; shift 3
-      seed classic; setp int accent -2093040; setp string icon_pack "$pack"; setp int grid_icon 64; setp boolean hide_labels true
-      look "$@"
-      setp string fav "$comp"; capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
+      seed classic int accent -2093040 string icon_pack "$pack" int grid_icon 64 boolean hide_labels true $(model "$@") string fav "$comp"
+      capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
       setp string fav "$comp#$serial"; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
       corner "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-c.png"; corner "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-c.png"
       differ "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
@@ -501,11 +495,10 @@ if emu_only "icons: a work profile is created on the emulator"; then
     # no pack: Calendar's own adaptive icon cut to the circle (Fable c1-icons 1: the badge went into the cached cut, at 160 dpi)
     badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" "" original circle solid accent
     # a folder thumbnail goes through the same render: the folder with the work copy differs from the one with the own app
-    seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
-    look line circle solid accent
+    seed classic int accent -2093040 string icon_pack "$BUILTIN" int grid_icon 80 boolean hide_labels true $(model line circle solid accent)
     for who in own work; do
       k="$FIXTURE/$FIXTURE.Open"; [ $who = work ] && k="$k#$serial"
-      setp string folder:bw "{\"name\":\"Bw\",\"where\":\"fav\",\"apps\":[\"$k\"]}"; setp string fav 'f:bw'
+      setp string folder:bw "{\"name\":\"Bw\",\"where\":\"fav\",\"apps\":[\"$k\"]}" string fav 'f:bw'
       capture Bw "$OUT/icons-badge-folder-$who.png" || ko "badge: no folder Bw ($who)"
     done
     [ -f "$OUT/icons-badge-folder-own.png" ] && [ -f "$OUT/icons-badge-folder-work.png" ] && differ "$OUT/icons-badge-folder-own.png" "$OUT/icons-badge-folder-work.png" \
