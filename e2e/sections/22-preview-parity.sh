@@ -1,9 +1,8 @@
 # The Settings preview draws what the home draws: same favourites (folders included), same places, and a block that is on but
 # empty (next event, media player) is a marked dashed outline that takes no room. Fictional data only.
-# (setp feeds sed: a literal & is written \&)
 # nx / ny: a point as thousandths of its own frame (the whole screen for the home, the miniature's phone for the preview).
-FAV="com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;com.google.android.deskclock/com.android.deskclock.DeskClock\&#10;f:alpha"
-FOLDER='{\&quot;name\&quot;:\&quot;Folder Alpha\&quot;,\&quot;where\&quot;:\&quot;fav\&quot;,\&quot;apps\&quot;:[\&quot;com.google.android.contacts/com.android.contacts.activities.PeopleActivity\&quot;]}'
+FAV="com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;com.google.android.deskclock/com.android.deskclock.DeskClock&#10;f:alpha"
+FOLDER='{&quot;name&quot;:&quot;Folder Alpha&quot;,&quot;where&quot;:&quot;fav&quot;,&quot;apps&quot;:[&quot;com.google.android.contacts/com.android.contacts.activities.PeopleActivity&quot;]}'
 nx() { echo $((($1 - FX) * 1000 / FW)); }
 ny() { echo $((($1 - FY) * 1000 / FH)); }
 # parity "what" home-value preview-value: within 15 thousandths (1.5 %) of the frame

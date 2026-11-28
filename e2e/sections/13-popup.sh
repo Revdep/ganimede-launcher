@@ -236,7 +236,7 @@ A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1; wa
 
 step "Favourite bubble (List, preview on): a player per voice note under the fixture's name, each plays, no overlap"
 wipe; voice
-setp string fav "$FIX/$FIX.Open\&#10;com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;com.google.android.deskclock/com.android.deskclock.DeskClock\&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity"
+setp string fav "$FIX/$FIX.Open&#10;com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;com.google.android.deskclock/com.android.deskclock.DeskClock&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity"
 setp boolean notif_preview true
 wait_until 10 eval '[ "$(players)" = "Messaggio vocale|Messaggio vocale" ]' && ok "bubble: two players" || ko "bubble players: $(players)"
 shot 42-bubble-voice

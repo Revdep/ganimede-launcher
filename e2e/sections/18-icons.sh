@@ -367,7 +367,7 @@ same "$OUT/icons-fixture-none.png" "$OUT/icons-fixture-circle.png" \
   && ok "a square icon is not cut to the circle" || ko "a square icon changed with the circle shape"
 
 step "Built-in set with Original: covered apps get the accent glyph, the others keep their own colours"
-look original none solid accent string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open" int accent -2093040 string icon_pack "$BUILTIN"
+look original none solid accent string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Open" int accent -2093040 string icon_pack "$BUILTIN"
 capture Calendar "$OUT/icons-original-builtin-calendar.png" || ko "no Calendar with the built-in set"
 capture Fixture "$OUT/icons-original-builtin-fixture.png" || ko "no fixture app with the built-in set"
 red=$(colour_pixels "$OUT/icons-original-builtin-calendar.png" "$RED")
@@ -392,7 +392,7 @@ centre_box() { # png: "x y w h" of the white glyph, centred on the red plate wit
 for mode in list classic; do
   step "Fallback glyph matches Arcticons on the plate: $mode mode"
   seed "$mode"
-  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open"
+  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Open"
   setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true
   setp boolean icon_category false # the fixture declares a category (issue 087): these steps are about its silhouette
   if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi # at 80 dp the cell cuts the plate's sides
@@ -438,7 +438,7 @@ for mode in list classic; do
     || ko "$mode: no plate: fixture red $red px, middle #$(pixel "$f" $((w / 2)) $((h / 2))) against its own icon's #$(pixel "$o" $((w / 2)) $((h / 2)))"
 
   step "Monochrome-layer fallback matches Arcticons on the plate: $mode mode"
-  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Mono"
+  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Mono"
   look line circle solid accent
   mono="$OUT/icons-$mode-fallback-mono.png"
   capture "Fixture mono" "$mono" || ko "$mode: no Fixture mono"
@@ -529,8 +529,8 @@ differ "$OUT/icons-chrome-home-look.png" "$OUT/icons-chrome-own-look.png" \
 step "A folder on an app page shows its apps in the app pages' own look (Classic, drawer off)"
 # cell 20: page two's first; drawer_labels: no white name under the tile; home: white glyphs, app pages: red
 seed classic boolean drawer false int grid_cols 4 int grid_rows 5 int grid_pages 2 \
-  string folder:x "{\&quot;name\&quot;:\&quot;Cartella X\&quot;,\&quot;where\&quot;:\&quot;grid\&quot;,\&quot;apps\&quot;:[\&quot;com.google.android.calendar/com.android.calendar.AllInOneActivity\&quot;]}" \
-  string grid "{\&quot;20\&quot;:\&quot;f:x\&quot;}" int accent -2093040 string icon_pack "builtin:arcticons" \
+  string folder:x "{&quot;name&quot;:&quot;Cartella X&quot;,&quot;where&quot;:&quot;grid&quot;,&quot;apps&quot;:[&quot;com.google.android.calendar/com.android.calendar.AllInOneActivity&quot;]}" \
+  string grid "{&quot;20&quot;:&quot;f:x&quot;}" int accent -2093040 string icon_pack "builtin:arcticons" \
   boolean drawer_follow false boolean drawer_labels false $(model original none solid text) string drawer_icon_color accent
 folder_cell() { # folder_cell out.png: the folder on page two
   local n=0
@@ -564,7 +564,7 @@ tap "Annulla"
 for mode in list classic; do
   step "Category glyph for an app without an Arcticons icon: $mode mode"
   size=icon_size; [ "$mode" = classic ] && size=grid_icon
-  seed "$mode" string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open" \
+  seed "$mode" string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Open" \
     int accent -2093040 string icon_pack "$BUILTIN" boolean hide_labels true int $size 64 \
     string "icon:$CAL" "$BUILTIN|emoji_newspaper" $(model line circle solid accent)
   cal="$OUT/icons-$mode-category-calendar.png" fix="$OUT/icons-$mode-category-fixture.png"

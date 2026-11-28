@@ -5,7 +5,7 @@ longpress() { A shell input swipe "$1" "$2" "$1" "$2" 1300; }
 
 step "Dock: 3 slots, a 4th app can't be added"
 seed classic
-setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;com.google.android.deskclock/com.android.deskclock.DeskClock\&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity\&#10;com.android.settings/com.android.settings.Settings"
+setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;com.google.android.deskclock/com.android.deskclock.DeskClock&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity&#10;com.android.settings/com.android.settings.Settings"
 setp int dock_count 3
 i=0
 for app in Calendar Clock Contacts; do

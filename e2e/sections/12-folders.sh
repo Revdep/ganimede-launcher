@@ -33,7 +33,7 @@ shot 121-folder-deleted
 step "Folders: a deleted folder's key is not revived by a drop on its empty grid spot"
 seed classic; setp int grid_cols 4
 g=$(pref grid); g2="${g%\}},&quot;13&quot;:&quot;f:777&quot;}" # cell 13: right of Contacts (cells 10-12), a folder id that no longer exists
-setp string grid "${g2//&/\\&}"
+setp string grid "$g2"
 read -r ax ay <<<"$(cx Calendar)"; read -r _ cy <<<"$(cx Contacts)"
 colw=$(((W - 2 * $(dp 8)) / 4)); tx=$(($(dp 8) + colw + colw / 2)) # column 2 of Contacts' row
 A shell input draganddrop "$ax" "$ay" "$tx" "$cy" 1500
@@ -78,7 +78,7 @@ step "Folders: Settings defaults, one-folder look, then changed defaults"
 seed classic \
   string folder:look '{"name":"Tre","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
   string folder:other '{"name":"Altra","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
-  string fav 'f:look\&#10;f:other'
+  string fav 'f:look&#10;f:other'
 LAVENDER=-4609803 # #FFB9A8F5
 SKY=-7686920      # #FF8AB4F8
 
@@ -203,7 +203,7 @@ n=$(echo "$comps" | grep -c .)
 many=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
 seed classic string folder:big "{\"name\":\"Grande\",\"where\":\"fav\",\"apps\":[$many]}" \
   string folder:few '{"name":"Pochi","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
-  string fav 'f:big\&#10;f:few\&#10;f:two' \
+  string fav 'f:big&#10;f:few&#10;f:two' \
   string folder:two "{\"name\":\"Doppia\",\"where\":\"fav\",\"cols\":2,\"apps\":[$many]}" # same apps, 2 columns: still taller than the screen when n >= 30
 inset() { # inset statusBars|navigationBars: the inset's frame "x1 y1 x2 y2" from the window dump, empty when absent
   A shell dumpsys window | grep -o "type=$1 frame=\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]" | head -1 \
