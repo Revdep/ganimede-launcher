@@ -4,6 +4,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.LauncherActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
@@ -73,6 +74,7 @@ final class Icons {
             "com.gau.go.launcherex.theme", "com.anddoes.launcher.THEME"};
 
     private static final Object LOAD_LOCK = new Object();
+    static final String CATEGORY_KEY = "icon_category";
     private static volatile String loadedPack;
     private static volatile Pack loaded = new Pack(null, null, Map.of(), null);
     private static final java.util.concurrent.atomic.AtomicInteger packRevision = new java.util.concurrent.atomic.AtomicInteger();
@@ -179,8 +181,8 @@ final class Icons {
      */
     static void applySample(ImageView v, Drawable placeholder, IconLook look, int fg, int accent, int size) {
         BuiltinIcon s = sample;
-        if (s != null) { apply(v, s, false, null, look, fg, accent, size); return; }
-        apply(v, placeholder, false, null, look, fg, accent, size);
+        if (s != null) { apply(v, s, false, null, null, look, fg, accent, size); return; }
+        apply(v, placeholder, false, null, null, look, fg, accent, size);
         Context c = v.getContext().getApplicationContext();
         RENDER.execute(() -> {
             try {
@@ -189,7 +191,7 @@ final class Icons {
                     sample = new BuiltinIcon(set.icon(set.index().find("com.google.android.calendar",
                             "com.android.calendar.AllInOneActivity").orElse(0)));
                 }
-                v.post(() -> apply(v, sample, false, null, look, fg, accent, size));
+                v.post(() -> apply(v, sample, false, null, null, look, fg, accent, size));
             } catch (IOException | RuntimeException e) {
                 // an unreadable set: the placeholder stays
             }
@@ -256,6 +258,26 @@ final class Icons {
     }
 
     /**
+     * The built-in glyph for an app that has no icon in the set (issue 087): its Play category from the set's tables, else
+     * the one its manifest declares. Null with another pack, with "Category icons" off, or when the app has no category.
+     */
+    static BuiltinIcon category(SharedPreferences p, LauncherActivityInfo info) {
+        IconSet set = loaded.set;
+        if (set == null || !p.getBoolean(CATEGORY_KEY, true)) return null;
+        OptionalInt id = set.categoryGlyph(info.getComponentName().getPackageName(), info.getApplicationInfo().category);
+        try {
+            return id.isPresent() ? new BuiltinIcon(set.icon(id.getAsInt())) : null;
+        } catch (RuntimeException damaged) {
+            return null;
+        }
+    }
+
+    /** What Apps.load was last run for: a change of either makes the home read its apps again. */
+    static String loadKey(SharedPreferences p) {
+        return p.getString("icon_pack", "") + "|" + p.getBoolean(CATEGORY_KEY, true);
+    }
+
+    /**
      * Every icon a pack offers: the built-in set's names, or the drawable names an installed pack's appfilter lists,
      * without repeats. No cap (issue 081): names are only strings, and the picker draws only the cells on screen.
      */
@@ -309,7 +331,7 @@ final class Icons {
      * Puts an icon into an ImageView as the icon model says (glyph treatment, container, fill, colour). {@code user}: the
      * profile of the app the icon is for (null: not an app's), whose badge goes on another profile's icon.
      */
-    static void apply(ImageView v, Drawable icon, boolean fromPack, UserHandle user, IconLook look, int fg, int accent, int size) {
+    static void apply(ImageView v, Drawable icon, boolean fromPack, BuiltinIcon category, UserHandle user, IconLook look, int fg, int accent, int size) {
         int px = size <= 0 ? 96 : size;
         v.setBackground(null);
         v.setPadding(0, 0, 0, 0);
@@ -329,11 +351,12 @@ final class Icons {
         Drawable mono = Build.VERSION.SDK_INT >= 33 && icon instanceof AdaptiveIconDrawable ? ((AdaptiveIconDrawable) icon).getMonochrome() : null;
         // the silhouette is judged once drawn, on the render thread: until then ALPHA stands for "silhouette or greys"
         IconSource source = IconSource.pick(fromPack, s -> s == IconSource.ARCTICONS ? icon instanceof BuiltinIcon
-                : s == IconSource.CATEGORY ? false // not wired yet (issue 087): needs the app's category glyph
+                : s == IconSource.CATEGORY ? category != null && !look.glyph().equals("original")
                 : s != IconSource.MONOCHROME || mono != null);
-        if (source == IconSource.ARCTICONS) { // built-in geometry, with the treatment's stroke (original draws as Line)
-            BuiltinIcon fresh = (BuiltinIcon) copy(icon); // its own tint, alpha and look: the shared one stays as it is
-            renderInto(v, ((BuiltinIcon) plain(icon, colours.glyph())).look(look), idOf(icon) + "|" + look + "|" + colours.glyph() + "|" + px, () -> {
+        if (source == IconSource.ARCTICONS || source == IconSource.CATEGORY) { // built-in geometry, with the treatment's stroke (original draws as Line)
+            Drawable glyph = source == IconSource.CATEGORY ? category : icon; // the app has no entry: its category's glyph
+            BuiltinIcon fresh = (BuiltinIcon) copy(glyph); // its own tint, alpha and look: the shared one stays as it is
+            renderInto(v, ((BuiltinIcon) plain(glyph, colours.glyph())).look(look), idOf(glyph) + "|" + look + "|" + colours.glyph() + "|" + px, () -> {
                 Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
                 fresh.render(new Canvas(b), look, colours.glyph(), px);
                 return badged(c, b, user);

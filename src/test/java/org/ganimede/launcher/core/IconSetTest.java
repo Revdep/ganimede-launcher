@@ -317,4 +317,13 @@ public class IconSetTest {
         }
         eq("emoji_classical_building", set.name(set.categoryGlyph("it.bnl.apps.banking").orElseThrow()), "from the curated table");
             }
+
+    /** The category of an app: the tables first (dated, but the curated one is checked), then what the app declares. */
+    public static void testManifestCategoryIsTheLastResort() {
+        IconSet set = withCategories();
+        eq(OptionalInt.of(id(set, "arc")), set.categoryGlyph("com.example.bank", 5), "the table beats the manifest (NEWS)");
+        eq(OptionalInt.of(id(set, "square")), set.categoryGlyph("com.example.unknown", 5), "not in the tables: its declared category");
+        eq(OptionalInt.empty(), set.categoryGlyph("com.example.unknown", -1), "undefined: none");
+        eq(OptionalInt.empty(), fixture().categoryGlyph("com.example.unknown", 5), "format 1 has no glyph table");
+    }
 }

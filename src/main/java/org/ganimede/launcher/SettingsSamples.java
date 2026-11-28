@@ -134,7 +134,7 @@ final class SettingsSamples {
         // Text-coloured icons in dark text would vanish on these dark cards: show them white here.
         int sampleFg = fg == Colors.INK ? Colors.WHITE : fg;
         // Line, Bold and Sharp differ only on built-in glyphs: their tiles show one (the asset is always there).
-        if (look.glyph().equals("original") || look.glyph().equals("dot")) Icons.apply(icon, d, false, null, look, sampleFg, acc, size);
+        if (look.glyph().equals("original") || look.glyph().equals("dot")) Icons.apply(icon, d, false, null, null, look, sampleFg, acc, size);
         else Icons.applySample(icon, d, look, sampleFg, acc, size);
         icon.setLayoutParams(new LinearLayout.LayoutParams(size, size));
         return icon;

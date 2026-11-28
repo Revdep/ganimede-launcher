@@ -166,6 +166,13 @@ public final class IconSet {
                 ? OptionalInt.of(categoryGlyphs.get(category.getAsInt())) : OptionalInt.empty();
     }
 
+    /** {@link #categoryGlyph(String)}, else the glyph of the category the app declares in its manifest ({@code ApplicationInfo.category}). */
+    public OptionalInt categoryGlyph(String pkg, int manifestCategory) {
+        OptionalInt known = categoryGlyph(pkg);
+        if (known.isPresent() || categoryGlyphs.isEmpty()) return known;
+        return AppCategory.fromManifest(manifestCategory).filter(c -> c.ordinal() < categoryGlyphs.size()).map(c -> OptionalInt.of(categoryGlyphs.get(c.ordinal()))).orElse(OptionalInt.empty());
+    }
+
     /** The categories' names and glyph icon ids, in the order of {@link AppCategory} (empty in format 1). */
     public List<String> categoryNames() { return categoryNames; }
 
