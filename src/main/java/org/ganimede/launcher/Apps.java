@@ -57,11 +57,29 @@ final class Apps {
     /** This profile's apps but Ganimede, A to Z by their own names: for the settings' lists and preview. */
     static List<Item> named(Context c) {
         List<Item> out = new ArrayList<>();
-        for (LauncherActivityInfo info : c.getSystemService(LauncherApps.class).getActivityList(null, Process.myUserHandle()))
-            if (!info.getComponentName().getPackageName().equals(c.getPackageName()))
-                out.add(new Item(info, info.getComponentName().flattenToString()));
+        for (LauncherActivityInfo info : c.getSystemService(LauncherApps.class).getActivityList(null, Process.myUserHandle())) {
+            Item it = read(c, null, null, info, null);
+            if (it != null) out.add(it);
+        }
         out.sort((a, b) -> a.label.compareToIgnoreCase(b.label));
         return out;
+    }
+
+    /**
+     * One app as an Item, or null (left out until the next load): an app being updated can't take the whole list down.
+     * With prefs its icon is resolved too; with um the key names another profile's app.
+     */
+    private static Item read(Context c, SharedPreferences prefs, UserManager um, LauncherActivityInfo info, UserHandle user) {
+        if (info.getComponentName().getPackageName().equals(c.getPackageName())) return null;
+        try {
+            boolean mine = user == null || user.equals(Process.myUserHandle());
+            Item it = new Item(info, info.getComponentName().flattenToString() + (mine ? "" : "#" + um.getSerialNumberForUser(user)));
+            if (prefs != null) resolveIcon(c, prefs, it);
+            return it;
+        } catch (RuntimeException e) {
+            android.util.Log.w("Ganimede", "app left out: " + info.getComponentName(), e);
+            return null;
+        }
     }
 
     /**
@@ -81,21 +99,40 @@ final class Apps {
         it.icon = packed != null ? packed : it.info.getIcon(0);
     }
 
-    /** The same list read off the main thread (a label each, from the system), then handed over on it while a is open. */
+    /**
+     * The same list read off the main thread (a label each, from the system), then handed over on it. Only the latest
+     * ask is answered, to the activity that asked it if it is still there: a second tap while loading doesn't open a
+     * second dialog, and the page a rotation rebuilt gets the list, not the one that is gone.
+     */
     static void named(Activity a, Consumer<List<Item>> then) {
-        if (!LOADING.compareAndSet(false, true)) return; // a second tap while loading would open a second dialog
+        waitingFor = a;
+        waiting = then;
+        if (!LOADING.compareAndSet(false, true)) return;
+        Context app = a.getApplicationContext();
         new Thread(() -> {
+            List<Item> l;
             try {
-                List<Item> l = named(a);
-                a.runOnUiThread(() -> { LOADING.set(false); if (!a.isDestroyed()) then.accept(l); });
-            } catch (RuntimeException e) {
-                LOADING.set(false);
-                throw e;
+                l = named(app);
+            } catch (RuntimeException e) { // a profile going away: nothing to show, not a crash of Settings
+                android.util.Log.w("Ganimede", "apps not read", e);
+                l = null;
             }
+            List<Item> done = l;
+            new Handler(android.os.Looper.getMainLooper()).post(() -> {
+                LOADING.set(false);
+                Activity w = waitingFor;
+                Consumer<List<Item>> t = waiting;
+                waitingFor = null;
+                waiting = null;
+                if (done != null && w != null && !w.isDestroyed()) t.accept(done);
+            });
         }).start();
     }
 
     private static final java.util.concurrent.atomic.AtomicBoolean LOADING = new java.util.concurrent.atomic.AtomicBoolean();
+    /** The latest named() ask and who made it: main thread only. */
+    private static Activity waitingFor;
+    private static Consumer<List<Item>> waiting;
 
     private final Context c;
     private final SharedPreferences prefs;
@@ -136,14 +173,9 @@ final class Apps {
                     } catch (RuntimeException e) { // a profile going away right now
                         continue;
                     }
-                    for (LauncherActivityInfo info : list) try {
-                        if (info.getComponentName().getPackageName().equals(c.getPackageName())) continue;
-                        Item it = new Item(info, info.getComponentName().flattenToString()
-                                + (user.equals(Process.myUserHandle()) ? "" : "#" + um.getSerialNumberForUser(user)));
-                        resolveIcon(c, prefs, it);
-                        out.add(it);
-                    } catch (RuntimeException oneApp) { // one app being updated can't take the whole list down
-                        // left out until the next load
+                    for (LauncherActivityInfo info : list) {
+                        Item it = read(c, prefs, um, info, user);
+                        if (it != null) out.add(it);
                     }
             }
             Map<String, Item> keys = new HashMap<>(), pkgs = new HashMap<>(), groups = new HashMap<>();

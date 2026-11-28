@@ -3,6 +3,7 @@ package org.ganimede.launcher;
 import org.ganimede.launcher.core.Colors;
 
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.view.Gravity;
 import android.view.View;
@@ -10,6 +11,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Owns the first-run wizard's steps, navigation and app selection. */
@@ -136,7 +138,13 @@ final class SettingsWizard {
     private void favouriteChoices(LinearLayout c) {
         Layout layout = new Layout(kit.activity(), kit.prefs());
         List<String> fav = layout.favourites();
-        for (Apps.Item app : Apps.named(kit.activity())) {
+        Apps.named(kit.activity(), apps -> fillFavourites(c, layout, fav, apps));
+    }
+
+    /** The rows, as soon as the apps are read; their icons come after, one by one, off the main thread. */
+    private void fillFavourites(LinearLayout c, Layout layout, List<String> fav, List<Apps.Item> apps) {
+        List<ImageView> icons = new ArrayList<>();
+        for (Apps.Item app : apps) {
             String key = app.key;
             TextView check = kit.text("", 20, kit.ui.accent);
             LinearLayout r = kit.row(c, null, app.label, null, () -> {
@@ -148,7 +156,7 @@ final class SettingsWizard {
                 kit.refresh();
             });
             ImageView icon = new ImageView(kit.activity());
-            icon.setImageDrawable(app.info.getBadgedIcon(0));
+            icons.add(icon);
             LinearLayout.LayoutParams il = new LinearLayout.LayoutParams(kit.ui.dp(36), kit.ui.dp(36));
             il.rightMargin = kit.ui.dp(16);
             r.addView(icon, 0, il);
@@ -156,6 +164,13 @@ final class SettingsWizard {
             r.addView(check, new LinearLayout.LayoutParams(kit.ui.dp(28), kit.ui.dp(28)));
             tick(check, fav.contains(key));
         }
+        new Thread(() -> {
+            for (int i = 0; i < icons.size(); i++) {
+                Drawable d = apps.get(i).info.getBadgedIcon(0);
+                ImageView v = icons.get(i);
+                v.post(() -> v.setImageDrawable(d));
+            }
+        }).start();
     }
 
     /** Shows a row as ticked or not: its check mark, and its state for TalkBack (the row holds the check). */
