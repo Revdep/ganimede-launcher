@@ -79,12 +79,11 @@ wait_until 5 hasnt "Settings" && ok "unchecked favourite is neither a favourite 
 step "List mode: a cold start never shows the \"no favourites\" hint while the apps load"
 seed list                                                  # favourites saved; the process starts cold with an empty app list
 A logcat -b main -c; A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME
-hint_seen=; end=$((SECONDS + 15))
-until A logcat -d -b main -s Ganimede:I | grep -q 'apps loaded' || [ $SECONDS -ge $end ]; do
-  rm -f "$SCR"; has "Tieni premuta un'app nell'elenco" && hint_seen=1
-done
-[ $SECONDS -lt $end ] || ko "Ganimede never logged \"apps loaded\""
-[ -z "$hint_seen" ] && ok "no hint before the apps are loaded" || ko "the hint showed while the app list was still empty"
+loaded() { A logcat -d -b main -s Ganimede:I | grep -q 'apps loaded'; }
+wait_until 15 loaded && ok "the apps loaded" || ko "Ganimede never logged \"apps loaded\""
+# the app logs a line when it adds the hint: it must not come before the apps are loaded (no screen polling: the log is the proof)
+A logcat -d -b main -s Ganimede:I | sed '/apps loaded/q' | grep -q 'fav hint shown' \
+  && ko "the hint showed while the app list was still empty" || ok "no hint before the apps are loaded"
 expect "Calendar"
 
 step "Smart sort: apps opened from the drawer rise within their letter after coming back"
