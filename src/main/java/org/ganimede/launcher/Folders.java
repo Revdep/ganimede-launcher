@@ -44,6 +44,7 @@ final class Folders {
     /** The long-press menu of an entry inside a folder: (entry, folder id). */
     private final BiConsumer<String, String> entryMenu;
     private Motion popup;          // the pop-up last opened
+    private ScrollView popupScroll; // its scroll view, whose position survives a rebuild
     private String popupId;        // its folder
     private Set<String> popupLook; // what it shows of each entry (see looks)
     private FolderDrag popupDrag;  // its icons' touch handling: no rebuild under a finger
@@ -94,8 +95,11 @@ final class Folders {
         if (!popup.getWindow().getDecorView().hasWindowFocus()) return;
         if (popupDrag.busy() || looks(popupId).equals(popupLook)) return;
         String focused = popupDrag.focused();
+        int scrolled = popupScroll.getScrollY();
         popup.dismiss();
         show(popupId);
+        ScrollView again = popupScroll;
+        again.post(() -> again.scrollTo(0, scrolled));
         if (focused != null) popupDrag.focus(focused);
     }
 
@@ -362,6 +366,7 @@ final class Folders {
         popupId = id;
         popupLook = looks(id);
         popupDrag = drag;
+        popupScroll = sv;
         dlg[0].getWindow().getDecorView().getViewTreeObserver()
                 .addOnWindowFocusChangeListener(has -> { if (has) reshowIfChanged(); });
     }
