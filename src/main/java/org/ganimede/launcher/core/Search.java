@@ -17,8 +17,13 @@ public final class Search {
         return !Character.isLetterOrDigit(p) || (Character.isUpperCase(c) && !Character.isUpperCase(p));
     }
 
+    private static final java.util.regex.Pattern MARKS = java.util.regex.Pattern.compile("\\p{M}");
+
+    /** Without accents. Pure ASCII has none and is returned as is: rank runs this on every name at each keystroke. */
     private static String plain(String s) {
-        return java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        for (int i = 0; i < s.length(); i++)
+            if (s.charAt(i) > 0x7f) return MARKS.matcher(java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)).replaceAll("");
+        return s;
     }
 
     /**

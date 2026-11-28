@@ -3,6 +3,7 @@ package org.ganimede.launcher;
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.FolderLook;
 import org.ganimede.launcher.core.IconLook;
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Preferences;
 import org.ganimede.launcher.core.Safe;
 
@@ -205,7 +206,7 @@ final class SettingsLook {
             iconRow(c, "Plate", IconLook.CONTAINERS, Icons.CONTAINER_NAMES, l.container(), "icon_container", key,
                     v -> IconLook.of(l.glyph(), v, l.fill(), l.color()));
         }
-        if (!l.tinted(Icons.BUILTIN.equals(p.getString("icon_pack", "")))) return; // the apps' own colours: no fill, no colour
+        if (!l.tinted(IconSet.PACK.equals(p.getString("icon_pack", "")))) return; // the apps' own colours: no fill, no colour
         if (l.plated()) {
             kit.sub(c, kit.ui.tr("Fill"));
             iconRow(c, "Fill", IconLook.FILLS, Icons.FILL_NAMES, l.fill(), "icon_fill", key,
@@ -228,7 +229,7 @@ final class SettingsLook {
         List<String> ids = new ArrayList<>(), names = new ArrayList<>();
         ids.add("");
         names.add(kit.ui.tr("None (apps' own icons)"));
-        ids.add(Icons.BUILTIN);
+        ids.add(IconSet.PACK);
         names.add(kit.ui.tr("Arcticons (built-in)"));
         for (Map.Entry<String, String> e : Icons.packs(kit.activity()).entrySet()) { ids.add(e.getKey()); names.add(e.getValue()); }
         kit.radios(c, names.toArray(new String[0]), Math.max(0, ids.indexOf(kit.prefs().getString("icon_pack", ""))), null, null,

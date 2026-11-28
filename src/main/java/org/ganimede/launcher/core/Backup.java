@@ -82,7 +82,7 @@ public final class Backup {
         int[] r = RANGES.get(k);
         if (r != null && ((Integer) v < r[0] || (Integer) v > r[1])) return false;
         if (v instanceof Float && !(((Float) v) >= 0 && ((Float) v) <= 1)) return false; // fab_y, a fraction of the height; rejects NaN too
-        if (k.startsWith("icon:") && !((String) v).matches("[\\w.]+\\|\\w+")) return false; // "pack|drawable", as the picker saves it
+        if (k.startsWith("icon:") && !((String) v).matches("([\\w.]+|" + IconSet.PACK + ")\\|\\w+")) return false; // "pack|drawable", as the picker saves it
         if (v instanceof String && ((String) v).length() > 64 * 1024) return false; // a real setting is far smaller
         if (k.equals("mode")) return v.equals("list") || v.equals("classic");
         if (v instanceof String && !IconLook.allows(k, (String) v)) return false; // e.g. the removed "cutout"

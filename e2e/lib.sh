@@ -207,6 +207,8 @@ shows() { local f re='text=["'"'"'][^>]*'; for f in "$@"; do re="$re$f[^>]*"; do
 noshows() { ! shows "$@"; }
 # fdiff a.png b.png [WxH+X+Y]: how many pixels differ (inside the crop, if given). Pixels, never file bytes: a PNG
 # written by magick carries its dates, so cmp calls two identical pictures different (issue 086).
+hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu
+clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
 fdiff() { compare -metric AE "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
 # seed classic|list: a configured app without the wizard: onboarded, mode, favourites, Italian, the home role.
 # (the APK must be installed). Leaves the home screen in front.

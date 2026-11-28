@@ -77,6 +77,7 @@ final class Apps {
             List<UserHandle> users;
             try { users = launcherApps.getProfiles(); } catch (RuntimeException e) { users = List.of(Process.myUserHandle()); }
             Icons.load(c, pack);
+            Icons.preload(c, prefs); // a folder's or shortcut's picked built-in icon: drawn on the main thread at refreshAll
             for (UserHandle user : users) {
                     // Paused work profiles and a locked private space stay out of the list.
                     List<LauncherActivityInfo> list;
