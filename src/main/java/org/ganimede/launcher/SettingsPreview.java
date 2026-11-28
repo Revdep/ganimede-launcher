@@ -481,7 +481,7 @@ final class SettingsPreview extends FrameLayout {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPaddingRelative(0, gap, 0, gap);
         Apps.Item a = all.get(entry);
-        row.addView(a != null ? iconView(a, look, fg, accent, size) : tile(entry, size, fg),
+        row.addView(a != null ? iconView(a, look, fg, accent, size) : tile(entry, size, fg, accent, look),
                 new LinearLayout.LayoutParams(size + px(4), size + px(2)));
         if (labels) {
             TextView name = new TextView(c);
@@ -501,13 +501,16 @@ final class SettingsPreview extends FrameLayout {
     }
 
     /** A folder's or shortcut's icon: a soft tile with its mark. */
-    private View tile(String entry, int icon, int fg) {
+    private View tile(String entry, int icon, int fg, int accent, IconLook look) {
+        Drawable picked = Icons.picked(getContext(), p, entry); // the icon chosen for it, as the home shows it
+        if (picked != null) {
+            ImageView iv = new ImageView(getContext());
+            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            Icons.apply(iv, picked, true, null, null, look, fg, accent, icon);
+            return iv;
+        }
         View v = new View(getContext());
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(icon / 3f);
-        bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
-        v.setBackground(new android.graphics.drawable.LayerDrawable(new Drawable[]{bg,
-                new android.graphics.drawable.InsetDrawable(new Glyph(entry.startsWith("f:") ? "folder" : "link", fg), icon / 4)}));
+        v.setBackground(Icons.markedTile(entry.startsWith("f:") ? "folder" : "link", icon, fg));
         return v;
     }
 
@@ -616,7 +619,7 @@ final class SettingsPreview extends FrameLayout {
             iv = iconView(a, look, fg, accent, icon);
             name = Apps.label(p, a);
         } else if (layout.entryExists(entry, k -> false)) { // a folder that is kept, or a shortcut
-            iv = tile(entry, icon, fg);
+            iv = tile(entry, icon, fg, accent, look);
             name = entryName(entry);
         }
         if (iv == null) { // empty slot: a faint outline, so rows, columns and dock size show even on an empty grid

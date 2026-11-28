@@ -26,6 +26,7 @@ import android.widget.ImageView;
 import org.ganimede.launcher.core.GlyphFit;
 import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.IconMask;
+import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.IconSource;
 import org.ganimede.launcher.core.LimitedInputStream;
@@ -192,7 +193,7 @@ final class Icons {
                     sample = glyph(set, set.index().find("com.google.android.calendar",
                             "com.android.calendar.AllInOneActivity").orElse(0));
                 }
-                v.post(() -> apply(v, sample, false, null, null, look, fg, accent, size));
+                MAIN.post(() -> apply(v, sample, false, null, null, look, fg, accent, size));
             } catch (IOException | RuntimeException e) {
                 // an unreadable set: the placeholder stays
             }
@@ -238,6 +239,13 @@ final class Icons {
         }
     }
 
+    /** Icon pickers open: they read the built-in set on the main thread, so a trim must not release it under them. */
+    private static final java.util.concurrent.atomic.AtomicInteger PICKERS = new java.util.concurrent.atomic.AtomicInteger();
+
+    static void pickerOpen(boolean open) {
+        PICKERS.addAndGet(open ? 1 : -1);
+    }
+
     /**
      * Memory is short: fewer drawn icons; with no screen of ours showing, none, and the 4 MB set too unless the pack or a
      * picked icon uses it (read again when needed). Hiding the home alone frees nothing: it comes back at once.
@@ -248,7 +256,7 @@ final class Icons {
         boolean background = level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
         CACHE.trimToSize(background ? 0 : CACHE.size() / 2);
         if (background) GLYPHS.evictAll();
-        if (background && loaded.set == null && !IconSet.needed(p.getAll())) builtin = null;
+        if (background && loaded.set == null && PICKERS.get() == 0 && !IconSet.needed(p.getAll())) builtin = null;
     }
 
     /** An app was installed or updated: if it's an icon pack, it's read again on the next load. */
@@ -299,6 +307,11 @@ final class Icons {
         }
     }
 
+    /** What {@link Apps#resolveIcon} depends on besides the picked icon: the settings, and whether the pack and the built-in set were read yet. */
+    static String resolveStamp(SharedPreferences p) {
+        return loadKey(p) + "|" + loadedPack + "|" + (builtin != null);
+    }
+
     /** What Apps.load was last run for: a change of either makes the home read its apps again. */
     static String loadKey(SharedPreferences p) {
         return p.getString("icon_pack", "") + "|" + p.getBoolean(CATEGORY_KEY, true);
@@ -346,7 +359,7 @@ final class Icons {
 
     /** The icon picked for an entry from an installed pack (stored under "icon:<entry>"), or null. */
     static Drawable picked(Context c, SharedPreferences p, String entry) {
-        return named(c, p.getString("icon:" + entry, ""));
+        return named(c, p.getString(IconSet.pickedKey(entry), ""));
     }
 
     /** The icon settings of the home (the drawer's own: Layout.drawerIconLook). */
@@ -392,8 +405,13 @@ final class Icons {
                 return b;
             });
         } else if (look.glyph().equals("original")) { // the app's own icon, cut to the container if there is one
-            v.setImageDrawable(look.container().equals("none") || !(icon instanceof AdaptiveIconDrawable) ? badged(c, copy(icon), user)
-                    : clip(c, (AdaptiveIconDrawable) icon, look.container(), px, user));
+            if (!look.container().equals("none") && icon instanceof AdaptiveIconDrawable) v.setImageDrawable(clip(c, (AdaptiveIconDrawable) icon, look.container(), px, user));
+            else if (user == null || user.equals(Process.myUserHandle())) v.setImageDrawable(copy(icon));
+            else renderInto(v, copy(icon), 0xFF, user, idOf(icon) + "|" + user + "|own|" + px, () -> { // the badge once, in the cache, not at every bind
+                Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
+                draw(new Canvas(b), icon, px, false);
+                return b;
+            });
             return;
         } else { // a glyph from the app's own icon: its monochrome layer, silhouette or greys (the same for every stroke)
             boolean tintGreys = look.plated() || look.color().equals("accent"); // today's Monochrome kept plain greys
@@ -473,6 +491,8 @@ final class Icons {
 
     /** Renders on one background thread: a drawer of hundreds of apps must not block the UI. */
     private static final java.util.concurrent.Executor RENDER = java.util.concurrent.Executors.newSingleThreadExecutor();
+    /** Results go back through the main looper: View.post on a view not yet attached queues until it attaches, and can be lost. */
+    private static final android.os.Handler MAIN = new android.os.Handler(android.os.Looper.getMainLooper());
 
     /**
      * Shows a drawn icon in the view: at once when it was drawn before, otherwise the placeholder first and the drawn
@@ -491,9 +511,10 @@ final class Icons {
         v.setImageDrawable(placeholder);
         RENDER.execute(() -> {
             try {
-                Bitmap shown = badged(c, faded(draw.get(), alpha), user); // the badge goes into the cached picture
-                CACHE.put(k, shown);
-                v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
+                Bitmap drawn = CACHE.get(k); // the same icon queued twice before the first was drawn: once
+                if (drawn == null) CACHE.put(k, drawn = badged(c, faded(draw.get(), alpha), user)); // the badge goes into the cached picture
+                Bitmap shown = drawn;
+                MAIN.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
             } catch (RuntimeException e) { // a drawable that fails to draw: the placeholder stays, the home goes on
             }
         });
@@ -611,6 +632,20 @@ final class Icons {
             if (i == 0) p.moveTo(x, y); else p.lineTo(x, y);
         }
         p.close();
+    }
+
+    /** The soft plate of a folder's or shortcut's icon, as the home draws it. */
+    static android.graphics.drawable.GradientDrawable softTile(int size) {
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(size / 3f);
+        bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
+        return bg;
+    }
+
+    /** {@link #softTile} with a mark ("folder" or "link") in the middle. */
+    static Drawable markedTile(String mark, int size, int fg) {
+        return new android.graphics.drawable.LayerDrawable(new Drawable[]{softTile(size),
+                new android.graphics.drawable.InsetDrawable(new Glyph(mark, fg), size / 4)});
     }
 
     static Drawable copy(Drawable d) {

@@ -1,5 +1,6 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Search;
 
 import android.app.Activity;
@@ -32,6 +33,8 @@ final class Apps {
         boolean fromPack;
         /** The icon picked for it when this Item was made ("" for none): what its icon shows, as a stable key. */
         String picked = "";
+        /** What {@link #resolveIcon} last resolved this icon for (picked icon, pack, category setting): the same again keeps the drawable, and its cached render. */
+        private String resolvedFor;
         /**
          * Its app's install as of this Item: the APK path, which changes with every update (an update may bring a new
          * icon of its own), in its own profile. Android 11+ installs each update under a new random /data/app/~~…/
@@ -66,8 +69,12 @@ final class Apps {
      * else its category's glyph, else its own (unbadged: Icons.apply badges what it draws).
      */
     static void resolveIcon(Context c, SharedPreferences prefs, Item it) {
+        String picked = prefs.getString(IconSet.pickedKey(it.key), "");
+        String stamp = picked + "|" + Icons.resolveStamp(prefs);
+        if (stamp.equals(it.resolvedFor)) return;
+        it.resolvedFor = stamp;
         Drawable packed = Icons.picked(c, prefs, it.key);
-        it.picked = prefs.getString("icon:" + it.key, "");
+        it.picked = picked;
         if (packed == null) packed = Icons.fromPack(it.info.getComponentName());
         it.fromPack = packed != null;
         it.category = packed == null ? Icons.category(prefs, it.info) : null;

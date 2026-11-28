@@ -1,5 +1,6 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Grid;
 import org.ganimede.launcher.core.Pins;
 import org.ganimede.launcher.core.Blocks;
@@ -341,7 +342,7 @@ final class Layout {
         g.values().removeIf(entry::equals);
         List<String> dock = dock();
         dock.removeIf(entry::equals);
-        prefs.edit().remove("folder:" + id).putString("fav", String.join("\n", fav))
+        prefs.edit().remove("folder:" + id).remove(IconSet.pickedKey(entry)).putString("fav", String.join("\n", fav))
                 .putString("grid", gridJson(g).toString()).putString("dock", String.join("\n", dock)).apply();
     }
 
