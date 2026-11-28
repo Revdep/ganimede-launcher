@@ -18,6 +18,7 @@ capture() { # capture desc out.png: only that accessible cell/row/tile, twice al
     [ -f "$OUT/icons-prev.png" ] && rm -f "$SCR"
     cp "$2" "$OUT/icons-prev.png"; n=$((n + 1))
   done
+  return 1 # never two shots alike: the picture may still be moving, no caller may compare it
 }
 capture_calendar() { capture Calendar "$1"; }
 same() { [ "$(fdiff "$1" "$2")" = 0 ]; } # same pixels (lib.sh fdiff: never cmp on PNGs)
