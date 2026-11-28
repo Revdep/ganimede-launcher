@@ -189,6 +189,16 @@ else
 fi
 setp del fab_tap
 
+step "Gestures: a side key past the last column settles the pager on a page (c2-4)"
+seed classic boolean drawer false; wait_until 10 pages_ge2; wait_until 5 has Calendar
+read -r cx0 _ <<<"$(cx Calendar)"
+A shell input keyevent KEYCODE_DPAD_DOWN # a key leaves touch mode: the home hands the focus to a view
+for _ in 1 2 3 4 5 6 7 8; do A shell input keyevent KEYCODE_DPAD_RIGHT; done
+wait_until 5 settled
+# a pager stuck between two pages shows Calendar shifted sideways; settled it is on page 1 (same x) or gone (page 2)
+aligned() { hasnt Calendar || { read -r cx1 _ <<<"$(cx Calendar)"; [ -n "$cx1" ] && [ "$((cx1 - cx0))" -ge -3 ] && [ "$((cx1 - cx0))" -le 3 ]; }; }
+wait_until 5 aligned && ok "DPAD_RIGHT past the last column: the pager rests on a page" || ko "DPAD_RIGHT left the pager between pages (Calendar at x ${cx1:-?}, was $cx0)"
+
 step "Gestures: left-hand Classic keeps pages and block edges as on screen (finding c1-2)"
 # Left-hand use mirrors the home, not the classic pages: page 1 stays leftmost, a cell's column and a block's left edge
 # are the ones on screen. Mirrored, Home showed page 2, a key gave the focus to the hidden page and the left handle moved the right edge.

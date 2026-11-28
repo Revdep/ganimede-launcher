@@ -81,7 +81,16 @@ final class ClassicHome {
                     getChildAt(pg).addFocusables(views, direction, mode);
             }
         };
-        pager = new HorizontalScrollView(ui.a);
+        pager = new HorizontalScrollView(ui.a) {
+            // A side key can move the focus to the next page's first column: the scroll that brings it into view may stop
+            // between pages, so the pager settles on that page like a swipe does.
+            @Override public void requestChildFocus(View child, View focused) {
+                super.requestChildFocus(child, focused);
+                View page = focused;
+                while (page != null && page.getParent() != pages) page = page.getParent() instanceof View ? (View) page.getParent() : null;
+                if (page != null) snapPage(pages.indexOfChild(page));
+            }
+        };
         pager.setHorizontalScrollBarEnabled(false);
         pager.setFillViewport(true);
         // Left to right for both hands (Paging): page i at i * width, cells at their left margin, edges as on screen.
