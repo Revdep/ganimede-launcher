@@ -66,7 +66,7 @@ def style_of(el, classes, inherited):
     opacity is not inherited: collect multiplies it down the tree.
     """
     s = {k: v for k, v in inherited.items() if k != "opacity"}
-    for k in ("fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity",
+    for k in ("display", "fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity",
               "stroke-dasharray", "stroke-dashoffset"):
         if el.get(k) is not None:
             s[k] = el.get(k)
@@ -126,6 +126,8 @@ def matrix(t):
     m = (1, 0, 0, 1, 0, 0)
     for fn, args in re.findall(r"(\w+)\s*\(([^)]*)\)", t or ""):
         v = [float(x) for x in re.findall(NUMBER, args)]
+        if not v and fn in ("translate", "scale", "rotate", "skewX", "skewY"):
+            raise ValueError("transform %s() has no arguments" % fn)
         if fn == "translate":
             n = (1, 0, 0, 1, v[0], v[1] if len(v) > 1 else 0)
         elif fn == "scale":
@@ -434,7 +436,11 @@ def collect(el, classes, inherited, m, alpha, out):
     tag = el.tag.replace(NS, "")
     if tag in ("defs", "style", "title", "desc", "metadata", "clipPath", "mask") or tag.startswith("{"):
         return
+    if tag in ("use", "text", "image"):
+        raise ValueError("<%s> is not supported: the packer would drop it silently" % tag)
     st = style_of(el, classes, inherited)
+    if st.get("display") == "none":
+        raise ValueError("display:none is not supported: the packer would draw it")
     m = mul(m, matrix(el.get("transform")))
     alpha *= num(st.get("opacity"), 1.0)
     if tag in ("g", "svg"):

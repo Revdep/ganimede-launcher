@@ -184,6 +184,15 @@ class BadSvgTest(unittest.TestCase):
             self.assertIn("x.svg", str(e.exception.code))
 
 
+    def test_unsupported_svg_features_name_the_file(self):
+        svg = '<svg xmlns="http://www.w3.org/2000/svg">%s<path stroke="#fff" d="M1 2 L3 4"/></svg>'
+        for extra in ('<use href="#a"/>', '<text>a</text>', '<image href="a.png"/>', '<path display="none" d="M1 2 L3 4" stroke="#fff"/>',
+                      '<path style="display:none" d="M1 2 L3 4" stroke="#fff"/>', '<path transform="translate()" d="M1 2 L3 4" stroke="#fff"/>'):
+            with self.assertRaises(SystemExit, msg=extra) as e:
+                self.pack_one(svg % extra)
+            self.assertIn("x.svg", str(e.exception.code), extra)
+
+
 class PackTest(unittest.TestCase):
     def test_hash_collision_stops_the_build(self):
         # two keys with one 48-bit hash would make one app show the other's icon: the packer must refuse
