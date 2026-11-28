@@ -98,7 +98,7 @@ tapn() { # tapn text max-scrolls: waits for the text (or scrolls to it), then ta
 shot() { A exec-out screencap -p > "$OUT/$1.png"; }
 dp() { echo $(($1 * DENS / 160)); }
 # the stored value of a pref, int or string (empty when unset)
-pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | sed -n "s/.*name=\"$1\" value=\"\([^\"]*\)\".*/\1/p; s/.*name=\"$1\">\([^<]*\)<.*/\1/p"; }
+pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | sed -n "s|.*name=\"$1\" value=\"\([^\"]*\)\".*|\1|p; s|.*name=\"$1\">\([^<]*\)<.*|\1|p"; } # "|" not "/": keys such as use:pkg/Activity hold slashes
 # bounds of the first node whose text (or content-desc with "desc:") is exactly $1: "x1 y1 x2 y2", empty if none
 bounds() {
   local attr=text v="$1" r; case "$v" in desc:*) attr=content-desc; v="${v#desc:}";; esac
