@@ -31,8 +31,13 @@ public final class IconIndex {
 
     /** The icon id for an activity; {@code cls} is the full class name, as ComponentName.getClassName gives it. */
     public OptionalInt find(String pkg, String cls) {
-        int i = Arrays.binarySearch(hashes, fnv48(pkg + "/" + cls));
-        if (i < 0) i = Arrays.binarySearch(hashes, fnv48(pkg));
+        OptionalInt id = find(pkg + "/" + cls);
+        return id.isPresent() ? id : find(pkg);
+    }
+
+    /** The id stored under exactly this key (the category index's keys are plain packages). */
+    public OptionalInt find(String key) {
+        int i = Arrays.binarySearch(hashes, fnv48(key));
         return i < 0 ? OptionalInt.empty() : OptionalInt.of(ids[i]);
     }
 }

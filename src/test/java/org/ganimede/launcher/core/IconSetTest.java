@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalInt;
 
 import org.ganimede.launcher.core.IconSet.Cap;
 import org.ganimede.launcher.core.IconSet.Join;
@@ -266,4 +267,54 @@ public class IconSetTest {
             }
         }
     }
+
+    private static IconSet withCategories() {
+        return load("src/test/resources/icons/icons-fixture2.bin");
+    }
+
+    /** Issue 087: the app categories of format 2. */
+    public static void testCategoryHitAndMiss() {
+        IconSet set = withCategories();
+        eq(OptionalInt.of(id(set, "arc")), set.categoryGlyph("com.example.bank"), "Finance has the glyph the packer was given");
+        eq(OptionalInt.of(id(set, "square")), set.categoryGlyph("com.example.shop"), "the curated table's category");
+        eq(OptionalInt.empty(), set.categoryGlyph("com.example.none"), "a package nobody knows");
+        eq(OptionalInt.empty(), set.categoryGlyph("pkgA"), "an app with an Arcticons icon never gets a category");
+        eq(AppCategory.valueOf("FINANCE").name(), set.categoryNames().get(AppCategory.FINANCE.ordinal()), "names in the enum's order");
+    }
+
+    public static void testFormatOneHasNoCategories() {
+        IconSet set = fixture();
+        eq(OptionalInt.empty(), set.categoryGlyph("com.example.bank"), "no section, no category");
+        eq(List.of(), set.categoryNames(), "no table");
+    }
+
+    public static void testDamagedCategorySectionRefused() throws IOException {
+        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture2.bin"));
+        for (int field : new int[]{40, 44, 48}) { // key count, index offset, table offset
+            byte[] bad = whole.clone();
+            java.nio.ByteBuffer.wrap(bad).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(field, bad.length + 1);
+            try {
+                IconSet.of(bad);
+                throw new AssertionError("field at " + field + " past the end of the file was accepted");
+            } catch (IllegalArgumentException expected) {
+                yes(expected.getMessage().startsWith("damaged icon set"), expected.getMessage());
+            }
+        }
+    }
+
+    public static void testTruncatedCategorySetIsRefused() throws IOException {
+        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture2.bin"));
+        for (int n = 0; n < whole.length; n++) rejectsOrReads(Arrays.copyOf(whole, n), "cut to " + n + " bytes");
+    }
+
+    public static void testRealAssetCategoriesTotal() {
+        IconSet set = load("src/main/assets/icons.bin");
+        AppCategory[] all = AppCategory.values();
+        eq(all.length, set.categoryNames().size(), "the same 49 categories");
+        for (AppCategory c : all) {
+            eq(c.name(), set.categoryNames().get(c.ordinal()), "name at " + c.ordinal());
+            eq(set.name(set.categoryGlyphIds().get(c.ordinal())), c.glyph(), c + ": the glyph the packer chose is the one Java names");
+        }
+        eq("emoji_classical_building", set.name(set.categoryGlyph("it.bnl.apps.banking").orElseThrow()), "from the curated table");
+            }
 }
