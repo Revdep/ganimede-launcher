@@ -81,6 +81,7 @@ jobs:
             Ganimede-Launcher-release.apk
             e2e/fixture/build/outputs/apk/debug/fixture-debug.apk
             e2e/legacy/ganimede-main.apk
+            e2e/legacy/ganimede-main.commit
           if-no-files-found: error
           retention-days: 1
   shard:
