@@ -142,6 +142,13 @@ public final class IconSet {
         return "icon:" + entry;
     }
 
+    /** The picked-icon keys of an app's entries ("icon:<package>/<class>"): deleted when it is uninstalled (see {@link #pickedKey}). */
+    public static List<String> pickedKeysOf(Map<String, ?> prefs, String pkg) {
+        List<String> out = new ArrayList<>();
+        for (String k : prefs.keySet()) if (k.startsWith(pickedKey(pkg + "/"))) out.add(k);
+        return out;
+    }
+
     /** Whether any entry's picked icon ("icon:<entry>" = "builtin:arcticons|name") comes from this set. */
     public static boolean needed(Map<String, ?> prefs) {
         for (Map.Entry<String, ?> e : prefs.entrySet())

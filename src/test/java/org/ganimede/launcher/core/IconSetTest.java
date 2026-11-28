@@ -233,6 +233,18 @@ public class IconSetTest {
         yes(!IconSet.needed(prefs), "its key gone, nothing needs the set");
     }
 
+    /** Fable c3 P2-1: an uninstalled app's picked icons are found by its package, nothing else's (not a longer package name). */
+    public static void testPickedKeysOfPackage() {
+        java.util.Map<String, Object> prefs = new java.util.HashMap<>();
+        prefs.put(IconSet.pickedKey("com.a/com.a.Main"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.a/com.a.Other"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.ab/com.ab.Main"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("f:12"), "builtin:arcticons|okay");
+        prefs.put("rn:com.a/com.a.Main", "x");
+        eq(java.util.Set.of("icon:com.a/com.a.Main", "icon:com.a/com.a.Other"), new java.util.HashSet<>(IconSet.pickedKeysOf(prefs, "com.a")),
+                "both of com.a's entries, not com.ab, a folder or a rename");
+    }
+
     /** Reads everything a set offers, as the launcher does: every icon and name, and an index lookup. */
     private static void readAll(IconSet set) {
         for (int i = 0; i < set.count(); i++) {

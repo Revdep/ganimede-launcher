@@ -4,6 +4,7 @@ import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.Favourites;
 import org.ganimede.launcher.core.Gestures;
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Morph;
 import org.ganimede.launcher.core.Search;
 
@@ -19,6 +20,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.view.HapticFeedbackConstants;
@@ -78,7 +80,15 @@ public class MainActivity extends Activity implements Actions.Home {
         else if ("fab_icon".equals(key)) handler.post(() -> fab.style(!listMode)); // a late import, restore or fallback
     };
     private final LauncherApps.Callback appsChanged = new LauncherApps.Callback() {
-        @Override public void onPackageRemoved(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
+        @Override public void onPackageRemoved(String p, UserHandle u) {
+            Icons.forget(p);
+            if (u.equals(Process.myUserHandle())) { // a work profile's removal says nothing about the keys, shared with this profile's copy
+                SharedPreferences.Editor e = prefs.edit();
+                for (String k : IconSet.pickedKeysOf(prefs.getAll(), p)) e.remove(k); // else the 4 MB set stays needed, and in the backup
+                e.apply();
+            }
+            loadAppsSoon();
+        }
         @Override public void onPackageAdded(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
         @Override public void onPackageChanged(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
         @Override public void onPackagesAvailable(String[] p, UserHandle u, boolean r) { loadAppsSoon(); }

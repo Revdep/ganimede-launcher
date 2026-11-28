@@ -3,6 +3,7 @@ package org.ganimede.launcher;
 import static org.ganimede.launcher.Sheets.item;
 
 import org.ganimede.launcher.Apps.Item;
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Safe;
 
 import android.Manifest;
@@ -83,6 +84,7 @@ final class Menus {
             List<String> f = layout.favourites();
             f.remove(entry);
             if (layout.classic()) layout.removeFromHome(entry);
+            ui.prefs.edit().remove(IconSet.pickedKey(entry)).apply(); // else the 4 MB set stays needed, and in the backup
             saveFavourites(f);
         }));
         sheets.show(Entries.shortcutName(entry), rows);
