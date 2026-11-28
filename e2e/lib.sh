@@ -6,7 +6,7 @@
 # (emu_only, setting); every setting changed is put back on exit, also on Ctrl-C or a failure (keep, defer).
 case "$SERIAL" in emulator-*) ;; *) case " ${E2E_DEVICES:-} " in *" $SERIAL "*) ;; *) echo "emulators only: $SERIAL (or list it in E2E_DEVICES)" >&2; exit 2;; esac;; esac
 exec 9>"/tmp/ganimede-e2e-$SERIAL.lock"; flock 9
-OUT="$HERE/out/$SERIAL"; mkdir -p "$OUT"; rm -f "$OUT"/fail-*.png # per device: two runs from one checkout keep apart; fail-N is this run's
+OUT="$HERE/out/$SERIAL"; mkdir -p "$OUT"; rm -f "$OUT"/fail-* # per device: two runs from one checkout keep apart; fail-N is this run's
 SCR="$OUT/screen.xml" # the last screen read, a file so that subshells share it
 PK=org.ganimede.launcher
 # Every adb call goes through A. One that can change the screen drops the cached screen read (see `screen`).
@@ -54,7 +54,11 @@ wait_until() {
 }
 step() { echo; echo "== $*"; }
 ok() { echo "  PASS: $*"; PASS=$((PASS + 1)); }
-ko() { echo "  FAIL: $*"; FAIL=$((FAIL + 1)); A exec-out screencap -p > "$OUT/fail-$FAIL.png"; } # the screen at the failure
+ko() { # the screen at the failure, and who is in front and which activity or process went (a stray Camera in front of Settings, run imp/5)
+  echo "  FAIL: $*"; FAIL=$((FAIL + 1)); A exec-out screencap -p > "$OUT/fail-$FAIL.png"
+  { A shell dumpsys activity activities | grep -E "topResumedActivity|ResumedActivity|\* Task"
+    A logcat -d -b events | grep -E "am_finish_activity|am_proc_died|am_kill|am_anr|wm_task_moved|am_proc_start|am_create_activity" | tail -80; } > "$OUT/fail-$FAIL-activities.txt" 2>/dev/null
+}
 # One adb call straight to stdout (~2 s: uiautomator starts a VM and waits for 1 s of idle): a failed dump is no XML,
 # never the previous screen's file. A whole dump is kept in $SCR.
 dump() { rm -f "$SCR"; A exec-out uiautomator dump /dev/tty 2>/dev/null | tee "$SCR"; grep -q '</hierarchy>' "$SCR" || rm -f "$SCR"; }
