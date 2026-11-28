@@ -266,13 +266,16 @@ final class AppList {
         List<Uri> looks = new ArrayList<>();
         List<String> names = new ArrayList<>();
         int count = 0;
-        Uri u = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(q));
+        boolean byNumber = Search.isNumberQuery(q); // digits: the contacts whose number holds them, not the name filter
+        Uri u = byNumber ? ContactsContract.Contacts.CONTENT_URI
+                : Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(q));
         try (Cursor c = ui.a.getContentResolver().query(u, new String[]{ContactsContract.Contacts._ID,
-                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY}, where, null,
+                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY},
+                byNumber ? ContactsContract.Contacts._ID + " IN (" + numberContactIds(q) + ")" : where, null,
                 ContactsContract.Contacts.STARRED + " DESC, " + ContactsContract.Contacts.SORT_KEY_PRIMARY)) {
             while (c != null && c.moveToNext()) {
                 // the provider also matches mid-word: each name passes the app search's own rule
-                if (c.getString(2) == null || Search.score(c.getString(2), q) == 0) continue;
+                if (c.getString(2) == null || !byNumber && Search.score(c.getString(2), q) == 0) continue;
                 if (ids.size() >= Search.shownContacts(++count, all)) continue;
                 ids.add(c.getLong(0));
                 looks.add(ContactsContract.Contacts.getLookupUri(c.getLong(0), c.getString(1)));
@@ -297,6 +300,17 @@ final class AppList {
             people.add(e);
         }
         return new ContactHits(count, people);
+    }
+
+    /** Ids (comma separated) of the contacts with a phone number holding the typed digits; the rule is Search.numberMatches. */
+    private String numberContactIds(String q) {
+        StringBuilder ids = new StringBuilder();
+        try (Cursor p = ui.a.getContentResolver().query(Phone.CONTENT_URI, new String[]{Phone.CONTACT_ID, Phone.NUMBER}, null, null, null)) {
+            while (p != null && p.moveToNext()) {
+                if (Search.numberMatches(p.getString(1), q)) ids.append(ids.length() == 0 ? "" : ",").append(p.getLong(0));
+            }
+        }
+        return ids.toString();
     }
 
     /**

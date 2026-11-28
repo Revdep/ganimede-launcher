@@ -99,6 +99,21 @@ A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text
 wait_until 5 has 'rova"' || ko "rova not typed"
 wait_until 3 has "Zz Prova A" && ko "rova finds Zz Prova (mid-word)" || ok "rova leaves out Zz Prova (mid-word)"
 
+step "Search: a contact is found by its phone number, digits only"
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'rova"'
+A shell "content insert --uri $CONTACTS/raw_contacts --bind account_type:s:org.ganimede.e2e --bind account_name:s:e2e"
+id=$(A shell content query --uri $CONTACTS/raw_contacts --projection _id --sort "'_id DESC'" | head -1 | grep -o '_id=[0-9]*' | cut -d= -f2)
+A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/name --bind data1:s:'Zz Prova Num'"
+A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:'347 1234567' --bind data2:i:2"
+open_drawer; typ "347 12"
+wait_until 5 has "Zz Prova Num" && ok "347 12 finds the contact by number, spaces ignored" || ko "number search misses the contact"
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt '347 12"'
+open_drawer; typ "+39 347 1234567"
+wait_until 5 has "Zz Prova Num" && ok "the whole number typed with +39 finds the contact saved without prefix" || ko "number with prefix misses the contact"
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt '1234567"'
+open_drawer; typ "347 99"
+wait_until 3 has "Zz Prova Num" && ko "other digits find the contact" || ok "other digits leave it out"
+
 step "Search: a chat contact (WhatsApp, Telegram) that did not merge with the phone contact is not a second row"
 # the same person twice: the phone contact, and a raw contact of a messenger account with a name and no number or email
 # (aggregation disabled, as when the names differ slightly and the provider keeps them apart)

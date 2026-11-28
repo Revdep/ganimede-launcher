@@ -138,4 +138,29 @@ public class SearchTest {
     public static void testAlphabetLettersAreTheSectionsOfTheNamesInOrder() {
         eq(List.of("#", "A", "Z"), new java.util.ArrayList<>(Search.sections(List.of("Zz Prova", "alfa", "Àlpha", "9 Nove"))), "sorted, once each, # first");
     }
+
+    public static void testNumberQueryNeedsThreeDigitsAndNothingElse() {
+        yes(Search.isNumberQuery("347 12"), "digits and a space");
+        yes(Search.isNumberQuery("+39 347-1"), "plus and dash are allowed");
+        yes(!Search.isNumberQuery("34"), "two digits are too few");
+        yes(!Search.isNumberQuery("rossi 347"), "a name keeps the name search");
+        yes(!Search.isNumberQuery(""), "empty");
+    }
+
+    public static void testNumberMatchesOnDigitsOnly() {
+        yes(Search.numberMatches("+39 347 1234567", "347 12"), "spaces ignored");
+        yes(Search.numberMatches("+39 347 1234567", "34712"), "same digits");
+        yes(Search.numberMatches("0039 347-1234567", "39 347"), "international prefix");
+        yes(Search.numberMatches("347 1234567", "+39 347 1234567"), "whole number typed with +39, saved without prefix");
+        yes(Search.numberMatches("347 1234567", "0039 347-1234567"), "typed with 0039, saved without prefix");
+        yes(Search.numberMatches("347 1234567", "+39 347"), "piece typed with the prefix, saved without");
+        yes(Search.numberMatches("+39 347 1234567", "+39 347 1234567"), "both with the prefix");
+        yes(Search.numberMatches("0039 347-1234567", "347 1234567"), "typed without, saved with 0039");
+        yes(Search.numberMatches("+1 347 1234567", "+1 347 12"), "one-digit prefix");
+        yes(Search.numberMatches("347 1234567", "+353 347 1234567"), "three-digit prefix");
+        yes(!Search.numberMatches("347 1234567", "+39 348 1234567"), "prefix does not make other digits match");
+        yes(!Search.numberMatches("347 1234567", "+39 99"), "what is left of the prefix needs 3 digits");
+        yes(!Search.numberMatches("+39 347 1234567", "348"), "other digits");
+        yes(!Search.numberMatches(null, "347"), "no number");
+    }
 }
