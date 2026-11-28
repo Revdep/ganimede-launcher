@@ -11,16 +11,6 @@ pv_is() {
   [ $# -gt 0 ] && { pv_eq && { ko "$w: $k is already $e before the action"; return 1; }; "$@"; }
   wait_until 5 pv_eq && ok "$w: $k = $e" || ko "$w: $k = '$(pv "$k")', expected $e"
 }
-# setset key item: like setp, for a string set holding one item
-setset() {
-  local f="$OUT/prefs.xml"
-  A shell am force-stop $PK
-  A exec-out run-as $PK cat shared_prefs/ganimede.xml > "$f"
-  sed -i "/ name=\"$1\"/d" "$f"
-  sed -i "s@</map>@    <set name=\"$1\"><string>$2</string></set>\n</map>@" "$f"
-  A exec-in "run-as $PK sh -c 'cat > shared_prefs/ganimede.xml'" < "$f"
-  start_home
-}
 pg_back() { # one level up, to the settings home
   A shell input keyevent KEYCODE_BACK
   wait_until 5 has 'Impostazioni"' && ok "back on the settings home" || ko "Back did not return to the settings home" # its title (the hint may be scrolled off)
@@ -35,7 +25,7 @@ pg_pick() { see "$1" && tap "$1"; }
 HIDE=com.android.chrome/com.google.android.apps.chrome.Main
 step "Settings pages: each opens from its row and one control changes its pref"
 seed classic
-setset hidden "$HIDE"
+setp set hidden "$HIDE"
 pg_settings
 
 pg_open "Personalizza" "Tutto lo schermo"

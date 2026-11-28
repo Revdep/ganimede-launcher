@@ -18,10 +18,6 @@ expect_popup() {
 post() { A shell cmd notification post -t "$1" "$2" "$3" >/dev/null; }         # post title tag word
 timer() { A shell am start -a android.intent.action.SET_TIMER --ei android.intent.extra.alarm.LENGTH 900 \
   --ez android.intent.extra.alarm.SKIP_UI true >/dev/null 2>&1; t() { A shell dumpsys notification | grep -q "pkg=com.google.android.deskclock.*Timers"; }; wait_until 10 t; }
-# a string-set pref the way the app stores it (setp has no sets), then restart the home
-setset() { local f="$OUT/prefs.xml"; A shell am force-stop $PK; A exec-out run-as $PK cat shared_prefs/ganimede.xml > "$f"
-  sed -i "/ name=\"$1\"/d" "$f"; sed -i "s@</map>@    <set name=\"$1\"><string>$2</string></set>\n</map>@" "$f"
-  A exec-in "run-as $PK sh -c 'cat > shared_prefs/ganimede.xml'" < "$f"; start_home; }
 # every clearable notification away, through the pop-up's own button
 wipe() { popup; if wait_until 3 has "Cancella tutte"; then tap "Cancella tutte"; else A shell input keyevent KEYCODE_BACK; fi
   wait_until 5 hasnt "Notifiche"; noclock; }
@@ -74,7 +70,7 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Nessuna notifica"
 
 step "Summary on: a non-urgent post of a chosen app is held back, other apps are not"
 A shell am force-stop $PK; A exec-out run-as $PK sh -c "sed -i '/name=\"summary_held\" *\/>/d; /name=\"summary_held\">/,/<\/set>/d' shared_prefs/ganimede.xml" # no key held by an earlier run
-setp boolean summary true; setset summary_apps com.android.shell
+setp boolean summary true; setp set summary_apps com.android.shell
 wait_until 10 listening; wait_until 10 bound
 c0=$(pref summary_count); c0=${c0:-0}
 SUM=sum$(date +%s) # a fresh key: Android keeps an earlier run's snoozed key silent for hours, so a repeated tag is never seen

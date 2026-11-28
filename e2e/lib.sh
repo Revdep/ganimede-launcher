@@ -135,7 +135,7 @@ lx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo "$1" 
 see() { local n=0; while [ $n -lt 30 ]; do has "$1" && { ok "sees “$1”"; return 0; }; _scroll; n=$((n + 1)); done; ko "doesn't see “$1”"; return 1; }
 near() { local d=$(($1 - $2)); [ ${d#-} -le "$3" ]; } # near a b tolerance
 # Change one setting the way the app stores it, then restart the home screen.
-setp() { # setp int|boolean|string|del key [value]
+setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item value)
   local f="$OUT/prefs.xml"
   A shell am force-stop $PK
   A exec-out run-as $PK cat shared_prefs/ganimede.xml > "$f"
@@ -143,6 +143,7 @@ setp() { # setp int|boolean|string|del key [value]
   case $1 in
     int|boolean) sed -i "s@</map>@    <$1 name=\"$2\" value=\"$3\" />\n</map>@" "$f" ;;
     string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
+    set) sed -i "s@</map>@    <set name=\"$2\"><string>$3</string></set>\n</map>@" "$f" ;;
   esac
   A exec-in "run-as $PK sh -c 'cat > shared_prefs/ganimede.xml'" < "$f"
   start_home
