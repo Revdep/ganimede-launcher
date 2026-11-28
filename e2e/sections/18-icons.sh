@@ -33,20 +33,10 @@ alike() { # hex hex: every channel within 10
   local a=$((16#$1)) b=$((16#$2)) s d
   for s in 16 8 0; do d=$(( ((a >> s) & 255) - ((b >> s) & 255) )); [ ${d#-} -le 10 ] || return 1; done
 }
-strings() { # strings key value ...: several text settings in one write (value "-" removes it); the app restarts once
-  local f="$OUT/prefs.xml"
-  A shell am force-stop $PK
-  A exec-out run-as $PK cat shared_prefs/ganimede.xml > "$f"
-  while [ $# -gt 1 ]; do
-    sed -i "/ name=\"$1\"/d" "$f"
-    [ "$2" = - ] || sed -i "s@</map>@    <string name=\"$1\">$2</string>\n</map>@" "$f"
-    shift 2
-  done
-  put_prefs "$f"
-  start_home
-}
-look() { strings icon_glyph "$1" icon_container "$2" icon_fill "$3" icon_color "$4"; } # look glyph container fill colour
-legacy() { strings icon_glyph - icon_container - icon_fill - icon_color - icon_shape "$1" themed_shape "$2"; }
+# Every restart costs ~9 s (lib.sh setp): a step gives all its settings to one seed or setp.
+model() { echo string icon_glyph "$1" string icon_container "$2" string icon_fill "$3" string icon_color "$4"; } # as setp's words
+look() { setp $(model "$1" "$2" "$3" "$4") "${@:5}"; } # look glyph container fill colour [setp's settings ...]
+legacy() { setp del icon_glyph del icon_container del icon_fill del icon_color string icon_shape "$1" string themed_shape "$2"; }
 exact() { screen | grep -q "text=\"$1\""; }
 nofill() { valid && ! exact "Riempimento"; }
 reach() { # reach desc [neighbour]: the tile on screen, looked for below then above (a picked tile scrolls its row: swipe it right)
@@ -73,10 +63,8 @@ migrated() { # migrated what glyph container fill colour: the four new settings 
 
 for mode in list classic; do
   step "Legacy Tinted and Monochrome migrate unchanged: $mode mode"
-  seed "$mode"
-  setp int accent -2093040; setp boolean hide_labels true # only the icon in the crop: no white label
-  if [ "$mode" = classic ]; then setp int grid_icon 80; else setp int icon_size 80; fi
-  look original none solid accent
+  size=icon_size; [ "$mode" = classic ] && size=grid_icon
+  seed "$mode" int accent -2093040 boolean hide_labels true int $size 80 $(model original none solid accent) # hide_labels: only the icon in the crop, no white label
   capture_calendar "$OUT/icons-$mode-original.png" || { ko "$mode: Calendar icon not found"; continue; }
   legacy theme circle
   capture_calendar "$OUT/icons-$mode-tinted.png" || { ko "$mode: Calendar icon not found after the update"; continue; }
@@ -128,8 +116,7 @@ capture_calendar "$OUT/icons-classic-accent-soft.png"
 same "$a" "$OUT/icons-classic-accent-soft.png" && ok "no plate: Soft looks as Solid" || ko "no plate: the fill changed the icon"
 
 step "Solid and soft plate"
-setp int grid_icon 64 # at 80 dp the icon is wider than its cell, which cuts the plate's sides
-look line none solid accent
+look line none solid accent int grid_icon 64 # at 80 dp the icon is wider than its cell, which cuts the plate's sides
 capture_calendar "$OUT/icons-nop.png"
 look line squircle solid accent
 capture_calendar "$OUT/icons-solid.png"
@@ -160,8 +147,7 @@ red=$(colour_pixels "$OUT/icons-text-plate.png" "$RED")
   && ok "white plate ($plate) with a dark glyph ($glyph), no red" || ko "text plate: white $plate, dark $glyph, red $red"
 
 step "Default accent: the glyph stays readable on the plate"
-look line circle solid accent
-setp int accent -4609803
+look line circle solid accent int accent -4609803
 capture_calendar "$OUT/icons-default-accent.png" || ko "default accent: Calendar icon not found"
 plate=$(colour_pixels "$OUT/icons-default-accent.png" "#B9A8F5")
 glyph=$(colour_pixels "$OUT/icons-default-accent.png" "#1B1820")
@@ -188,9 +174,8 @@ tapn "Nessuno (icone delle app)" 60 && wait_until 5 stored icon_pack "" && origi
 
 for mode in list classic; do
   step "Built-in Arcticons pack draws Calendar in the accent: $mode mode"
-  seed "$mode"
-  setp int accent -2093040
-  if [ "$mode" = classic ]; then setp int grid_icon 80; else setp int icon_size 80; fi
+  size=icon_size; [ "$mode" = classic ] && size=grid_icon
+  seed "$mode" int accent -2093040 int $size 80
   capture_calendar "$OUT/icons-$mode-own.png" || { ko "$mode: Calendar icon not found"; continue; }
   setp string icon_pack "$BUILTIN"
   capture_calendar "$OUT/icons-$mode-builtin.png" || { ko "$mode: built-in Calendar icon not found"; continue; }
@@ -203,22 +188,19 @@ done
 shot 77-builtin-icons
 
 step "Built-in Arcticons pack: an accent under 3:1 on the dark wallpaper draws the icon in the text colour"
-seed classic
-setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true # only the icon in the crop
-look line none solid accent # on the wallpaper: the seed's squircle would put the icon on an indigo plate (issue 078)
-setp int accent -12636266 # #3F2B96 indigo: about 1.7:1 on a dark backdrop
+# hide_labels: only the icon in the crop; no plate: on the wallpaper (the seed's squircle would put the icon on an indigo plate,
+# issue 078); #3F2B96 indigo: about 1.7:1 on a dark backdrop
+seed classic string icon_pack "$BUILTIN" int grid_icon 80 boolean hide_labels true $(model line none solid accent) int accent -12636266
 capture_calendar "$OUT/icons-low-contrast.png" || ko "low contrast: Calendar icon not found"
 white=$(colour_pixels "$OUT/icons-low-contrast.png" "#FFFFFF"); indigo=$(colour_pixels "$OUT/icons-low-contrast.png" "#3F2B96")
 [ "${white:-0}" -gt 20 ] && [ "${indigo:-0}" -le 20 ] && ok "low contrast: drawn in the white text colour ($white px), not indigo ($indigo px)" \
   || ko "low contrast: white ${white:-0} px, indigo ${indigo:-0} px (expected white, no indigo)"
 
 step "Built-in Arcticons pack: folder thumbnails follow the home's 3:1 rule (dark text, lavender accent)"
-seed classic
 APPS='"com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"'
-setp string folder:mini "{\"name\":\"Mini\",\"where\":\"fav\",\"apps\":[$APPS]}"
-setp string fav 'f:mini'
-setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
-setp string text_color dark; setp int accent -4609803 # lavender #B9A8F5: under 3:1 on the light backdrop dark text is for
+# lavender #B9A8F5: under 3:1 on the light backdrop dark text is for
+seed classic string folder:mini "{\"name\":\"Mini\",\"where\":\"fav\",\"apps\":[$APPS]}" string fav 'f:mini' \
+  string icon_pack "$BUILTIN" int grid_icon 80 boolean hide_labels true string text_color dark int accent -4609803
 capture Mini "$OUT/icons-folder-dark-text.png" || ko "folder thumbnails: folder Mini not found"
 # the tile's inside only: the dark wallpaper around it is close to ink
 magick "$OUT/icons-folder-dark-text.png" -gravity center -crop 70%x70%+0+0 +repage "$OUT/icons-folder-inside.png"
@@ -237,8 +219,7 @@ else SKIPS=$((SKIPS + 1)); echo "  SKIP: no release APK newer than the sources (
 
 step "About credits Arcticons (CC BY-SA 4.0), in English and Italian"
 for lang in en it; do
-  seed classic
-  setp string lang $lang
+  seed classic string lang $lang
   if [ $lang = en ]; then pg_settings "Ganimede settings" "Touch a part of the preview to adjust it"; tapn "About" 15; done_by="converted and algorithmically restyled"
   else pg_settings; tapn "Informazioni" 15; done_by="convertite e ridisegnate in modo algoritmico"; fi # About is at the bottom of a long page
   credited() { shows "Arcticons" "CC BY-SA 4.0" "https://creativecommons.org/licenses/by-sa/4.0/" "$done_by"; }
@@ -248,9 +229,8 @@ done
 
 for mode in list classic; do
   step "Built-in treatments differ, the glyph centred on its plate: $mode mode"
-  seed "$mode"
-  setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true # only the icon in the crop
-  if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi
+  size=icon_size; [ "$mode" = classic ] && size=grid_icon
+  seed "$mode" int accent -2093040 string icon_pack "$BUILTIN" boolean hide_labels true int $size 64 # hide_labels: only the icon in the crop
   sums=""
   for g in original line bold sharp; do
     look $g circle solid accent
@@ -270,9 +250,7 @@ for mode in list classic; do
 done
 
 step "Icons card: Line, Bold, Sharp on a built-in glyph; rows shown only where they mean something"
-seed classic
-setp int accent -2093040
-look original circle solid accent
+seed classic int accent -2093040 $(model original circle solid accent)
 pg_settings; stap "Personalizza"
 pill "Temi"; tap "Temi"
 find_desc "${S}Spigoloso" >/dev/null || ko "no Sharp tile"
@@ -319,9 +297,7 @@ fixture_install && ok "fixture app built and installed" \
   || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
 icons_fixture_cleanup() { A uninstall "$FIXTURE" >/dev/null 2>&1; }
 defer icons_fixture_cleanup
-seed classic
-setp string fav "$FIXTURE/$FIXTURE.Open"; setp boolean hide_labels true
-look original none solid accent
+seed classic string fav "$FIXTURE/$FIXTURE.Open" boolean hide_labels true $(model original none solid accent)
 capture Fixture "$OUT/icons-fixture-none.png" || ko "the fixture's icon is not on the home"
 look original circle solid accent
 capture Fixture "$OUT/icons-fixture-circle.png" || ko "the fixture's icon is gone with a circle (the app may have crashed)"
@@ -329,9 +305,7 @@ same "$OUT/icons-fixture-none.png" "$OUT/icons-fixture-circle.png" \
   && ok "a square icon is not cut to the circle" || ko "a square icon changed with the circle shape"
 
 step "Built-in set with Original: covered apps get the accent glyph, the others keep their own colours"
-setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open"
-setp int accent -2093040; setp string icon_pack "$BUILTIN"
-look original none solid accent
+look original none solid accent string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open" int accent -2093040 string icon_pack "$BUILTIN"
 capture Calendar "$OUT/icons-original-builtin-calendar.png" || ko "no Calendar with the built-in set"
 capture Fixture "$OUT/icons-original-builtin-fixture.png" || ko "no fixture app with the built-in set"
 red=$(colour_pixels "$OUT/icons-original-builtin-calendar.png" "$RED")
@@ -346,9 +320,7 @@ white=$(colour_pixels "$OUT/icons-original-builtin-text.png" "#FFFFFF"); red=$(c
   || ko "Original + built-in set + Text colour: white $white, red $red px"
 
 step "App pages with their own icons (Classic, drawer off)"
-seed classic
-setp boolean drawer false
-look original circle solid accent
+seed classic boolean drawer false $(model original circle solid accent)
 chrome_cell() { # chrome_cell out.png: the Chrome cell on the app pages
   local n=0
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
@@ -356,20 +328,17 @@ chrome_cell() { # chrome_cell out.png: the Chrome cell on the app pages
   return 1
 }
 chrome_cell "$OUT/icons-chrome-home-look.png" || ko "no Chrome on the app pages"
-strings drawer_icon_glyph original drawer_icon_container square
-setp boolean drawer_follow false
+setp string drawer_icon_glyph original string drawer_icon_container square boolean drawer_follow false
 chrome_cell "$OUT/icons-chrome-own-look.png" || ko "no Chrome on the app pages (own look)"
 same "$OUT/icons-chrome-home-look.png" "$OUT/icons-chrome-own-look.png" \
   && ko "the app pages' own plate changes nothing" || ok "the app pages draw their own plate (square, home circle)"
 
 step "A folder on an app page shows its apps in the app pages' own look (Classic, drawer off)"
-seed classic
-setp boolean drawer false; setp int grid_cols 4; setp int grid_rows 5; setp int grid_pages 2 # cell 20: page two's first
-setp string folder:x "{\&quot;name\&quot;:\&quot;Cartella X\&quot;,\&quot;where\&quot;:\&quot;grid\&quot;,\&quot;apps\&quot;:[\&quot;com.google.android.calendar/com.android.calendar.AllInOneActivity\&quot;]}"
-setp string grid "{\&quot;20\&quot;:\&quot;f:x\&quot;}"
-setp int accent -2093040; setp string icon_pack "builtin:arcticons"
-setp boolean drawer_follow false; setp boolean drawer_labels false # no white name under the tile
-look original none solid text; strings drawer_icon_color accent # home: white glyphs; app pages: red
+# cell 20: page two's first; drawer_labels: no white name under the tile; home: white glyphs, app pages: red
+seed classic boolean drawer false int grid_cols 4 int grid_rows 5 int grid_pages 2 \
+  string folder:x "{\&quot;name\&quot;:\&quot;Cartella X\&quot;,\&quot;where\&quot;:\&quot;grid\&quot;,\&quot;apps\&quot;:[\&quot;com.google.android.calendar/com.android.calendar.AllInOneActivity\&quot;]}" \
+  string grid "{\&quot;20\&quot;:\&quot;f:x\&quot;}" int accent -2093040 string icon_pack "builtin:arcticons" \
+  boolean drawer_follow false boolean drawer_labels false $(model original none solid text) string drawer_icon_color accent
 folder_cell() { # folder_cell out.png: the folder on page two
   local n=0
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus

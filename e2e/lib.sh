@@ -154,17 +154,27 @@ put_prefs() {
   A shell "run-as $PK sh -c 'mkdir -p shared_prefs && cat > shared_prefs/e2e.tmp && rm -f shared_prefs/ganimede.xml.bak && mv shared_prefs/e2e.tmp shared_prefs/ganimede.xml'" < "$1" \
     || { ko "put_prefs: the prefs were not written"; return 1; }
 }
-# Change one setting the way the app stores it, then restart the home screen.
-setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item value)
+# edit_prefs file int|boolean|string|set|del key [value] ...: the settings written into the file the way the app stores
+# them (del takes no value; a set holds the one item value).
+edit_prefs() {
+  local f="$1"; shift
+  while [ $# -ge 2 ]; do
+    sed -i "/ name=\"$2\"/d" "$f"
+    case $1 in
+      int|boolean) sed -i "s@</map>@    <$1 name=\"$2\" value=\"$3\" />\n</map>@" "$f" ;;
+      string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
+      set) sed -i "s@</map>@    <set name=\"$2\"><string>$3</string></set>\n</map>@" "$f" ;;
+    esac
+    if [ "$1" = del ]; then shift 2; elif [ $# -ge 3 ]; then shift 3; else ko "edit_prefs: no value for $2"; return 1; fi
+  done
+}
+# Change settings, then restart the home screen once. A restart takes ~9 s (force-stop, focus, two alike dumps): a step
+# gives all its settings to one call (18-icons took 1311 s with ~107 restarts, 288 s before issue 078).
+setp() { # setp int|boolean|string|set|del key [value] [int|boolean|string|set|del key [value] ...]
   local f="$OUT/prefs.xml"
   A shell am force-stop $PK
   A exec-out run-as $PK sh -c 'cat shared_prefs/ganimede.xml.bak 2>/dev/null || cat shared_prefs/ganimede.xml' > "$f" # the file Android would load
-  sed -i "/ name=\"$2\"/d" "$f"
-  case $1 in
-    int|boolean) sed -i "s@</map>@    <$1 name=\"$2\" value=\"$3\" />\n</map>@" "$f" ;;
-    string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
-    set) sed -i "s@</map>@    <set name=\"$2\"><string>$3</string></set>\n</map>@" "$f" ;;
-  esac
+  edit_prefs "$f" "$@"
   put_prefs "$f"
   start_home
 }
@@ -214,8 +224,8 @@ noshows() { ! shows "$@"; }
 # fdiff a.png b.png [WxH+X+Y]: how many pixels differ (inside the crop, if given). Pixels, never file bytes: a PNG
 # written by magick carries its dates, so cmp calls two identical pictures different (issue 086).
 fdiff() { compare -metric AE "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
-# seed classic|list: a configured app without the wizard: onboarded, mode, favourites, Italian, the home role.
-# (the APK must be installed). Leaves the home screen in front.
+# seed classic|list [setp's settings ...]: a configured app without the wizard: onboarded, mode, favourites, Italian, the
+# home role, and the settings given, all in one start (the APK must be installed). Leaves the home screen in front.
 seed() {
   local f="$OUT/seed.xml" fav
   fav="com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;com.google.android.deskclock/com.android.deskclock.DeskClock&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity"
@@ -231,6 +241,7 @@ seed() {
     <string name="icon_container">squircle</string>
 </map>
 XML
+  shift; edit_prefs "$f" "$@"
   put_prefs "$f"
   A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1
   start_home
