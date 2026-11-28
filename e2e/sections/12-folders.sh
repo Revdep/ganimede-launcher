@@ -386,8 +386,7 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "AgendaZz"
 
 step "Folders: another app's update doesn't rebuild the open pop-up; one of its apps removed mid-drag waits for the finger (082)"
 FIXAPK="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" # e2e/fixture: an app with a launcher activity, ours to reinstall
-"$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 && [ -s "$FIXAPK" ] \
-  && ok "fixture app built" || ko "fixture app not built (./gradlew -Pe2e :fixture:assembleDebug): the checks below can't pass"
+fixture_install && ok "fixture app installed" || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug): the checks below can't pass"
 update_other() { A install -r "$FIXAPK" >/dev/null; } # a package event (added/changed): Ganimede reloads its app list
 popwin() { A shell dumpsys window windows | grep -o "Window{[0-9a-f]* u0 [^}]*$PK[^}]*}" | sort | paste -sd' ' -; } # its windows
 seed classic
