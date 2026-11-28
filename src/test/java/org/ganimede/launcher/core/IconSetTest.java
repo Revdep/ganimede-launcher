@@ -240,9 +240,10 @@ public class IconSetTest {
         prefs.put(IconSet.pickedKey("com.a/com.a.Other"), "builtin:arcticons|okay");
         prefs.put(IconSet.pickedKey("com.ab/com.ab.Main"), "builtin:arcticons|okay");
         prefs.put(IconSet.pickedKey("f:12"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.a/com.a.Main#10"), "builtin:arcticons|okay"); // the same app in a work profile stays
         prefs.put("rn:com.a/com.a.Main", "x");
         eq(java.util.Set.of("icon:com.a/com.a.Main", "icon:com.a/com.a.Other"), new java.util.HashSet<>(IconSet.pickedKeysOf(prefs, "com.a")),
-                "both of com.a's entries, not com.ab, a folder or a rename");
+                "both of com.a's entries, not com.ab, its work-profile copy, a folder or a rename");
     }
 
     /** Reads everything a set offers, as the launcher does: every icon and name, and an index lookup. */

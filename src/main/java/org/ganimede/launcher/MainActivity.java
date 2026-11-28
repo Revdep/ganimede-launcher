@@ -83,7 +83,7 @@ public class MainActivity extends Activity implements Actions.Home {
     private final LauncherApps.Callback appsChanged = new LauncherApps.Callback() {
         @Override public void onPackageRemoved(String p, UserHandle u) {
             Icons.forget(p);
-            if (u.equals(Process.myUserHandle())) { // a work profile's removal says nothing about the keys, shared with this profile's copy
+            if (u.equals(Process.myUserHandle())) { // a work profile's copy has its own keys (#user), left alone
                 SharedPreferences.Editor e = prefs.edit();
                 for (String k : IconSet.pickedKeysOf(prefs.getAll(), p)) e.remove(k); // else the 4 MB set stays needed, and in the backup
                 e.apply();

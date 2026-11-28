@@ -142,10 +142,13 @@ public final class IconSet {
         return "icon:" + entry;
     }
 
-    /** The picked-icon keys of an app's entries ("icon:<package>/<class>"): deleted when it is uninstalled (see {@link #pickedKey}). */
+    /**
+     * The picked-icon keys of an app's entries in the main profile ("icon:<package>/<class>", no "#<user>" of a work
+     * profile's copy): deleted when it is uninstalled (see {@link #pickedKey}).
+     */
     public static List<String> pickedKeysOf(Map<String, ?> prefs, String pkg) {
         List<String> out = new ArrayList<>();
-        for (String k : prefs.keySet()) if (k.startsWith(pickedKey(pkg + "/"))) out.add(k);
+        for (String k : prefs.keySet()) if (k.startsWith(pickedKey(pkg + "/")) && k.indexOf('#') < 0) out.add(k);
         return out;
     }
 
