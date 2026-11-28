@@ -49,6 +49,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Voice notes in notifications, heard privately: the audio a chat app attaches to its notification is copied into
@@ -63,6 +64,7 @@ final class VoicePlayer {
     private static final Handler WATCHDOG = watchdog(); // off the main thread: a busy screen must not delay a cut
     private static final Set<String> BUSY = ConcurrentHashMap.newKeySet(); // apps with a kept copy whose thread has not returned
     private static final int BUSY_MAX = 2;
+    private static final AtomicInteger WAITING = new AtomicInteger(); // copy tasks queued or running; deletions and holds are never counted
     private static final AudioAttributes SPEECH = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
 
@@ -108,6 +110,10 @@ final class VoicePlayer {
      * chat app did not share: those it withdraws before this app ever saw them get no row.
      */
     static void keep(Context c, StatusBarNotification... all) {
+        if (!Voice.admits(WAITING.getAndIncrement())) { // full: this arrival is not kept; the sweep and the holds still queue
+            WAITING.decrementAndGet();
+            return;
+        }
         KEEPER.execute(() -> {
             try {
                 for (StatusBarNotification s : all) for (Uri uri : notes(s)) {
@@ -118,6 +124,8 @@ final class VoicePlayer {
                 }
             } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
                 Log.w("Ganimede", "Voice note not kept: " + e.getClass().getName());
+            } finally {
+                WAITING.decrementAndGet();
             }
         });
     }

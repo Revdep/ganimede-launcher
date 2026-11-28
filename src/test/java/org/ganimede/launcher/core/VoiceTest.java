@@ -55,6 +55,12 @@ public class VoiceTest {
         eq("[old, fresh]", Voice.drop(names, modified, null, snap, snap + 20).toString(), "no access: still everything");
     }
 
+    public static void testQueueOfCopiesHasARoof() {
+        yes(Voice.admits(0), "empty");
+        yes(Voice.admits(Voice.QUEUE_MAX - 1), "one place left");
+        yes(!Voice.admits(Voice.QUEUE_MAX), "full: no more copies queued");
+    }
+
     public static void testKeepsANoteOnlyIfAWholeOneStillFits() {
         yes(Voice.room(0), "empty");
         yes(Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES), "a largest note fills it exactly");
