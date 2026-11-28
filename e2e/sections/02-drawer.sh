@@ -4,12 +4,14 @@ A shell input swipe 540 1900 540 600 150; shot 11-drawer
 expect "Cerca app"
 typ "cal"
 wait_until 5 has "Calendar" && ok "search finds Calendar" || ko "search misses Calendar"
+# a signal only a search shows (the Web row), and an app the filter takes out: not the unfiltered list
+wait_until 5 has "Cerca “cal” con" && hasnt "Camera" && ok "the search filters: the Web row is there, Camera is gone" || ko "no filtering: no Web row, or Camera still listed"
 shot 12-search
 
 step "Search: letters scattered in a name do not match"
 seed classic; A shell input swipe 540 1900 540 600 150; expect "Cerca app"
 typ "cl"
-wait_until 5 has "Clock" && ok "cl finds Clock" || ko "cl misses Clock"
+wait_until 5 has "Clock" && has "Cerca “cl” con" && ok "cl finds Clock" || ko "cl misses Clock (or no search ran)"
 hasnt "Calendar" && ok "cl leaves out Calendar (c and l scattered)" || ko "cl still finds Calendar"
 
 step "Back with text: the first hides the keyboard, the results stay; the second goes home (both modes)"
@@ -50,12 +52,13 @@ A shell input tap 540 1600; wait_until 3 touch_mode || ko "touch mode not restor
 emu_only "drawer: test contacts" || return 0
 step "Search: every matching contact, any case, in order"
 CONTACTS=content://com.android.contacts
-# the test contacts and the permission go away at the end, and before inserting in case an earlier run stopped halfway
+# the test contacts and the permission go away at the end (also when the run stops here), and before inserting in case an earlier run stopped halfway
 prova_clean() {
   A shell "content delete --uri '$CONTACTS/raw_contacts?caller_is_syncadapter=true' --where \"account_type LIKE 'org.ganimede.e2e%'\""
   A shell pm revoke $PK android.permission.READ_CONTACTS
 }
 prova_clean
+defer prova_clean
 names=("Zz Prova H" "Zz Prova G" "ZZ PROVA F" "Zz Prova E" "Zz Prova D" "Zz Prova C" "Zz Prova B" "Zz Prova A")
 for n in "${names[@]}"; do # a raw contact of the e2e account with a name and a number, C an email instead
   A shell "content insert --uri $CONTACTS/raw_contacts --bind account_type:s:org.ganimede.e2e --bind account_name:s:e2e"
@@ -148,4 +151,3 @@ expect "Zz Prova Chat"
 rows() { [ "$(screen | grep -o 'text="Zz Prova Chat"' | wc -l)" -eq "$1" ]; }
 wait_until 5 rows 1 && ok "the person is listed once" || ko "the person is listed $(screen | grep -o 'text="Zz Prova Chat"' | wc -l) times"
 shot 14-chat
-prova_clean
