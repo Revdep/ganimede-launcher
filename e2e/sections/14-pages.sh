@@ -2,14 +2,12 @@ emu_only "pages: changes font scale and the notification listener" || return 0
 # The settings pages (each opens from its row, one control per page changes its pref) and the Ganimede button
 # (tap opens its pop-up, dragging it to the left edge saves fab_left=true).
 
-# pv key: the stored value of any pref (lib.sh `pref` only reads ints); empty when unset
-pv() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | tr -d '\r' | grep " name=\"$1\"" | sed -E 's/.*value="([^"]*)".*/\1/; s/.*">([^<]*)<.*/\1/'; }
 # pv_is "what" key expected [action…]: runs the action, then waits for the pref to hold the value.
 # With an action the pref must not hold it before: a read that beats the app's write would pass on the old value.
 pv_is() {
-  local w="$1" k="$2" e="$3"; shift 3; pv_eq() { [ "$(pv "$k")" = "$e" ]; }
+  local w="$1" k="$2" e="$3"; shift 3; pv_eq() { [ "$(pref "$k")" = "$e" ]; }
   [ $# -gt 0 ] && { pv_eq && { ko "$w: $k is already $e before the action"; return 1; }; "$@"; }
-  wait_until 5 pv_eq && ok "$w: $k = $e" || ko "$w: $k = '$(pv "$k")', expected $e"
+  wait_until 5 pv_eq && ok "$w: $k = $e" || ko "$w: $k = '$(pref "$k")', expected $e"
 }
 pg_back() { # one level up, to the settings home
   A shell input keyevent KEYCODE_BACK
@@ -152,7 +150,7 @@ if [ -z "$bx" ]; then ko "no Ganimede button on the classic home"; else
   wait_until 5 has "Pulsante Ganimede" && ok "tap opens the button's pop-up" || ko "tap did not open the pop-up"
   hasnt "Pulsante rapido" && ok "an old pop-up shows no old name" || ko "the pop-up still shows its old name “Pulsante rapido”"
   A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Pulsante Ganimede"
-  [ -z "$(pv fab_left)" ] && ok "starts anchored on the right (fab_left unset)" || ko "fab_left already $(pv fab_left)"
+  [ -z "$(pref fab_left)" ] && ok "starts anchored on the right (fab_left unset)" || ko "fab_left already $(pref fab_left)"
   A shell input swipe "$bx" "$by" 60 "$by" 800
   pv_is "drag to the left edge" fab_left true
   read -r nx ny <<<"$(btn)"
