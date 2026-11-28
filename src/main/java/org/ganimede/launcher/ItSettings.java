@@ -268,7 +268,7 @@ final class ItSettings {
         it("Restore a backup", "Ripristina un backup");
         it("Replaces your current setup", "Sostituisce la configurazione attuale");
         it("No file picker on this phone", "Su questo telefono non c'è un selettore di file");
-        it("Wait until the backup or restore under way has finished", "Aspetta che finisca il backup o il ripristino in corso");
+        it("Wait until the file operation under way has finished", "Aspetta che finisca l'operazione sui file in corso");
         it("Backup created", "Backup creato");
         it("Could not write the backup", "Impossibile scrivere il backup");
         it("Restore backup?", "Ripristinare il backup?");

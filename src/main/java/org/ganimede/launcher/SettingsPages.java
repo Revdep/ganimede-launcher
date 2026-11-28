@@ -302,7 +302,7 @@ final class SettingsPages {
 
     private void pick(Intent i, int req) {
         if (job != null) { // one at a time: a backup and a restore read and replace the same settings
-            kit.ui.toast(kit.ui.tr("Wait until the backup or restore under way has finished"));
+            kit.ui.toast(kit.ui.tr("Wait until the file operation under way has finished"));
             return;
         }
         try {
