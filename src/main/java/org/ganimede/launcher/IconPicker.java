@@ -40,6 +40,7 @@ final class IconPicker {
     private final Handler handler;
     private final Function<String, String> entryName;
     private final Runnable refresh, reloadApps;
+    private Dialog open; // the grid, so a dying screen can close it
 
     IconPicker(Ui ui, Sheets sheets, Handler handler, Function<String, String> entryName, Runnable refresh, Runnable reloadApps) {
         this.ui = ui;
@@ -48,6 +49,11 @@ final class IconPicker {
         this.entryName = entryName;
         this.refresh = refresh;
         this.reloadApps = reloadApps;
+    }
+
+    /** The screen is going: the grid goes with it, or the picker count stays up and a trim never frees the 4 MB set. */
+    void close() {
+        if (open != null) open.dismiss();
     }
 
     void choose(String entry) {
@@ -142,6 +148,7 @@ final class IconPicker {
             dlg.dismiss();
         });
         Icons.pickerOpen(true);
+        open = dlg;
         dlg.setOnDismissListener(d -> { Icons.pickerOpen(false); searcher.shutdown(); });
         dlg.show();
         new Thread(() -> {
