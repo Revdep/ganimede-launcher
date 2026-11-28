@@ -84,6 +84,7 @@ final class Icons {
         final Resources resources;
         final Map<String, String> icons;
         final IconSet set; // the built-in set, instead of resources and icons
+        final Map<Integer, BuiltinIcon> categoryIcons = new java.util.concurrent.ConcurrentHashMap<>(); // one per glyph: apps of a category share its bitmap
         Pack(String name, Resources resources, Map<String, String> icons, IconSet set) {
             this.name = name;
             this.resources = resources;
@@ -262,11 +263,12 @@ final class Icons {
      * the one its manifest declares. Null with another pack, with "Category icons" off, or when the app has no category.
      */
     static BuiltinIcon category(SharedPreferences p, LauncherActivityInfo info) {
-        IconSet set = loaded.set;
+        Pack pack = loaded;
+        IconSet set = pack.set;
         if (set == null || !p.getBoolean(CATEGORY_KEY, true)) return null;
         OptionalInt id = set.categoryGlyph(info.getComponentName().getPackageName(), info.getApplicationInfo().category);
         try {
-            return id.isPresent() ? new BuiltinIcon(set.icon(id.getAsInt())) : null;
+            return id.isPresent() ? pack.categoryIcons.computeIfAbsent(id.getAsInt(), g -> new BuiltinIcon(set.icon(g))) : null;
         } catch (RuntimeException damaged) {
             return null;
         }
