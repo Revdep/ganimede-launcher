@@ -332,7 +332,7 @@ final class Icons {
                 : s != IconSource.MONOCHROME || mono != null);
         if (source == IconSource.ARCTICONS) { // built-in geometry, with the treatment's stroke (original draws as Line)
             BuiltinIcon fresh = (BuiltinIcon) copy(icon); // its own tint, alpha and look: the shared one stays as it is
-            renderInto(v, ((BuiltinIcon) plain(icon, colours.glyph())).look(look), user, idOf(icon) + "|" + look + "|" + colours.glyph() + "|" + px, () -> {
+            renderInto(v, ((BuiltinIcon) plain(icon, colours.glyph())).look(look), user, idOf(icon) + "|" + user + "|" + look + "|" + colours.glyph() + "|" + px, () -> {
                 Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
                 fresh.render(new Canvas(b), look, colours.glyph(), px);
                 return b;
@@ -347,7 +347,7 @@ final class Icons {
             Drawable layer = source == IconSource.MONOCHROME ? mono : null;
             Drawable placeholder = copy(layer != null ? layer : icon); // the monochrome layer already looks as it will
             if (layer != null) placeholder.setTint(tint);
-            renderInto(v, placeholder, user, idOf(icon) + "|" + source + "|" + fit + "|" + tintGreys + "|" + tint + "|" + px,
+            renderInto(v, placeholder, user, idOf(icon) + "|" + user + "|" + source + "|" + fit + "|" + tintGreys + "|" + tint + "|" + px,
                     () -> styled(icon, layer, fit, tint, tintGreys, px));
         }
         if (look.plated()) v.setBackground(plate(look.container(), colours, px));
