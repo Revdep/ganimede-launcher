@@ -551,21 +551,11 @@ def index(key_ids, hash48=fnv48):
     return entries
 
 
-# Play Store categories in the order of core/AppCategory, with the built-in icon that stands for each (issue 087)
-GAMES = ["ACTION", "ADVENTURE", "ARCADE", "BOARD", "CARD", "CASINO", "CASUAL", "EDUCATIONAL", "MUSIC", "PUZZLE", "RACING",
-         "ROLE_PLAYING", "SIMULATION", "SPORTS", "STRATEGY", "TRIVIA", "WORD"]
-GLYPHS = dict([
-    ("ART_AND_DESIGN", "emoji_artist_palette"), ("AUTO_AND_VEHICLES", "car"), ("BEAUTY", "emoji_dress"),
-    ("BOOKS_AND_REFERENCE", "books"), ("BUSINESS", "emoji_briefcase"), ("COMICS", "emoji_collision_symbol"),
-    ("COMMUNICATION", "chat"), ("DATING", "emoji_two_hearts"), ("EDUCATION", "school"), ("ENTERTAINMENT", "tv"),
-    ("EVENTS", "emoji_party_popper"), ("FINANCE", "emoji_classical_building"), ("FOOD_AND_DRINK", "emoji_pot_of_food"),
-    ("HEALTH_AND_FITNESS", "workout"), ("HOUSE_AND_HOME", "home"), ("LIBRARIES_AND_DEMO", "emoji_package"),
-    ("LIFESTYLE", "emoji_potted_plant"), ("MAPS_AND_NAVIGATION", "maps"), ("MEDICAL", "pill"), ("MUSIC_AND_AUDIO", "music"),
-    ("NEWS_AND_MAGAZINES", "emoji_newspaper"), ("PARENTING", "emoji_baby_bottle"), ("PERSONALIZATION", "themes"),
-    ("PHOTOGRAPHY", "camera"), ("PRODUCTIVITY", "emoji_clipboard"), ("SHOPPING", "shopping"),
-    ("SOCIAL", "emoji_busts_in_silhouette"), ("SPORTS", "emoji_soccer_ball"), ("TOOLS", "emoji_hammer_and_wrench"),
-    ("TRAVEL_AND_LOCAL", "emoji_airplane"), ("VIDEO_PLAYERS", "emoji_clapper_board"), ("WEATHER", "weather")]
-    + [("GAME_" + g, "games") for g in GAMES])
+# Play Store categories in the order of core/AppCategory, with the built-in icon that stands for each: read from that
+# enum, the one place they are written (issue 087)
+ENUM = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../src/main/java/org/ganimede/launcher/core/AppCategory.java")
+with open(ENUM, encoding="utf-8") as _f:
+    GLYPHS = dict(re.findall(r'\b([A-Z][A-Z_]+)\("([a-z0-9_]+)"\)', _f.read().split("enum AppCategory")[1].split(";")[0]))
 CATEGORIES_COMMIT = "05ba4fb166ae3e5dd66ee50645ac8a6186259216"  # heysupratim/android-app-categories (Unlicense)
 # the dataset's 67 `type` values that are not a category's own name once "&" is "AND": typos, old names, games without "GAME_"
 ALIASES = {
