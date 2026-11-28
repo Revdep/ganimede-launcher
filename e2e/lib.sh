@@ -403,7 +403,7 @@ fresh_wizard() { # uninstall, install, open the first wizard step ("Welcome to G
   wait_until 10 has "Welcome to Ganimede"
 }
 
-# Helpers of the icon sections (18-icons-a, 18-icons-b), each of which runs alone.
+# Helpers of the icon sections (18-icons-a, -b, -c), each of which runs alone.
 # The icon model (issue 078) and the built-in Arcticons pack (077): shared names.
 RED="#E01010"
 # the Icons card tiles as TalkBack names them: "group: choice" (the rows share some names)
@@ -475,6 +475,11 @@ htile() { # htile desc y: the tile of the sideways row at height y whole on the 
 tapd() { local xy; xy=$(reach "$@") && [ -n "$xy" ] && { set -- $xy; A shell input tap "$1" "$2"; }; }
 stored() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"$1\">$2</string>"; }
 BUILTIN=builtin:arcticons
+FIXTURE=$FIX # the fixture app: an old-style icon, a monochrome layer, a category, and an icon pack (18-icons-b and -c)
+icons_fixture() { # installs it for the section, uninstalled when the run ends
+  fixture_install && ok "fixture app built and installed" || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
+  defer "A uninstall $FIX"
+}
 CAL=com.google.android.calendar/com.android.calendar.AllInOneActivity
 
 # The folder pop-up's card (12-folders-a and -b)
