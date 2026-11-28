@@ -55,13 +55,17 @@ final class BuiltinIcon extends Drawable {
      */
     void render(Canvas c, IconLook look, int color, int fill, int px) {
         IconLook.Stroke s = look.stroke();
-        Path[] shapes = paths;
-        if (s.outline() > 0) {
-            Path[] o = outlines(s);
-            if (o == null) s = s.fallback(); // no outline to be had: Bold
-            else shapes = o;
+        Path[] edges = s.outline() > 0 ? outlines(s) : paths;
+        if (edges == null) { // no outline to be had: Bold
+            s = s.fallback();
+            edges = paths;
         }
-        GlyphFit fit = look.plated() ? GlyphFit.onContainer(GlyphFit.bounds(data), s.extent(), px) : GlyphFit.grid(px);
+        paint(c, look.plated(), s, edges, color, fill, px);
+    }
+
+    /** {@code edges}: what each path's stroke follows (Hollow's contours, else the path itself); fills always follow the path. */
+    private void paint(Canvas c, boolean plated, IconLook.Stroke s, Path[] edges, int color, int fill, int px) {
+        GlyphFit fit = plated ? GlyphFit.onContainer(GlyphFit.bounds(data), s.extent(), px) : GlyphFit.grid(px);
         Matrix m = new Matrix();
         m.setScale(fit.scale(), fit.scale());
         m.postTranslate(fit.dx(), fit.dy());
@@ -69,8 +73,12 @@ final class BuiltinIcon extends Drawable {
         paint.setColorFilter(filter);
         for (int i = 0; i < paths.length; i++) {
             IconSet.PathData p = data.get(i);
-            Path path = new Path(shapes[i]);
+            Path path = new Path(paths[i]), edge = path;
             path.transform(m);
+            if (edges[i] != paths[i]) {
+                edge = new Path(edges[i]);
+                edge.transform(m);
+            }
             float a = p.alpha() * alpha / 255f; // the path's own alpha and the drawable's, for fill and stroke alike
             paint.setColor(color);
             paint.setAlpha(Math.round(Color.alpha(color) * a));
@@ -93,7 +101,7 @@ final class BuiltinIcon extends Drawable {
             paint.setStrokeWidth(s.width() * px / 48f);
             paint.setStrokeCap(Paint.Cap.valueOf(s.cap().name()));
             paint.setStrokeJoin(Paint.Join.valueOf(s.join().name()));
-            c.drawPath(path, paint);
+            c.drawPath(edge, paint);
             if (s.dotCap() == s.cap()) continue;
             float[] dots = GlyphFit.dots(p); // zero-length subpaths vanish under this cap: drawn as round points
             m.mapPoints(dots);
@@ -151,7 +159,8 @@ final class BuiltinIcon extends Drawable {
         Rect b = getBounds();
         int save = c.save();
         c.translate(b.left, b.top);
-        render(c, look, color, 0, Math.min(b.width(), b.height()));
+        // Hollow's contours are worked out in the cached render only: the placeholder draws it as Bold
+        paint(c, look.plated(), look.stroke().fallback(), paths, color, 0, Math.min(b.width(), b.height()));
         c.restoreToCount(save);
     }
 
