@@ -390,7 +390,8 @@ final class Icons {
                 return b;
             });
         } else if (look.glyph().equals("original")) { // the app's own icon, cut to the container if there is one
-            v.setImageDrawable(badged(c, look.container().equals("none") ? copy(icon) : clip(icon, look.container(), px), user));
+            v.setImageDrawable(look.container().equals("none") || !(icon instanceof AdaptiveIconDrawable) ? badged(c, copy(icon), user)
+                    : clip(c, (AdaptiveIconDrawable) icon, look.container(), px, user));
             return;
         } else { // a glyph from the app's own icon: its monochrome layer, silhouette or greys (the same for every stroke)
             boolean tintGreys = look.plated() || look.color().equals("accent"); // today's Monochrome kept plain greys
@@ -410,6 +411,23 @@ final class Icons {
         return user == null || user.equals(Process.myUserHandle()) ? d : c.getPackageManager().getUserBadgedIcon(d, user);
     }
 
+    /**
+     * A picture drawn for the cache, with another profile's badge at the picture's own size; others as they are. Only
+     * before it is cached: the platform paints the badge into a mutable bitmap in place (ApplicationPackageManager.
+     * getBadgedDrawable), and sizes it by the drawable's intrinsic size, so the density is the bitmap's own.
+     */
+    private static Bitmap badged(Context c, Bitmap b, UserHandle user) {
+        if (user == null || user.equals(Process.myUserHandle())) return b;
+        BitmapDrawable plain = new BitmapDrawable(c.getResources(), b);
+        plain.setTargetDensity(b.getDensity());
+        Drawable d = badged(c, plain, user);
+        if (d instanceof BitmapDrawable) return ((BitmapDrawable) d).getBitmap(); // b badged in place, or a badged copy
+        Bitmap out = Bitmap.createBitmap(b.getWidth(), b.getHeight(), Bitmap.Config.ARGB_8888);
+        d.setBounds(0, 0, b.getWidth(), b.getHeight());
+        d.draw(new Canvas(out));
+        return out;
+    }
+
     /** The icon as it is; a built-in icon is drawn in {@code tint}. */
     static Drawable plain(Drawable icon, int tint) {
         Drawable d = copy(icon);
@@ -418,22 +436,20 @@ final class Icons {
     }
 
     /**
-     * An adaptive icon cut to a shape, edge to edge; an old square icon as it is (no white plate behind it), so nothing
-     * looks like a sticker.
+     * An adaptive icon cut to a shape, edge to edge, with its profile's badge (an old square icon stays as it is, no
+     * white plate behind it, so nothing looks like a sticker).
      */
-    private static Drawable clip(Drawable icon, String shape, int size) {
-        if (!(icon instanceof AdaptiveIconDrawable)) return copy(icon);
-        if (size <= 0) size = 96;
-        String key = idOf(icon) + "|" + shape + "|" + size;
+    private static Drawable clip(Context context, AdaptiveIconDrawable icon, String shape, int size, UserHandle user) {
+        String key = idOf(icon) + "|" + user + "|" + shape + "|" + size;
         Bitmap cached = CACHE.get(key);
         if (cached != null) return new BitmapDrawable(null, cached);
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(b);
         c.clipPath(shapePath(shape, size));
         // Adaptive layers are 108dp with a 72dp safe zone: draw them oversized so the shape fills.
-        AdaptiveIconDrawable a = (AdaptiveIconDrawable) icon;
-        if (a.getBackground() != null) draw(c, a.getBackground(), size, true);
-        if (a.getForeground() != null) draw(c, a.getForeground(), size, true);
+        if (icon.getBackground() != null) draw(c, icon.getBackground(), size, true);
+        if (icon.getForeground() != null) draw(c, icon.getForeground(), size, true);
+        b = badged(context, b, user);
         CACHE.put(key, b);
         return new BitmapDrawable(null, b);
     }
@@ -454,15 +470,7 @@ final class Icons {
         }
         v.setImageDrawable(placeholder);
         RENDER.execute(() -> {
-            Bitmap b = draw.get();
-            if (user != null && !user.equals(Process.myUserHandle())) { // the badge goes into the cached picture
-                Bitmap out = Bitmap.createBitmap(b.getWidth(), b.getHeight(), Bitmap.Config.ARGB_8888);
-                Drawable d = badged(c, new BitmapDrawable(c.getResources(), b), user);
-                d.setBounds(0, 0, b.getWidth(), b.getHeight());
-                d.draw(new Canvas(out));
-                b = out;
-            }
-            final Bitmap shown = b;
+            Bitmap shown = badged(c, draw.get(), user); // the badge goes into the cached picture
             CACHE.put(key, shown);
             v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
         });

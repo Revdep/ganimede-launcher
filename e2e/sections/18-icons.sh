@@ -478,19 +478,26 @@ if emu_only "icons: a work profile is created on the emulator"; then
     for pk in $FIXTURE com.google.android.calendar; do A shell pm install-existing --user "$wuid" "$pk" >/dev/null 2>&1; done
     serial=$(A shell dumpsys user | grep -E "UserInfo\{$wuid:" | grep -oE 'serialNo=[0-9]+' | head -1 | cut -d= -f2)
     corner() { magick "$1" -gravity SouthEast -crop "40%x40%+0+0" +repage "$2"; } # where the badge sits
-    badge_of() { # badge_of label component look...: the cell as the user's own app and as the work copy; the work copy's corner differs
-      local label="$1" comp="$2"; shift 2
-      seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 64; setp boolean hide_labels true
+    rest() { magick "$1" -gravity NorthWest -crop "50%x50%+0+0" +repage "$2"; } # where a badge at the icon's scale never reaches
+    badge_of() { # badge_of label component pack look...: the cell as the user's own app and as the work copy; only the work copy's corner differs
+      local label="$1" comp="$2" pack="$3"; shift 3
+      seed classic; setp int accent -2093040; setp string icon_pack "$pack"; setp int grid_icon 64; setp boolean hide_labels true
       look "$@"
       setp string fav "$comp"; capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
       setp string fav "$comp#$serial"; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
       corner "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-c.png"; corner "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-c.png"
       ! same "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
         && ok "badge: the work $label has a badge in its corner ($*)" || ko "badge: the work $label has no badge ($*)"
+      # a badge drawn smaller than the icon (Fable c1-icons 1) lands in its top-left quarter: that quarter stays as the own app's
+      rest "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-r.png"; rest "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-r.png"
+      same "$OUT/icons-badge-own-r.png" "$OUT/icons-badge-work-r.png" \
+        && ok "badge: the work $label is the own one's outside the corner ($*)" || ko "badge: the work $label differs outside the badge corner ($*)"
     }
-    badge_of Fixture "$FIXTURE/$FIXTURE.Open" original circle solid accent
-    badge_of Fixture "$FIXTURE/$FIXTURE.Open" line circle solid accent
-    badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" line circle solid accent
+    badge_of Fixture "$FIXTURE/$FIXTURE.Open" "$BUILTIN" original circle solid accent
+    badge_of Fixture "$FIXTURE/$FIXTURE.Open" "$BUILTIN" line circle solid accent
+    badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" "$BUILTIN" line circle solid accent
+    # no pack: Calendar's own adaptive icon cut to the circle (Fable c1-icons 1: the badge went into the cached cut, at 160 dpi)
+    badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" "" original circle solid accent
     # a folder thumbnail goes through the same render: the folder with the work copy differs from the one with the own app
     seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
     look line circle solid accent
