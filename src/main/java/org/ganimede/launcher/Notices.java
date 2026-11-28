@@ -176,7 +176,9 @@ final class Notices {
      */
     void show(String onlyPkg) {
         if (!NotifService.connected) {
-            ui.toast(ui.tr("Allow notification access in settings first"));
+            // Access already on but the listener unbound: only switching it off and on binds it again (requestRebind cannot)
+            ui.toast(ui.tr(Ui.notifAllowed(ui.a) ? "Notifications are not connected: switch access off and on again for Ganimede"
+                    : "Allow notification access in settings first"));
             ui.settings();
             return;
         }
