@@ -101,11 +101,11 @@ players() { screen | grep -o 'text="\(Messaggio vocale\|[0-9]:[0-9][0-9] / [0-9]
 nplayers() { [ "$(players | awk -F'|' '{print NF}')" = "$1" ]; }
 play_at() { screen | grep -o 'content-desc="Riproduci il messaggio vocale"[^>]*bounds="[^"]*"' | sed -n "$1p" \
   | grep -o '[0-9]*' | tail -4 | paste -sd' ' | awk '{print int(($1 + $3) / 2), int(($2 + $4) / 2)}'; }
-# What plays is told by the row that shows "m:ss / m:ss" (only a row whose player is ready does), as the size its note's
-# WAV has (header 44 + 16000 bytes a second): one note at a time, none once playback stops. The notes are played from
-# the copy kept on arrival, so there is no other file to look at.
-copies() { screen | grep -o 'text="[0-9]:[0-9][0-9] / [0-9]:[0-9][0-9]"' | sed 's/.*\/ \([0-9]\):\([0-9][0-9]\)"/\1 \2/' \
-  | awk '{print 44 + 16000 * ($1 * 60 + $2)}' | paste -sd' '; }
+# What plays is told by the app's log, not the screen: while a note plays the seekbar and time change every 250 ms, so
+# uiautomator never gets a dump. VoicePlayer logs "voice plays <ms>" on start and "voice stops" on pause or stop; the last
+# one is the state, shown as the size its note's WAV has (header 44 + 16000 bytes a second, 30 s = 480044): empty when stopped.
+copies() { local l; l=$(A logcat -d -s Ganimede:I | grep -o 'voice \(plays [0-9]*\|stops\)' | tail -1)
+  case "$l" in "voice plays "*) echo $((44 + 16000 * (${l##* } + 500) / 1000));; esac; }
 copies_are() { [ "$(copies)" = "$1" ]; }
 # A tap while the note loads does nothing ("Loading…", run 46083578007): a note plays once its row shows its length and the
 # app's player is started in the audio service's list.
@@ -178,9 +178,8 @@ A shell input tap "$(play_at 2)"
 wait_until 10 plays 480044 || ko "note A did not play (copied from the chat app): $(copies)"
 wait_until 15 kept_is 2 || ko "the chat's notes were not kept while A plays: $(kept)"
 voice --es shape s   # the re-post rebuilds the rows, now with kept copies
-paused_rows() { screen | grep -c 'content-desc="Pausa"'; }
-wait_until 10 eval '[ "$(paused_rows)" = 1 ]' && plays 480044 \
-  && ok "A is still playing and its row still shows Pause after the re-post" || ko "the row lost its playing state: $(paused_rows) on Pause, $(copies)"
+wait_until 10 plays 480044 \
+  && ok "A is still playing after the re-post" || ko "the note stopped with the re-post: $(copies)"
 A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
 

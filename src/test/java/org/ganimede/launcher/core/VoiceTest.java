@@ -37,6 +37,15 @@ public class VoiceTest {
         yes(a.matches("[0-9a-f]{32}-[0-9a-f]{32}"), "only hex reaches the disk, no key nor address: " + a);
     }
 
+    public static void testSweepSignatureChangesWithTheNotesOfAKeptKey() {
+        String[] keys = {"k1", "k2"};
+        String both = Voice.signature(keys, new String[][]{{"content://a/1", "content://a/2"}, {}});
+        eq(both, Voice.signature(keys, new String[][]{{"content://a/1", "content://a/2"}, {}}), "nothing changed: the same");
+        yes(!both.equals(Voice.signature(keys, new String[][]{{}, {}})), "the chat turned secret (same key, no notes): another");
+        yes(!both.equals(Voice.signature(keys, new String[][]{{"content://a/1", "content://a/3"}, {}})), "another note: another");
+        yes(!both.equals(Voice.signature(new String[]{"k1"}, new String[][]{{"content://a/1", "content://a/2"}})), "a notification less: another");
+    }
+
     public static void testDropsTheCopiesOfGoneNotesAndStaleHalves() {
         String[] names = {"a", "b", "c.part", "d.part"};
         long now = 1_000_000;

@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Summary;
+import org.ganimede.launcher.core.Voice;
 
 import android.app.Notification;
 import android.content.ComponentName;
@@ -205,7 +206,7 @@ public class NotifService extends NotificationListenerService {
 
     /** What the home was last told about (keys and texts); only the worker thread touches it. */
     private String lastSeen = "";
-    /** The keys the voice notes were last swept against (worker only), and a removal that asks for another sweep. */
+    /** The signature (Voice.signature) the voice notes were last swept against (worker only), and a removal that asks for another sweep. */
     private String sweptKeys = "";
     private volatile boolean sweepNext;
 
@@ -218,12 +219,17 @@ public class NotifService extends NotificationListenerService {
             return;
         }
         if (all == null) all = new StatusBarNotification[0];
-        StringBuilder keys = new StringBuilder();
-        for (StatusBarNotification s : all) keys.append(s.getKey()).append('\n');
-        // the sweep reads the notifications twice more: only when the set of them changed, or one was removed
-        if (sweepNext || !keys.toString().equals(sweptKeys)) {
+        String[] keys = new String[all.length];
+        String[][] uris = new String[all.length][];
+        for (int i = 0; i < all.length; i++) {
+            keys[i] = all[i].getKey();
+            uris[i] = VoicePlayer.notes(all[i]).stream().map(Object::toString).toArray(String[]::new);
+        }
+        String signature = Voice.signature(keys, uris);
+        // the sweep reads the notifications twice more: only when they or their notes changed, or one was removed
+        if (sweepNext || !signature.equals(sweptKeys)) {
             sweepNext = false;
-            if (sweepVoice(all, snapshot)) sweptKeys = keys.toString();
+            if (sweepVoice(all, snapshot)) sweptKeys = signature;
         }
         Map<String, List<StatusBarNotification>> m = new HashMap<>();
         for (StatusBarNotification s : all) {
