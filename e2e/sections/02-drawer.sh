@@ -92,10 +92,10 @@ wait_until 5 has "Mostra tutti (8)" && ok "search reopened: five again, with Sho
 
 step "Search: contacts follow the same rule"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"'
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "pro"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "pro"
 wait_until 5 has "Zz Prova A" && ok "pro finds Zz Prova (a word start)" || ko "pro misses Zz Prova"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'pro"' # keyboard, then search
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "rova"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "rova"
 wait_until 5 has 'rova"' || ko "rova not typed"
 wait_until 3 has "Zz Prova A" && ko "rova finds Zz Prova (mid-word)" || ok "rova leaves out Zz Prova (mid-word)"
 
