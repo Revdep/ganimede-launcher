@@ -18,7 +18,6 @@ import android.graphics.RectF;
 import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
@@ -364,18 +363,21 @@ final class Icons {
         v.setBackground(null);
         v.setPadding(0, 0, 0, 0);
         IconLook.Colours colours = look.colours(accent, fg);
-        v.setImageAlpha(colours.alpha());
-        if (look.glyph().equals("dot")) {
-            GradientDrawable dot = new GradientDrawable();
-            dot.setShape(GradientDrawable.OVAL);
-            dot.setColor(colours.glyph());
-            v.setImageDrawable(null);
-            int pad = px * 7 / 20;
-            v.setPadding(pad, pad, pad, pad);
-            v.setBackground(new android.graphics.drawable.InsetDrawable(dot, pad));
+        Context c = v.getContext();
+        if (look.glyph().equals("dot")) { // a dot in C, 3/10 of the icon, with its profile's badge like any icon
+            String key = "dot|" + colours.glyph() + "|" + user + "|" + px;
+            Bitmap b = CACHE.get(key);
+            if (b == null) {
+                b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
+                Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                paint.setColor(colours.glyph());
+                int pad = px * 7 / 20;
+                new Canvas(b).drawOval(pad, pad, px - pad, px - pad, paint);
+                CACHE.put(key, b = badged(c, b, user));
+            }
+            v.setImageDrawable(new BitmapDrawable(null, b));
             return;
         }
-        Context c = v.getContext();
         Drawable mono = Build.VERSION.SDK_INT >= 33 && icon instanceof AdaptiveIconDrawable ? ((AdaptiveIconDrawable) icon).getMonochrome() : null;
         // the silhouette is judged once drawn, on the render thread: until then ALPHA stands for "silhouette or greys"
         IconSource source = IconSource.pick(fromPack, s -> s == IconSource.ARCTICONS ? icon instanceof BuiltinIcon
@@ -384,7 +386,7 @@ final class Icons {
         if (source == IconSource.ARCTICONS || source == IconSource.CATEGORY) { // built-in geometry, with the treatment's stroke (original draws as Line)
             Drawable glyph = source == IconSource.CATEGORY ? category : icon; // the app has no entry: its category's glyph
             BuiltinIcon fresh = (BuiltinIcon) copy(glyph); // its own tint, alpha and look: the shared one stays as it is
-            renderInto(v, ((BuiltinIcon) plain(glyph, colours.glyph())).look(look), user, idOf(glyph) + "|" + user + "|" + look + "|" + colours.glyph() + "|" + colours.fill() + "|" + px, () -> {
+            renderInto(v, ((BuiltinIcon) plain(glyph, colours.glyph())).look(look), colours.alpha(), user, idOf(glyph) + "|" + user + "|" + look + "|" + colours.glyph() + "|" + colours.fill() + "|" + px, () -> {
                 Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
                 fresh.render(new Canvas(b), look, colours.glyph(), colours.fill(), px);
                 return b;
@@ -400,7 +402,7 @@ final class Icons {
             Drawable layer = source == IconSource.MONOCHROME ? mono : null;
             Drawable placeholder = copy(layer != null ? layer : icon); // the monochrome layer already looks as it will
             if (layer != null) placeholder.setTint(tint);
-            renderInto(v, placeholder, user, idOf(icon) + "|" + user + "|" + source + "|" + fit + "|" + tintGreys + "|" + tint + "|" + px,
+            renderInto(v, placeholder, colours.alpha(), user, idOf(icon) + "|" + user + "|" + source + "|" + fit + "|" + tintGreys + "|" + tint + "|" + px,
                     () -> styled(icon, layer, fit, tint, tintGreys, px));
         }
         if (look.plated()) v.setBackground(plate(look.container(), colours, px));
@@ -430,6 +432,16 @@ final class Icons {
         Bitmap out = Bitmap.createBitmap(b.getWidth(), b.getHeight(), Bitmap.Config.ARGB_8888);
         d.setBounds(0, 0, b.getWidth(), b.getHeight());
         d.draw(new Canvas(out));
+        return out;
+    }
+
+    /** The picture at an opacity, in a new bitmap (a badge drawn on it afterwards stays opaque). */
+    private static Bitmap faded(Bitmap b, int alpha) {
+        if (alpha == 0xFF) return b;
+        Bitmap out = Bitmap.createBitmap(b.getWidth(), b.getHeight(), Bitmap.Config.ARGB_8888);
+        Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+        paint.setAlpha(alpha);
+        new Canvas(out).drawBitmap(b, 0, 0, paint);
         return out;
     }
 
@@ -464,20 +476,23 @@ final class Icons {
 
     /**
      * Shows a drawn icon in the view: at once when it was drawn before, otherwise the placeholder first and the drawn
-     * one as soon as it is ready (if the view still shows the placeholder).
+     * one as soon as it is ready (if the view still shows the placeholder). {@code alpha}: the glyph's opacity, drawn into
+     * the picture under the badge, which stays opaque.
      */
-    private static void renderInto(ImageView v, Drawable placeholder, UserHandle user, String key, java.util.function.Supplier<Bitmap> draw) {
+    private static void renderInto(ImageView v, Drawable placeholder, int alpha, UserHandle user, String key, java.util.function.Supplier<Bitmap> draw) {
         Context c = v.getContext();
-        Bitmap cached = CACHE.get(key);
+        String k = key + "|" + alpha;
+        Bitmap cached = CACHE.get(k);
         if (cached != null) {
             v.setImageDrawable(new BitmapDrawable(null, cached));
             return;
         }
+        placeholder.setAlpha(alpha);
         v.setImageDrawable(placeholder);
         RENDER.execute(() -> {
             try {
-                Bitmap shown = badged(c, draw.get(), user); // the badge goes into the cached picture
-                CACHE.put(key, shown);
+                Bitmap shown = badged(c, faded(draw.get(), alpha), user); // the badge goes into the cached picture
+                CACHE.put(k, shown);
                 v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
             } catch (RuntimeException e) { // a drawable that fails to draw: the placeholder stays, the home goes on
             }
