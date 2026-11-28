@@ -1,5 +1,6 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.Favourites;
 import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Grid;
 import org.ganimede.launcher.core.Pins;
@@ -170,12 +171,11 @@ final class Layout {
         }
     }
 
-    /** The prefs of the last {@link #ensureFavourites} run: the same inputs give the same (already saved) result. */
+    /** The inputs of the last {@link #ensureFavourites} run: the same inputs give the same (already saved) result. */
     private String ensured;
 
-    /** Every pref: the run reads fav, grid, dock, blocks, cols/rows and the folders, so any change must redo it. */
     private String ensureKey() {
-        return String.valueOf(new java.util.TreeMap<>(prefs.getAll()));
+        return Favourites.migrationKey(prefs.getAll());
     }
 
     /** Adds favourites missing from an older classic grid without changing any existing placement. */

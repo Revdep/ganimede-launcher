@@ -33,8 +33,12 @@ public final class Favourites {
 
     /** What the classic favourites migration reads; the same key means the same (already saved) result. */
     public static String migrationKey(Map<String, ?> prefs) {
-        return String.join("\u0000", String.valueOf(prefs.get("fav")), String.valueOf(prefs.get("grid")),
-                String.valueOf(prefs.get("dock")), String.valueOf(prefs.get("blocks")));
+        Map<String, Object> read = new java.util.TreeMap<>();
+        for (Map.Entry<String, ?> e : prefs.entrySet()) {
+            String k = e.getKey();
+            if (k.startsWith("folder:") || k.startsWith("grid") || k.equals("fav") || k.equals("dock") || k.equals("blocks")) read.put(k, e.getValue());
+        }
+        return read.toString();
     }
 
     private Favourites() {}

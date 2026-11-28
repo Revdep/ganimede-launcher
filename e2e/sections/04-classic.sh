@@ -11,8 +11,8 @@ near $((n2x - n1x)) $(((W - $(dp 16)) / 4)) $(dp 6) && ok "4 columns: cells wide
 shot 20-grid-4cols
 
 step "Classic: a favourite added in List shows on the grid in Classic"
-# Same process throughout (no setp/restart): Layout.ensureFavourites remembers its inputs, so a favourite saved while in List
-# must still reach the grid when Classic is shown again.
+# The UI flow only: add a favourite from the List drawer, switch to Classic in Settings, see it on the grid.
+# (The migration's skip rule is proved in core: FavouritesTest.testMigrationKey*.)
 seed classic; wait_until 8 has "Calendar"
 settings_mode() { # $1 Lista|Classica: Settings from the home screen (an empty spot of both modes), mode tile, back home
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
