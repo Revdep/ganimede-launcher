@@ -33,6 +33,7 @@ import org.json.JSONObject;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -249,38 +250,35 @@ final class AppList {
         });
     }
 
-    // Only people I can call or write to: messenger accounts (WhatsApp, Telegram) add contacts with a name and neither.
-    private static final String REACHABLE = ContactsContract.Contacts.HAS_PHONE_NUMBER + "=1 OR " + ContactsContract.Contacts._ID
-            + " IN (SELECT contact_id FROM view_data WHERE mimetype='" + Email.CONTENT_ITEM_TYPE + "')";
-
     /**
-     * How many contacts match, starred first then by name, with the details (number, email) of only the rows shown:
+     * Only people I can call or write to (messenger accounts like WhatsApp or Telegram add contacts with a name and
+     * neither). How many contacts match, starred first then by name, with the details (number, email) of only the rows shown:
      * the first few, or all of them after "Show all". Only contacts the search rule matches (name, email, company or nickname) are counted and shown.
      */
     private ContactHits queryContacts(String q, boolean all) {
-        return queryContacts(q, all, REACHABLE);
-    }
-
-    private ContactHits queryContacts(String q, boolean all, String where) {
         List<Long> found = new ArrayList<>();
+        Set<Long> phoneless = new HashSet<>(); // reachable only if they have an email
         List<Uri> foundLooks = new ArrayList<>();
         List<String> foundNames = new ArrayList<>();
         boolean byNumber = Search.isNumberQuery(q); // digits: the contacts whose number holds them, not the name filter
         Uri u = byNumber ? ContactsContract.Contacts.CONTENT_URI
                 : Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(q));
         try (Cursor c = ui.a.getContentResolver().query(u, new String[]{ContactsContract.Contacts._ID,
-                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY},
-                byNumber ? ContactsContract.Contacts._ID + " IN (" + numberContactIds(q) + ")" : where, null,
+                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
+                ContactsContract.Contacts.HAS_PHONE_NUMBER},
+                byNumber ? ContactsContract.Contacts._ID + " IN (" + numberContactIds(q) + ")" : null, null,
                 ContactsContract.Contacts.STARRED + " DESC, " + ContactsContract.Contacts.SORT_KEY_PRIMARY)) {
             while (c != null && c.moveToNext()) {
                 if (c.getString(2) == null) continue;
+                if (!byNumber && c.getInt(3) == 0) phoneless.add(c.getLong(0));
                 found.add(c.getLong(0));
                 foundLooks.add(ContactsContract.Contacts.getLookupUri(c.getLong(0), c.getString(1)));
                 foundNames.add(c.getString(2));
             }
-        } catch (Exception unavailable) { // provider busy or gone; or one without the AOSP view_data table: then unfiltered
-            return where != null ? queryContacts(q, all, null) : null;
+        } catch (Exception unavailable) { // provider busy or gone
+            return null;
         }
+        Set<Long> mailed = phoneless.isEmpty() ? Set.of() : idsWithEmail();
         // the provider also matches mid-word and on other entries: each contact passes the search rule on its name or
         // on its email, company or nickname
         Map<Long, List<String>> others = byNumber ? Map.of() : otherEntries(found);
@@ -289,6 +287,7 @@ final class AppList {
         List<String> names = new ArrayList<>();
         int count = 0;
         for (int i = 0; i < found.size(); i++) {
+            if (phoneless.contains(found.get(i)) && !mailed.contains(found.get(i))) continue;
             if (!byNumber && !Search.contactMatches(foundNames.get(i), others.getOrDefault(found.get(i), List.of()), q)) continue;
             if (ids.size() >= Search.shownContacts(++count, all)) continue;
             ids.add(found.get(i));
@@ -311,6 +310,17 @@ final class AppList {
             people.add(e);
         }
         return new ContactHits(count, people);
+    }
+
+    /** Ids of the contacts with an email address (the public Email table, not the provider's internal views). */
+    private Set<Long> idsWithEmail() {
+        Set<Long> ids = new HashSet<>();
+        try (Cursor e = ui.a.getContentResolver().query(Email.CONTENT_URI, new String[]{Email.CONTACT_ID}, null, null, null)) {
+            while (e != null && e.moveToNext()) ids.add(e.getLong(0));
+        } catch (Exception unavailable) {
+            // no emails known: only the ones with a number show
+        }
+        return ids;
     }
 
     /** The email addresses, companies and nicknames of each contact, by contact id. */
