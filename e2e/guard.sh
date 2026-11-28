@@ -5,6 +5,8 @@
 #   put_prefs  not `exec-in`: exec-in returns once stdin is sent, so a rename after it ran late or never
 #   edit_prefs not `sed -i`: it escapes & and keeps the way the app stores a set
 #   wait_until not `sleep N; hasnt ...`: a negative check after a fixed sleep passes when the screen is merely late
+#   hasnt/nod  not `has X && ko || ok`: an empty dump has no X, so the negative passes on a screen never read
+#   guard-lib.sh  runs edit_prefs, typ and differ under `set -u` on fake data: an unbound variable is caught before the suite
 # A line that really needs the plain command says so with "guard-ok: why" on the same line.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 bad=0
@@ -16,4 +18,6 @@ check 'input text' 'use typ (lib.sh)'
 check 'exec-in' 'use put_prefs (lib.sh)'
 check 'sed +(-[a-zA-Z]*i|--in-place)' 'use edit_prefs (lib.sh), or comment guard-ok'
 check 'sleep[^;&|]*[;&] *(hasnt|noshows|! *has)' 'wait for a positive signal, then check the negative (wait_until)'
+check '(has|hasd|shows|exact) +"[^"]*"[^;]*&& *ko' 'use hasnt/nod: a negative check on a dump that failed to load passes'
+bash "$HERE/guard-lib.sh" || bad=1 # lib.sh's helpers under set -u, on made-up data
 [ $bad = 0 ] || { echo "e2e guard: see e2e/guard.sh" >&2; exit 1; }

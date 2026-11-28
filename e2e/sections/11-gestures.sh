@@ -90,7 +90,7 @@ seed classic; setp int grid_pages 3
 read -r dx dy <<<"$(cx "desc:Regola pagine")"; A shell input tap "$dx" "$dy"; expect "Pagina 3"
 read -r xx xy <<<"$(cx "desc:Elimina pagina")"; A shell input tap "$xx" "$xy"
 wait_until 5 pages_is 2 && ok "an empty page is deleted without asking (3 → 2)" || ko "empty page: pages $(pages_n), expected 2"
-has "Eliminare questa pagina?" && ko "asked to delete an empty page" || ok "no confirm for an empty page"
+hasnt "Eliminare questa pagina?" && ok "no confirm for an empty page" || ko "asked to delete an empty page"
 tap "Fatto"
 
 step "Gestures: edge page-turn while dragging an icon"

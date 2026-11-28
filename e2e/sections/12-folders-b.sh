@@ -127,21 +127,16 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "AgendaZz"
 step "Folders: another app's update doesn't rebuild the open pop-up; one of its apps removed mid-drag waits for the finger (082)"
 FIXAPK="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" # e2e/fixture: an app with a launcher activity, ours to reinstall
 fixture_install && ok "fixture app installed" || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug): the checks below can't pass"
-update_other() { cpu0=$(cpu_ticks); A install -r "$FIXAPK" >/dev/null; } # a package event (added/changed): Ganimede reloads its app list
-# The reload (250 ms debounce, then the load thread) leaves nothing on screen, in the logs or in dumpsys to wait for (the app
-# logs nothing of it), so the signal is Ganimede's own CPU: its utime+stime must rise by RELOAD_TICKS over cpu0 (taken before
-# the event) and then stand still for two reads. Idle Ganimede with the pop-up open costs 0-1 ticks (10 ms each) a second,
-# a reload (the package list, an icon per app) tens of them: 3 sits between. A rise below it is a ko, not a pass.
-# (3 is an estimate from that reasoning, not yet read off a device: raise or lower it from the ko message's delta.)
-RELOAD_TICKS=3
-cpu_ticks() { A shell "cat /proc/\$(pidof $PK)/stat" | awk '{print $14 + $15}'; }
-reloaded() { local t; t=$(cpu_ticks); [ $((${t:-0} - ${cpu0:-0})) -ge $RELOAD_TICKS ] && [ "$t" = "${cpu_last:-}" ] && return 0; cpu_last=$t; return 1; }
-reload_ko() { ko "Ganimede never reloaded its app list after $1 (cpu rose $(($(cpu_ticks) - ${cpu0:-0})) ticks, needs $RELOAD_TICKS)"; }
+update_other() { A logcat -b main -c; A install -r "$FIXAPK" >/dev/null; } # a package event (added/changed): Ganimede reloads its app list
+# The reload (250 ms debounce, then the load thread) logs "apps loaded N" (Apps.load) when it lands on the main thread:
+# the log is cleared before the event, so any such line is the reload that event caused.
+reloaded() { A logcat -d -b main -s Ganimede:I | grep -q 'apps loaded'; }
+reload_ko() { ko "Ganimede never logged \"apps loaded\" after $1"; }
 popwin() { A shell dumpsys window windows | grep -o "Window{[0-9a-f]* u0 [^}]*$PK[^}]*}" | sort | paste -sd' ' -; } # its windows
 seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' string fav 'f:ord' del grid
 tap Ordine; expect "Contacts"; wait_until 5 settled
 wins=$(popwin) # (not "before": run.sh counts checks in that name)
-cpu_last=; update_other
+update_other
 wait_until 10 reloaded || reload_ko "the update"
 [ -n "$wins" ] && [ "$(popwin)" = "$wins" ] && ok "the pop-up is the same window after another app's update" || ko "the pop-up was rebuilt: windows $(popwin), were $wins"
 has "Contacts" && ok "the pop-up is still open" || ko "the pop-up closed"
@@ -153,7 +148,7 @@ tap Ordine; expect "Fixture"; wait_until 5 settled
 read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Contacts)"
 A shell input motionevent DOWN "$ax" "$ay"; sleep 0.9 # a gesture hold, not a wait: past the long-press timeout the menu opens and the icon is held
 A shell input motionevent MOVE "$ax" $((ay + $(dp 16))) # past the touch slop: the menu closes, the drag starts
-cpu0=$(cpu_ticks); cpu_last=; A uninstall org.ganimede.fixture >/dev/null
+A logcat -b main -c; A uninstall org.ganimede.fixture >/dev/null
 fixture_gone() { ! A shell pm path org.ganimede.fixture >/dev/null 2>&1; }
 wait_until 10 fixture_gone || ko "the fixture app is still installed"
 wait_until 10 reloaded || reload_ko "the uninstall" # then: under the finger nothing may change

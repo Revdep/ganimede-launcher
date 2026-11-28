@@ -13,15 +13,20 @@ SCR="$OUT/screen.xml" # the last screen read, a file so that subshells share it
 PK=org.ganimede.launcher
 # Every adb call goes through A. One that can change the screen drops the cached screen read (see `screen`).
 A() {
-  case "$*" in "exec-out run-as $PK cat "*|"exec-out screencap "*|"exec-out uiautomator "*|"shell dumpsys "*|"shell settings get "*) ;; *) rm -f "$SCR";; esac
+  # reads that leave the screen as it was keep the cached dump (a logcat -d, a service check, a role or package query, a property)
+  case "$*" in "exec-out run-as $PK cat "*|"exec-out screencap "*|"exec-out uiautomator "*|"shell dumpsys "*|"shell settings get "*\
+    |"logcat -d "*|"shell service check "*|"shell cmd role get-role-holders "*|"shell cmd package resolve-activity "*|"shell pm path "*|"shell getprop "*\
+    |"shell wm size"|"shell wm density") ;; *) rm -f "$SCR";; esac
   "$ADB" -s "$SERIAL" "$@"
 }
 command -v magick >/dev/null && command -v compare >/dev/null || { echo "ImageMagick (magick, compare) is missing: the wallpaper and pixel checks need it." >&2; exit 2; }
 # The fixture app (e2e/fixture), built only when its APK is missing or older than its sources (CI builds it once, in the build job), then installed.
 fixture_install() {
-  local apk="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk"
-  { [ -f "$apk" ] && [ -z "$(find "$HERE/fixture/src" "$HERE/fixture/build.gradle" -newer "$apk" -type f -print -quit)" ] \
-    || "$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1; } && A install -r "$apk" >/dev/null
+  local apk="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" out
+  if [ ! -f "$apk" ] || [ -n "$(find "$HERE/fixture/src" "$HERE/fixture/build.gradle" -newer "$apk" -type f -print -quit)" ]; then
+    out=$("$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug 2>&1) || { echo "$out" | tail -30 >&2; return 1; } # gradle's own words
+  fi
+  A install -r "$apk" >/dev/null
 }
 # The fixture's ScreenReader service stands in for TalkBack: it lists and performs a node's actions, and logs what is announced.
 FIX=org.ganimede.fixture
@@ -207,7 +212,17 @@ pill() {
 }
 cx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo $((($1 + $3) / 2)) $((($2 + $4) / 2)); }
 lx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo "$1" $((($2 + $4) / 2)); } # left edge, middle height
-see() { local n=0; while [ $n -lt 30 ]; do has "$1" && { ok "sees “$1”"; return 0; }; _scroll; n=$((n + 1)); done; ko "doesn't see “$1”"; return 1; }
+# scroll_find cmd…: runs the command on each screen read, scrolling a page between; 0 found, 1 the page's end reached without it
+# (two scrolls in a row that change nothing: one can be swallowed; a text absent from a long page cost 30 scrolls, ~80 s), 2 gave up after 30 scrolls
+scroll_find() {
+  local n=0 prev= cur same=0
+  while [ $n -lt 30 ]; do
+    "$@" && return 0
+    cur=$(screen); if [ -n "$cur" ] && [ "$cur" = "$prev" ]; then same=$((same + 1)); [ $same -ge 2 ] && return 1; else same=0; fi; prev=$cur
+    _scroll; n=$((n + 1))
+  done; return 2
+}
+see() { scroll_find has "$1" && { ok "sees “$1”"; return 0; }; ko "doesn't see “$1”"; return 1; }
 near() { local d=$(($1 - $2)); [ ${d#-} -le "$3" ]; } # near a b tolerance
 # put_prefs file: the app's prefs become this file. Through `adb shell`, which waits for the device command and returns
 # its status: `adb exec-in` returns once stdin is sent, neither waiting for the device command nor reporting it, so the
