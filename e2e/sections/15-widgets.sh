@@ -10,7 +10,8 @@ setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivi
 setp int dock_count 3
 i=0
 for app in Calendar Clock Contacts; do
-  read -r ax ay <<<"$(cx "$app")"
+  wait_until 5 has "$app" || ko "$app not on the home to drag" # setp restarts the home: read its place once drawn
+  read -r ax ay <<<"$(cx "$app")"; [ -n "$ax" ] || continue
   A shell input draganddrop "$ax" "$ay" $((W * (2 * i + 1) / 6)) $((H - $(dp 90))) 1500
   i=$((i + 1)); n=$i
   wait_until 5 test "$(docked_n)" = "$n"

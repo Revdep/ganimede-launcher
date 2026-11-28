@@ -155,8 +155,14 @@ setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item
     string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
     set) sed -i "s@</map>@    <set name=\"$2\"><string>$3</string></set>\n</map>@" "$f" ;;
   esac
-  put_prefs "$f"
-  start_home
+  local _; for _ in 1 2 3; do # the relaunched home can write its prefs over ours (see seed): check, retry
+    put_prefs "$f"; start_home
+    [ "$1" = del ] && return 0
+    local want=" name=\"$2\""; case $1 in int|boolean) want=" name=\"$2\" value=\"$3\"" ;; esac
+    A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -qF "$want" && return 0
+    A shell am force-stop $PK
+  done
+  ko "setp $2: the value did not stick (the home rewrote the prefs)"; return 1
 }
 # the home screen has the focus and no window transition is playing (the focus moves when one starts: touches sent before it ends are lost)
 focus() { local w; w=$(A shell dumpsys window | grep -E "mCurrentFocus|reason=Transition"); [[ $w == *mCurrentFocus*MainActivity* && $w != *reason=Transition* ]]; }
@@ -221,9 +227,13 @@ seed() {
     <string name="icon_container">squircle</string>
 </map>
 XML
-  put_prefs "$f"
   A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1
-  start_home
+  # As the HOME app, Ganimede is relaunched right after a force-stop and may write its own prefs over ours: check, retry.
+  local _; for _ in 1 2 3; do
+    A shell am force-stop $PK; put_prefs "$f"; start_home
+    A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="onboarded" value="true"' && return 0
+  done
+  ko "seed $1: the seeded prefs did not stick (the home rewrote them)"; return 1
 }
 # Crop of the wallpaper (an empty spot of the classic home) as a hash: anything drawn over the home changes it.
 wall() { A exec-out screencap -p | magick png:- -crop "40x40+$((W - 120))+1000" +repage -depth 8 rgb:- 2>/dev/null | md5sum | cut -d' ' -f1; }
