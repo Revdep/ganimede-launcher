@@ -503,8 +503,9 @@ final class Icons {
         v.setImageDrawable(placeholder);
         RENDER.execute(() -> {
             try {
-                Bitmap shown = badged(c, faded(draw.get(), alpha), user); // the badge goes into the cached picture
-                CACHE.put(k, shown);
+                Bitmap drawn = CACHE.get(k); // the same icon queued twice before the first was drawn: once
+                if (drawn == null) CACHE.put(k, drawn = badged(c, faded(draw.get(), alpha), user)); // the badge goes into the cached picture
+                Bitmap shown = drawn;
                 v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
             } catch (RuntimeException e) { // a drawable that fails to draw: the placeholder stays, the home goes on
             }
