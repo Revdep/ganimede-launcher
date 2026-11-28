@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.Apps.Item;
+import org.ganimede.launcher.core.Entry;
 
 import android.app.ActivityOptions;
 import android.content.Intent;
@@ -101,7 +102,7 @@ final class Launcher {
 
     /** A pinned shortcut or web app ("s:pkg|id|name"), growing out of its icon. */
     void openShortcut(String entry, View from) {
-        String[] p = entry.substring(2).split("\\|", 3);
+        String[] p = Entry.shortcut(entry);
         try {
             View icon = iconIn(from);
             Rect b = new Rect();

@@ -1,5 +1,6 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.Entry;
 import org.ganimede.launcher.core.Torch;
 import org.ganimede.launcher.core.Target;
 
@@ -81,7 +82,7 @@ final class Actions {
             return label == null ? T.t(c, "An app that is no longer installed") : T.f(c, "Open %s", label);
         }
         if (action.startsWith("sc:") || action.startsWith("link:")) {
-            String[] p = action.substring(action.indexOf(':') + 1).split("\\|", 3);
+            String[] p = Entry.split(action.substring(action.indexOf(':') + 1));
             return action.startsWith("sc:") ? (p.length > 2 ? p[2] : p[p.length - 1]) : p[0];
         }
         return action;
@@ -140,7 +141,7 @@ final class Actions {
                 if (user == null) throw new IllegalStateException("profile gone"); // never open the personal copy instead
                 c.getSystemService(LauncherApps.class).startMainActivity(cn, user, null, null);
             } else if (action.startsWith("sc:")) {
-                String[] p = action.substring(3).split("\\|", 3);
+                String[] p = Entry.split(action.substring(3));
                 c.getSystemService(LauncherApps.class).startShortcut(p[0], p[1], null, null, Process.myUserHandle());
             } else if (action.startsWith("link:")) {
                 String[] p = action.substring(5).split("\\|", 2);

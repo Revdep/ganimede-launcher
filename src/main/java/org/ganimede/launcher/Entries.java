@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.Entry;
 import org.ganimede.launcher.core.IconLook;
 
 import android.content.Context;
@@ -65,13 +66,13 @@ final class Entries {
 
     /** A pinned shortcut's name ("s:pkg|id|name"). */
     static String shortcutName(String entry) {
-        String[] p = entry.substring(2).split("\\|", 3);
-        return p.length > 2 ? p[2] : p[p.length - 1];
+        return Entry.shortcutName(entry);
     }
 
     String name(String entry) {
-        if (entry.startsWith("f:")) return layout.folder(entry.substring(2)).optString("name", ui.tr("Folder"));
-        if (entry.startsWith("s:")) return shortcutName(entry);
+        Entry.Kind kind = Entry.kind(entry);
+        if (kind == Entry.Kind.FOLDER) return layout.folder(Entry.folderId(entry)).optString("name", ui.tr("Folder"));
+        if (kind == Entry.Kind.SHORTCUT) return shortcutName(entry);
         Item it = apps.find(entry);
         return it == null ? "" : apps.label(it);
     }
@@ -83,15 +84,15 @@ final class Entries {
     /** The entry's icon at this size: an app's own (or picked) icon, a folder tile, a shortcut's icon. */
     private View icon(String entry, int size, boolean drawer) {
         IconLook look = drawer ? layout.drawerIconLook() : ui.look;
-        boolean folder = entry.startsWith("f:");
-        if (!folder && !entry.startsWith("s:")) {
+        Entry.Kind kind = Entry.kind(entry);
+        if (kind == Entry.Kind.APP) {
             Item it = apps.find(entry);
             return it == null ? null : ui.icon(it, size, look); // Apps.load already applied a picked icon
         }
         Drawable picked = Icons.picked(ui.a, ui.prefs, entry);
         if (picked != null) return ui.icon(picked, true, size, look);
-        if (folder) return folderTile(ui.a, layout, apps::find, entry.substring(2), size, look, ui.fg, ui.accent);
-        String[] p = entry.substring(2).split("\\|", 3);
+        if (kind == Entry.Kind.FOLDER) return folderTile(ui.a, layout, apps::find, Entry.folderId(entry), size, look, ui.fg, ui.accent);
+        String[] p = Entry.shortcut(entry);
         Drawable d = p.length > 1 ? apps.shortcutIcon(p[0], p[1]) : null;
         return d != null ? ui.icon(d, false, size, look) : folderTile(ui.a, layout, apps::find, null, size, look, ui.fg, ui.accent);
     }
@@ -130,8 +131,9 @@ final class Entries {
 
     /** Opens an entry: an app from its icon (so it can close back onto it), a folder's pop-up, a shortcut. */
     void open(String entry, View from) {
-        if (entry.startsWith("f:")) { showFolder.accept(entry.substring(2)); return; }
-        if (entry.startsWith("s:")) { launcher.openShortcut(entry, from); return; }
+        Entry.Kind kind = Entry.kind(entry);
+        if (kind == Entry.Kind.FOLDER) { showFolder.accept(Entry.folderId(entry)); return; }
+        if (kind == Entry.Kind.SHORTCUT) { launcher.openShortcut(entry, from); return; }
         Item it = apps.find(entry);
         if (it != null) launcher.launch(it, from);
     }
@@ -147,7 +149,7 @@ final class Entries {
     /** {@code drawer}: a cell of the app pages, with the drawer's own icon size, font, shape and name size. */
     private View view(String entry, boolean vertical, boolean big, boolean label, boolean preview, boolean drawer,
             int iconDp, float labelBase, int gapDp) { // 0 = the usual size, label size or gap
-        boolean app = !entry.startsWith("f:") && !entry.startsWith("s:");
+        boolean app = Entry.kind(entry) == Entry.Kind.APP;
         Item it = app ? apps.find(entry) : null;
         if (app && it == null) return null;
         int size = iconDp > 0 ? ui.dp(iconDp) : vertical ? ui.dp(drawer ? layout.drawerInt("grid_icon", 48) : ui.prefs.getInt("grid_icon", 48))
