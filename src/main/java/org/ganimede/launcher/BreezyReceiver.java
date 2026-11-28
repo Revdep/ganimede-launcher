@@ -26,7 +26,8 @@ public class BreezyReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context c, Intent i) {
         if (!ACTION.equals(i.getAction())) return;
-        // Trade-off: this display-only broadcast is spoofable when Android does not report its sender.
+        // Trade-off: the sender is checked only when Android reports it (API 34+ and a known sender); otherwise this
+        // display-only broadcast can be spoofed, and only the action and size are checked.
         if (android.os.Build.VERSION.SDK_INT >= 34) {
             String from = getSentFromPackage();
             if (from != null && !Wx.isBreezy(from)) return;

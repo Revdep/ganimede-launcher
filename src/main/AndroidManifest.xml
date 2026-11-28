@@ -89,7 +89,7 @@
         </service>
 
         <!-- Breezy Weather shares its weather through the open Gadgetbridge broadcast. -->
-        <!-- Breezy sends it with no permission, so it must stay open; BreezyReceiver checks action, sender (API 34+) and size. -->
+        <!-- Breezy sends it with no permission, so it must stay open; BreezyReceiver checks action and size, and the sender only where Android reports it (API 34+, and not always): a display-only trade-off. -->
         <receiver
             android:name=".BreezyReceiver"
             android:label="@string/breezy_receiver_label"
