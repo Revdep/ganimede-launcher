@@ -15,6 +15,7 @@ import android.os.Handler;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -155,6 +156,7 @@ final class Apps {
                 byPkg = pkgs;
                 byGroup = groups;
                 shortcutIcons.clear();
+                Log.i("Ganimede", "apps loaded " + out.size()); // the e2e suite waits on it (12-folders-b)
                 done.run();
             });
         }).start();
