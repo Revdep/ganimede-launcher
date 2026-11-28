@@ -32,4 +32,28 @@ public class PagingTest {
     public static void testMirroredScreenTurnsTheOtherWay() {
         eq(1, Paging.target(0, 3, 200, 0, W, FLICK, true), "right-to-left: dragging right goes forward");
     }
+
+    private static String focus(int current, int pages, int side, boolean rtl) {
+        return java.util.Arrays.toString(Paging.focusPages(current, pages, side, rtl));
+    }
+
+    // Issue 085: typing exits touch mode and Android gives the home a focus; a block of page 1 ending at the edge of
+    // page 2 counts as "on screen" for the pager, takes it, and the pager scrolls back to page 1.
+    public static void testOnlyThePageShownTakesFocus() {
+        eq("[1]", focus(1, 2, 0, false), "no direction: the page shown only");
+        eq("[0]", focus(0, 3, 0, false), "first page");
+        eq("[]", focus(0, 0, 0, false), "no pages built yet");
+        eq("[1]", focus(3, 2, 0, false), "a scroll left past a deleted page: the last page");
+    }
+
+    public static void testSidewaysFocusReachesTheNextPageThatWay() {
+        eq("[1, 0]", focus(1, 3, -1, false), "left: the page before");
+        eq("[1, 2]", focus(1, 3, 1, false), "right: the page after");
+        eq("[0]", focus(0, 3, -1, false), "no page before the first");
+        eq("[2]", focus(2, 3, 1, false), "no page after the last");
+    }
+
+    public static void testMirroredScreenReachesTheOtherWay() {
+        eq("[0, 1]", focus(0, 2, -1, true), "right-to-left: left is the next page");
+    }
 }
