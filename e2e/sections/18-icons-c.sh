@@ -96,20 +96,23 @@ if emu_only "icons: a work profile is created on the emulator"; then
     rest() { magick "$1" -gravity NorthWest -crop "50%x50%+0+0" +repage "$2"; } # where a badge at the icon's scale never reaches
     badge_of() { # badge_of label component pack look...: the cell as the user's own app and as the work copy; only the work copy's corner differs
       local label="$1" comp="$2" pack="$3"; shift 3
+      # the case names its crops: a failure keeps its proof (run 46112177069 overwrote it)
+      local tag; tag=$(echo "$label $* $([ -n "$pack" ] && echo pack || echo nopack)" | tr -c 'A-Za-z0-9\n' -); tag=${tag%-}
       seed classic int accent -2093040 string icon_pack "$pack" int grid_icon 64 boolean hide_labels true $(model "$@") string fav "$comp"
-      capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
+      capture "$label" "$OUT/icons-badge-$tag-own.png" || { ko "badge: no own $label"; return; }
       # del grid: Classic keeps the grid seeded from the first fav, the own app would stay in the first cell beside the work copy
       # and capture takes the first cell of that name (run 46109393420: own and badged work copy side by side, the own one compared)
-      setp string fav "$comp#$serial" del grid; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
-      corner "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-c.png"; corner "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-c.png"
-      differ "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
+      setp string fav "$comp#$serial" del grid; capture "$label" "$OUT/icons-badge-$tag-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
+      corner "$OUT/icons-badge-$tag-own.png" "$OUT/icons-badge-$tag-own-c.png"; corner "$OUT/icons-badge-$tag-work.png" "$OUT/icons-badge-$tag-work-c.png"
+      differ "$OUT/icons-badge-$tag-own-c.png" "$OUT/icons-badge-$tag-work-c.png" \
         && ok "badge: the work $label has a badge in its corner ($*)" || ko "badge: the work $label has no badge ($*)"
       # a badge drawn smaller than the icon (Fable c1-icons 1) lands in its top-left quarter: that quarter stays as the own app's
-      rest "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-r.png"; rest "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-r.png"
+      rest "$OUT/icons-badge-$tag-own.png" "$OUT/icons-badge-$tag-own-r.png"; rest "$OUT/icons-badge-$tag-work.png" "$OUT/icons-badge-$tag-work-r.png"
       # FUZZ 20%: the own app's original icon is drawn live by the ImageView, the work copy once into the cache bitmap: the circle's
       # anti-aliased edge differs by up to 15% on a few pixels (run 46112177069); a badge is a solid 100% change
-      FUZZ=20% same "$OUT/icons-badge-own-r.png" "$OUT/icons-badge-work-r.png" \
-        && ok "badge: the work $label is the own one's outside the corner ($*)" || ko "badge: the work $label differs outside the badge corner ($*)"
+      FUZZ=20% same "$OUT/icons-badge-$tag-own-r.png" "$OUT/icons-badge-$tag-work-r.png" \
+        && ok "badge: the work $label is the own one's outside the corner ($*)" \
+        || ko "badge: the work $label differs outside the badge corner ($*): $(FUZZ=20% fdiff "$OUT/icons-badge-$tag-own-r.png" "$OUT/icons-badge-$tag-work-r.png") px (crops icons-badge-$tag-*-r.png)"
     }
     badge_of Fixture "$FIXTURE/$FIXTURE.Open" "$BUILTIN" original circle solid accent
     badge_of Fixture "$FIXTURE/$FIXTURE.Open" "$BUILTIN" line circle solid accent
