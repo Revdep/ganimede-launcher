@@ -1,5 +1,6 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.AppPrefs;
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.Favourites;
@@ -78,7 +79,7 @@ public class MainActivity extends Activity implements Actions.Home {
         else if ("fab_icon".equals(key)) handler.post(() -> fab.style(!listMode)); // a late import, restore or fallback
     };
     private final LauncherApps.Callback appsChanged = new LauncherApps.Callback() {
-        @Override public void onPackageRemoved(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
+        @Override public void onPackageRemoved(String p, UserHandle u) { Icons.forget(p); forgetApp(p, u); loadAppsSoon(); }
         @Override public void onPackageAdded(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
         @Override public void onPackageChanged(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
         @Override public void onPackagesAvailable(String[] p, UserHandle u, boolean r) { loadAppsSoon(); }
@@ -86,6 +87,20 @@ public class MainActivity extends Activity implements Actions.Home {
         @Override public void onPackagesSuspended(String[] p, UserHandle u) { loadAppsSoon(); }
         @Override public void onPackagesUnsuspended(String[] p, UserHandle u) { loadAppsSoon(); }
     };
+    /** An app gone for good: its use count and name are not kept (an update, which also reports a removal, leaves the package installed). */
+    private void forgetApp(String pkg, UserHandle u) {
+        if (!u.equals(android.os.Process.myUserHandle())) return;
+        try {
+            getPackageManager().getPackageInfo(pkg, 0);
+            return;
+        } catch (android.content.pm.PackageManager.NameNotFoundException gone) {
+            // uninstalled
+        }
+        SharedPreferences.Editor e = ui.prefs.edit();
+        for (String k : AppPrefs.of(ui.prefs.getAll().keySet(), pkg)) e.remove(k);
+        e.apply();
+    }
+
     /** A work profile paused, resumed or unlocked: its apps leave or come back. */
     private final BroadcastReceiver profiles = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { loadAppsSoon(); }
