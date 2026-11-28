@@ -20,6 +20,7 @@ import java.util.Map;
 /** Draws the compact theme, clock, font, colour, dim and icon samples used by settings. */
 final class SettingsSamples {
     private final SettingsKit kit;
+    private Drawable launcherIcon; // one for every tile: the render cache, keyed by the drawable, draws it once a look
 
     SettingsSamples(SettingsKit kit) {
         this.kit = kit;
@@ -128,7 +129,8 @@ final class SettingsSamples {
 
     View sampleIcon(IconLook look, float sizeDp, int fg, int acc) {
         int size = kit.ui.dp(sizeDp);
-        Drawable d = kit.activity().getDrawable(R.drawable.ic_launcher);
+        if (launcherIcon == null) launcherIcon = kit.activity().getDrawable(R.drawable.ic_launcher);
+        Drawable d = launcherIcon;
         ImageView icon = new ImageView(kit.activity());
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         // Text-coloured icons in dark text would vanish on these dark cards: show them white here.

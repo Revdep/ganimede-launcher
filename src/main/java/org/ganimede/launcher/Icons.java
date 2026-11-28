@@ -85,7 +85,6 @@ final class Icons {
         final Resources resources;
         final Map<String, String> icons;
         final IconSet set; // the built-in set, instead of resources and icons
-        final Map<Integer, BuiltinIcon> categoryIcons = new java.util.concurrent.ConcurrentHashMap<>(); // one per glyph: apps of a category share its bitmap
         Pack(String name, Resources resources, Map<String, String> icons, IconSet set) {
             this.name = name;
             this.resources = resources;
@@ -191,8 +190,8 @@ final class Icons {
             try {
                 if (sample == null) { // one render thread: the tiles queued after the first find it decoded
                     IconSet set = loaded.set != null ? loaded.set : builtin(c); // read here, on the render thread
-                    sample = new BuiltinIcon(set.icon(set.index().find("com.google.android.calendar",
-                            "com.android.calendar.AllInOneActivity").orElse(0)));
+                    sample = glyph(set, set.index().find("com.google.android.calendar",
+                            "com.android.calendar.AllInOneActivity").orElse(0));
                 }
                 v.post(() -> apply(v, sample, false, null, null, look, fg, accent, size));
             } catch (IOException | RuntimeException e) {
@@ -202,6 +201,18 @@ final class Icons {
     }
 
     private static volatile IconSet builtin;
+    /**
+     * One drawable per icon of the built-in set (pack, picked, category): the same id gives the same object, so the
+     * render cache, keyed by object, draws it once (apps of a category share its bitmap). Bounded: the picker browses all.
+     */
+    private static final android.util.LruCache<Integer, BuiltinIcon> GLYPHS = new android.util.LruCache<>(1024);
+
+    /** @throws IllegalArgumentException when the icon's record is damaged */
+    private static BuiltinIcon glyph(IconSet set, int id) {
+        BuiltinIcon g = GLYPHS.get(id);
+        if (g == null) GLYPHS.put(id, g = new BuiltinIcon(set.icon(id))); // two threads may both decode it: the last one stays
+        return g;
+    }
 
     /**
      * The built-in set, read once: the home's pack, the icon picker and picked icons share it. Called on background
@@ -237,6 +248,7 @@ final class Icons {
                 || level < android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return;
         boolean background = level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
         CACHE.trimToSize(background ? 0 : CACHE.size() / 2);
+        if (background) GLYPHS.evictAll();
         if (background && loaded.set == null && !IconSet.needed(p.getAll())) builtin = null;
     }
 
@@ -256,7 +268,7 @@ final class Icons {
         if (pack.set != null) {
             OptionalInt id = pack.set.index().find(cn.getPackageName(), cn.getClassName());
             try {
-                return id.isPresent() ? new BuiltinIcon(pack.set.icon(id.getAsInt())) : null;
+                return id.isPresent() ? glyph(pack.set, id.getAsInt()) : null;
             } catch (RuntimeException damaged) { // a bad record: the app's own icon
                 return null;
             }
@@ -282,7 +294,7 @@ final class Icons {
         if (set == null || !p.getBoolean(CATEGORY_KEY, true)) return null;
         OptionalInt id = set.categoryGlyph(info.getComponentName().getPackageName(), info.getApplicationInfo().category);
         try {
-            return id.isPresent() ? pack.categoryIcons.computeIfAbsent(id.getAsInt(), g -> new BuiltinIcon(set.icon(g))) : null;
+            return id.isPresent() ? glyph(set, id.getAsInt()) : null;
         } catch (RuntimeException damaged) {
             return null;
         }
@@ -323,7 +335,7 @@ final class Icons {
             if (IconSet.PACK.equals(pp[0])) {
                 IconSet set = builtin;
                 OptionalInt id = set == null ? OptionalInt.empty() : set.id(pp[1]);
-                return id.isPresent() ? new BuiltinIcon(set.icon(id.getAsInt())) : null;
+                return id.isPresent() ? glyph(set, id.getAsInt()) : null;
             }
             Resources r = resources(c, pp[0]);
             int id = r.getIdentifier(pp[1], "drawable", pp[0]);
