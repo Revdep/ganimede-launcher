@@ -11,7 +11,6 @@ import android.app.Dialog;
 import android.appwidget.AppWidgetProviderInfo;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Rect;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
@@ -74,14 +73,7 @@ final class ClassicHome {
         this.refresh = refresh;
         this.homeMenu = homeMenu;
         this.blockMenu = blockMenu;
-        pages = new LinearLayout(ui.a) {
-            // Out of touch mode (a key, typed text) a window getting focus back hands it to the first focusable view, and
-            // the pager scrolls to it: page 1. Focus goes to the page shown instead (Launcher3's PagedView does the same).
-            @Override protected boolean onRequestFocusInDescendants(int direction, Rect previous) {
-                View page = getChildAt(currentPage());
-                return page != null && page.requestFocus(direction, previous);
-            }
-        };
+        pages = new LinearLayout(ui.a);
         pager = new HorizontalScrollView(ui.a);
         pager.setHorizontalScrollBarEnabled(false);
         pager.setFillViewport(true);
