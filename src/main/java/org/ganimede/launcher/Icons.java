@@ -408,7 +408,12 @@ final class Icons {
 
     /** An icon of another profile's app with that profile's badge (the work briefcase); others as they are. */
     static Drawable badged(Context c, Drawable d, UserHandle user) {
-        return user == null || user.equals(Process.myUserHandle()) ? d : c.getPackageManager().getUserBadgedIcon(d, user);
+        if (user == null || user.equals(Process.myUserHandle())) return d;
+        try {
+            return c.getPackageManager().getUserBadgedIcon(d, user);
+        } catch (RuntimeException gone) { // a profile removed right now (SecurityException): no badge, no crash
+            return d;
+        }
     }
 
     /**
@@ -470,9 +475,12 @@ final class Icons {
         }
         v.setImageDrawable(placeholder);
         RENDER.execute(() -> {
-            Bitmap shown = badged(c, draw.get(), user); // the badge goes into the cached picture
-            CACHE.put(key, shown);
-            v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
+            try {
+                Bitmap shown = badged(c, draw.get(), user); // the badge goes into the cached picture
+                CACHE.put(key, shown);
+                v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
+            } catch (RuntimeException e) { // a drawable that fails to draw: the placeholder stays, the home goes on
+            }
         });
     }
 
