@@ -175,8 +175,9 @@ final class FolderDrag {
             unclipped.add((ViewGroup) p); // the icon leaves its row while it moves; the card itself keeps clipping
         for (ViewGroup g : unclipped) g.setClipChildren(false);
         raise(v, ui.dp(8));
-        ViewParent top = unclipped.isEmpty() ? null : unclipped.get(unclipped.size() - 1).getParent();
-        scroller = top instanceof ScrollView ? (ScrollView) top : null;
+        ViewParent up = v.getParent();
+        while (up != null && !(up instanceof ScrollView)) up = up.getParent(); // the pop-up's, wherever the card sits below it
+        scroller = (ScrollView) up;
         if (scroller != null) scroller.postOnAnimation(() -> autoscroll(v));
     }
 
@@ -189,8 +190,10 @@ final class FolderDrag {
         int was = scroller.getScrollY();
         if (by != 0) scroller.scrollBy(0, by);
         int moved = scroller.getScrollY() - was;
-        if (moved != 0) { // the slots went the other way on screen
+        if (moved != 0) { // the slots went the other way on screen: the finger now sits `moved` further down their content
             for (int i = 0; i < sy.length; i++) sy[i] -= moved;
+            downY -= moved;
+            dy += moved;
             follow(v, dx, dy);
         }
         scroller.postOnAnimation(() -> autoscroll(v));
