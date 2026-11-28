@@ -31,24 +31,21 @@ resize_classic_clock() {
 styles=(overlap basic dayofweek vertical horizontal words flip analog)
 for mode in list classic; do
   step "Clock fits every style: $mode mode"
-  seed "$mode"
-  setp string text_color dark
+  # one restart per setting change: every setting a check needs goes in the same seed or setp
   if [ "$mode" = list ]; then
-    setp int list_clock_size 160
-    setp int clock_offset 240 # the furthest user-selectable position leaves the least width
-  elif resize_classic_clock; then
-    ok "classic clock uses the smallest user-resized block"
+    # the furthest user-selectable position leaves the least width
+    seed list string text_color dark boolean clock24 true int list_clock_size 160 int clock_offset 240
   else
-    ko "classic clock could not be resized"
+    seed classic string text_color dark boolean clock24 true
+    resize_classic_clock && ok "classic clock uses the smallest user-resized block" || ko "classic clock could not be resized"
   fi
-  setp boolean clock24 true
 
   for hand in ltr rtl; do
-    [ "$hand" = rtl ] && setp boolean left_handed true || setp boolean left_handed false
+    [ "$hand" = rtl ] && lh=true || lh=false
     if [ "$mode" = classic ] && [ "$hand" = ltr ]; then
-      setp int list_clock_size 40; setp string clock_style basic
+      setp int list_clock_size 40 string clock_style basic boolean left_handed $lh
       read -r small_x1 small_y1 small_x2 small_y2 <<<"$(clock_bounds)"
-      setp int list_clock_size 160; setp string clock_style basic
+      setp int list_clock_size 160
       read -r large_x1 large_y1 large_x2 large_y2 <<<"$(clock_bounds)"
       if [ -n "$small_x1" ] && [ -n "$large_x1" ] \
         && [ "$((small_x2 - small_x1))" -eq "$((large_x2 - large_x1))" ] \
@@ -59,7 +56,7 @@ for mode in list classic; do
       fi
     fi
     for style in "${styles[@]}"; do
-      setp string clock_style "$style"
+      setp string clock_style "$style" boolean left_handed $lh
       wait_until 5 clock_bounds >/dev/null \
         && ok "$mode $style $hand: clock container stays on-screen" \
         || ko "$mode $style $hand: clock container is outside the screen"
@@ -136,11 +133,8 @@ google_clock_front() {
 step "Data e ora dell'orologio aprono destinazioni distinte in Lista e Classica"
 for mode in list classic; do
   [ "$mode" = list ] && mode_it=Lista || mode_it=Classica
-  seed "$mode"
-  setp string clock_style dayofweek
-  A shell pm grant "$PK" android.permission.READ_CALENDAR >/dev/null
-
-  setp boolean agenda true
+  A shell pm grant "$PK" android.permission.READ_CALENDAR >/dev/null # granted before the start, as before
+  seed "$mode" string clock_style dayofweek boolean agenda true
   read -r time_x date_x band_y <<<"$(dayofweek_points)"
   A shell input tap "$date_x" "$band_y"
   wait_until 5 has "La tua agenda" \
@@ -200,7 +194,7 @@ for mode in list classic; do
   [ "$mode" = list ] && mode_it=Lista || mode_it=Classica
   A shell pm grant "$PK" android.permission.READ_CALENDAR >/dev/null
   for style in dayofweek vertical horizontal; do
-    seed "$mode"; setp string clock_style "$style"; setp boolean agenda true
+    seed "$mode" string clock_style "$style" boolean agenda true
     wait_until 5 clock_bounds >/dev/null
     a11y list
     a11y_date_action \
@@ -213,7 +207,7 @@ for mode in list classic; do
     A shell input keyevent KEYCODE_HOME; wait_until 5 focus
   done
 
-  seed "$mode"; setp string clock_style basic
+  seed "$mode" string clock_style basic
   wait_until 5 clock_bounds >/dev/null
   a11y list
   a11y_date_action \
@@ -222,7 +216,7 @@ for mode in list classic; do
 
   # A long press on the date leaves the touch point in the date box without any click: a later click that is not a touch
   # (a screen reader's, a keyboard's) must open the alarms.
-  seed "$mode"; setp string clock_style dayofweek; setp boolean agenda true
+  seed "$mode" string clock_style dayofweek boolean agenda true
   read -r time_x date_x band_y <<<"$(dayofweek_points)"
   A shell input swipe "$date_x" "$band_y" "$date_x" "$band_y" 1300
   A shell input keyevent KEYCODE_BACK; wait_until 5 focus
@@ -237,7 +231,7 @@ a11y_off; clock_fixture_cleanup
 
 step "Un'attività rifiutata non scrive l'URI dei dati nel log"
 # Calendar gone: the date tap's VIEW content://com.android.calendar/time/... has no handler, so Ui.start refuses it.
-seed list; setp string clock_style dayofweek; setp boolean agenda false
+seed list string clock_style dayofweek boolean agenda false
 A shell pm disable-user --user 0 com.google.android.calendar >/dev/null
 defer 'A shell pm enable --user 0 com.google.android.calendar'
 A logcat -b main -c
