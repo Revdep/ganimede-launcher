@@ -49,7 +49,9 @@ wipe
 post "TitoloSwipe" sw1 uno; wait_until 5 tagged sw1
 if expect_popup "TitoloSwipe"; then
   read -r sx sy <<<"$(cx TitoloSwipe)"
-  A shell input swipe 150 "$sy" 1000 "$sy" 200
+  # a drag, not a flick: the card moves only on the finger's moves and judges the throw on the last one, and a busy
+  # emulator sends few of them in 200 ms (run 46081674535: the card stayed)
+  A shell input swipe 150 "$sy" 1000 "$sy" 600
   wait_until 5 untagged sw1 && ok "gone from dumpsys notification" || ko "still in the system's list after the swipe"
   wait_until 5 hasnt "TitoloSwipe" && ok "card gone from the pop-up" || ko "card still shown"
 fi
