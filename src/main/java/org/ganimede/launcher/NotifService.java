@@ -227,6 +227,7 @@ public class NotifService extends NotificationListenerService {
             List<StatusBarNotification> l = new ArrayList<>(Arrays.asList(all));
             StatusBarNotification[] held = getSnoozedNotifications();
             if (held != null) l.addAll(Arrays.asList(held));
+            l.addAll(Arrays.asList(getActiveNotifications())); // read again after the snoozed: one coming back between the two reads is in neither
             VoicePlayer.sweep(this, l, snapshot);
         } catch (RuntimeException e) { // access revoked mid-read: the next read sweeps
             Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
