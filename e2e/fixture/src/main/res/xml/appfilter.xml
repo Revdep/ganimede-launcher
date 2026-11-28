@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item component="ComponentInfo{org.ganimede.fixture/org.ganimede.fixture.Open}" drawable="square_icon" />
+</resources>

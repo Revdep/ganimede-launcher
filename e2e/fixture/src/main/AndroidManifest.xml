@@ -9,6 +9,8 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Also an icon pack (one icon in res/xml/appfilter.xml) so the e2e can open the icon picker's grid. -->
+            <intent-filter><action android:name="org.adw.launcher.THEMES" /></intent-filter>
         </activity>
         <!-- Behaves like phone Clock apps that accept SHOW_ALARMS only from callers holding SET_ALARM. -->
         <activity android:name=".Alarms" android:exported="true" android:label="Sveglie fixture"

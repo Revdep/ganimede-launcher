@@ -380,3 +380,20 @@ if folder_cell "$OUT/icons-folder-app-page.png"; then
   [ "${red:-0}" -gt 20 ] && [ "${white:-0}" -eq 0 ] && ok "the folder's Calendar is red as the app page's icons ($red px), not the home's white" \
     || ko "folder on an app page: red $red, white $white px (expected red, no white)"
 else ko "no Cartella X on the app pages"; fi
+
+step "Icon picker (the fixture is an icon pack): in landscape the search and Cancel stay on the screen (issue 064)"
+seed classic
+setp string fav "$FIXTURE/$FIXTURE.Open"; setp boolean hide_labels false
+read -r fx fy <<<"$(cx Fixture)" || ko "no Fixture on the home"
+A shell input draganddrop "$fx" "$fy" "$fx" "$fy" 1500 # long-press: the app's menu
+expect "Icona…" && tap "Icona…"; expect "Tutti i pacchetti di icone" && tap "Tutti i pacchetti di icone"
+expect "Annulla"
+A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
+defer 'A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1'
+turned() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; }
+wait_until 8 turned || ko "the screen did not turn"
+find_box() { screen | grep -o 'class="android.widget.EditText"[^>]*' | grep -q 'bounds='; }
+wait_until 5 find_box && wait_until 5 has "Annulla" && ok "landscape: the search field and Annulla are both on the screen" \
+  || ko "landscape: the picker's search or Annulla is off the screen"
+A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1
+tap "Annulla"
