@@ -23,6 +23,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
       - name: Syntax of the e2e scripts
         run: for f in e2e/*.sh e2e/sections/*.sh; do bash -n "$f"; done
+      - name: Guard of the e2e sections
+        run: e2e/guard.sh
       - name: Icon packer and its fixture (tools/icons)
         run: python3 -I tools/icons/test_pack.py
       # the core tests run first and stop the build on a failure; the release build exercises R8 before any tag

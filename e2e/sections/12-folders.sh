@@ -372,7 +372,7 @@ read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
 tap "Rinomina"; wait_until 5 has "Salva"
 field=$(screen | grep -o 'class="android.widget.EditText"[^>]*bounds="[^"]*"' | tail -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   ')
 read -r fx1 fy1 fx2 fy2 <<<"$field"; A shell input tap $(((fx1 + fx2) / 2)) $(((fy1 + fy2) / 2)) # focus the name field
-clear_text; A shell input text AgendaZz; tap "Salva"
+clear_text; typ AgendaZz; tap "Salva"
 renamed() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="rn:com.google.android.calendar/[^"]*">AgendaZz<'; }
 wait_until 5 renamed && wait_until 5 in_card AgendaZz && ok "renamed from the in-folder menu: the open pop-up shows AgendaZz" || ko "not renamed, or the open pop-up still shows the old name"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "AgendaZz"

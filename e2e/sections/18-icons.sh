@@ -224,7 +224,7 @@ read -r px py <<<"$(cx "desc:Calendar")"
 hold "$px" "$py"
 tap "Icona dell'app…"; tap "Arcticons (integrato)"
 wait_until 5 has "calendar" && tap "calendar" # the field starts with the app's name
-clear_text; A shell input text okay
+clear_text; typ okay
 wait_until 10 hasd okay && ok "searching okay shows the okay icon, far past the 4000th name" || ko "searching okay finds no okay icon"
 read -r ox oy <<<"$(cx "desc:okay")"
 [ -n "$oy" ] && A shell input tap "$ox" "$oy"

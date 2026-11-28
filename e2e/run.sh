@@ -8,6 +8,7 @@ set -u
 SERIAL="${1:-emulator-5554}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 APK="$HERE/../Ganimede-Launcher-debug.apk"
+bash "$HERE/guard.sh" || exit 2 # helpers that exist against a race are not bypassed (see guard.sh)
 picked=()
 for f in "$HERE"/sections/[0-9]*.sh; do
   name=$(basename "$f" .sh); name=${name#*-}

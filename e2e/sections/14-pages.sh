@@ -85,7 +85,7 @@ for s in 1.15 "$fs"; do # a configuration change makes Android build the setting
 done
 # The add form, and what is typed in it, outlive a rebuild of the screen (issue 063)
 tap "Aggiungi una scorciatoia"; wait_until 5 has "Nome, per esempio Casa" || ko "the add-a-shortcut form did not open"
-tap "Nome, per esempio Casa"; A shell input text "Rotta"; wait_until 5 has "Rotta"
+tap "Nome, per esempio Casa"; typ Rotta; wait_until 5 has "Rotta"
 for s in 1.15 "$fs"; do setting system font_scale "$s" || continue; wait_until 5 settled; done
 wait_until 5 has "Rotta" && ok "the shortcut form keeps its typed name across a rebuild" || ko "the shortcut form or its typed name was lost on a rebuild"
 formgone() { has "Rotta" && A shell input keyevent KEYCODE_BACK; hasnt "Rotta"; } # Back hides the keyboard, then closes the form
