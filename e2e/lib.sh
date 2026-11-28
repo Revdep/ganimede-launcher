@@ -50,7 +50,7 @@ a11y_on() { # enables it; a11y_off (also run on exit) puts the device's own acce
   done
   ko "the fixture's ScreenReader was not bound after two writes of the setting; $(a11y_state)"
 }
-a11y_installed() { A shell cmd package query-services --brief -a android.accessibilityservice.AccessibilityService | grep -q "$FIX/.ScreenReader"; }
+a11y_installed() { A shell cmd package query-services --brief -a android.accessibilityservice.AccessibilityService | grep -qE "$FIX/($FIX)?\.ScreenReader"; } # short (pkg/.Cls) or full form, any indent
 a11y_connected() { A logcat -d -s $A11Y_TAG:I | grep -q 'connected'; }
 a11y_state() { # the system's view of the accessibility services, for a ko
   echo "the system's accessibility state: $(A shell dumpsys accessibility \
