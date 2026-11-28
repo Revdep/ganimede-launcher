@@ -14,10 +14,10 @@ hasnt "Calendar" && ok "cl leaves out Calendar (c and l scattered)" || ko "cl st
 
 step "Back with text: the first hides the keyboard, the results stay; the second goes home (both modes)"
 for m in classic list; do
-  seed $m; A shell input swipe 540 1900 540 600 150; expect "Cerca app"
+  seed $m; open_drawer
   A shell input keyevent KEYCODE_BACK # empty search: one back closes keyboard and search
   wait_until 5 hasnt "Cerca app" && ok "$m, empty: one back goes home" || ko "$m, empty: search still open after one back"
-  A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "cal"; wait_until 5 kbd || ko "$m: no keyboard while typing"
+  open_drawer; typ "cal"; wait_until 5 kbd || ko "$m: no keyboard while typing"
   A shell input keyevent KEYCODE_BACK
   wait_until 5 eval '! kbd' && has 'cal"' && has "Calendar" && ok "$m, text: first back hides the keyboard, results stay" \
     || ko "$m, text: first back left the results"
