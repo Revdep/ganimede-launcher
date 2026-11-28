@@ -60,4 +60,12 @@ public class PagingTest {
         org.ganimede.launcher.Expect.yes(Backup.fits("grid_pages", Paging.MAX_PAGES), "the last page count a backup keeps");
         org.ganimede.launcher.Expect.yes(!Backup.fits("grid_pages", Paging.MAX_PAGES + 1), "one more is out");
     }
+
+    // Finding c3 P2-2: a side key with no icon to move to turns the page whole, never half
+    public static void testSideKeyTurnsOnePageAndStaysInRange() {
+        eq(2, Paging.turn(1, 4, 1), "right");
+        eq(0, Paging.turn(1, 4, -1), "left");
+        eq(0, Paging.turn(0, 4, -1), "left on the first page stays");
+        eq(3, Paging.turn(3, 4, 1), "right on the last page stays");
+    }
 }

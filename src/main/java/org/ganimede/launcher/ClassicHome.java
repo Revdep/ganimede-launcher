@@ -90,6 +90,17 @@ final class ClassicHome {
                 while (page != null && page.getParent() != pages) page = page.getParent() instanceof View ? (View) page.getParent() : null;
                 if (page != null) snapPage(pages.indexOfChild(page));
             }
+
+            // A side key with no icon to go to (an empty page, icons only on the other side) scrolls half a page and
+            // leaves the focus where it was: the pager then turns a whole page.
+            @Override public boolean arrowScroll(int direction) {
+                View before = findFocus();
+                int from = currentPage();
+                boolean scrolled = super.arrowScroll(direction);
+                if (scrolled && findFocus() == before && (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT))
+                    snapPage(Paging.turn(from, layout.pages(), direction == View.FOCUS_RIGHT ? 1 : -1));
+                return scrolled;
+            }
         };
         pager.setHorizontalScrollBarEnabled(false);
         pager.setFillViewport(true);

@@ -26,8 +26,13 @@ public final class Paging {
     public static int[] focusPages(int current, int pages, int side) {
         if (pages <= 0) return new int[0];
         current = Math.max(0, Math.min(pages - 1, current));
-        int next = current + side;
-        return side == 0 || next < 0 || next >= pages ? new int[]{current} : new int[]{current, next};
+        int next = turn(current, pages, side);
+        return next == current ? new int[]{current} : new int[]{current, next};
+    }
+
+    /** The page a side key turns to from {@code current} (side: -1 left, 1 right): the next one, or the same at the end. */
+    public static int turn(int current, int pages, int side) {
+        return Math.max(0, Math.min(pages - 1, current + side));
     }
 
     private Paging() {}
