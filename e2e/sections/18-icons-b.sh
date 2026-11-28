@@ -299,3 +299,16 @@ for mode in list classic; do
     && ok "$mode: Category icons off: the silhouette, not the newspaper (white $wo px), the plate still red" \
     || ko "$mode: Category icons off: white $wo px against the newspaper's $wc, red $red px"
 done
+
+# Fable c3 P2-1: a pinned shortcut taken out of the favourites takes its picked icon with it, or the 4 MB set stays needed
+# (and the key stays in the backup).
+step "Remove from favourites also drops the shortcut's picked icon"
+SC="s:org.ganimede.e2e|zz1|ZzPosta"
+seed list string fav "$SC" string "icon:$SC" "$BUILTIN|okay"
+pick_stored() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -qF "name=\"icon:$SC\">$BUILTIN|okay<"; }
+pick_stored && ok "the picked icon is stored for the shortcut" || ko "the seeded pick is not stored"
+wait_until 8 has ZzPosta || ko "the shortcut is not in the list"
+read -r ax ay <<<"$(cx ZzPosta)"; hold "$ax" "$ay"
+expect "Rimuovi dai preferiti" && tap "Rimuovi dai preferiti"
+wait_until 5 hasnt ZzPosta
+pick_stored && ko "the picked icon is still stored after Rimuovi dai preferiti" || ok "the picked icon went with the shortcut"
