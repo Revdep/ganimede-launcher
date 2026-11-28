@@ -199,7 +199,7 @@ final class SettingsLook {
         kit.sub(c, kit.ui.tr("Icon style"));
         iconRow(c, "Icon style", IconLook.GLYPHS, Icons.GLYPH_NAMES, l.glyph(), "icon_glyph", key,
                 v -> IconLook.of(v, l.container(), l.fill(), l.color()));
-        kit.para(c, kit.ui.tr("Line, Bold and Sharp change the stroke only for Arcticons (built-in) icons; the others take the same colour and plate."),
+        kit.para(c, kit.ui.tr("Line, Bold, Sharp, Duotone and Hollow change the stroke only for Arcticons (built-in) icons; the others take the same colour and plate."),
                 13, SettingsKit.SUB);
         if (!l.glyph().equals("dot")) { // Dots replace the icon: no plate
             kit.sub(c, kit.ui.tr("Plate"));

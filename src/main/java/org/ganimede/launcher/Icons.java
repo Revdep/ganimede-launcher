@@ -43,7 +43,7 @@ import java.util.function.BiPredicate;
 /** Icon packs (the common appfilter.xml format, or the built-in set of core/IconSet) and icon shapes. */
 final class Icons {
     /** The names of IconLook.GLYPHS, CONTAINERS, FILLS and COLORS, in their order. */
-    static final String[] GLYPH_NAMES = {"Original", "Line", "Bold", "Sharp", "Dots (minimal)"};
+    static final String[] GLYPH_NAMES = {"Original", "Line", "Bold", "Sharp", "Duotone", "Hollow", "Dots (minimal)"};
     static final String[] CONTAINER_NAMES = {"No plate", "Squircle", "Circle", "Rounded square", "Teardrop"};
     static final String[] FILL_NAMES = {"Solid", "Soft"};
     static final String[] COLOR_NAMES = {"Theme colour", "Text colour"};
@@ -332,9 +332,9 @@ final class Icons {
                 : s != IconSource.MONOCHROME || mono != null);
         if (source == IconSource.ARCTICONS) { // built-in geometry, with the treatment's stroke (original draws as Line)
             BuiltinIcon fresh = (BuiltinIcon) copy(icon); // its own tint, alpha and look: the shared one stays as it is
-            renderInto(v, ((BuiltinIcon) plain(icon, colours.glyph())).look(look), idOf(icon) + "|" + look + "|" + colours.glyph() + "|" + px, () -> {
+            renderInto(v, ((BuiltinIcon) plain(icon, colours.glyph())).look(look), idOf(icon) + "|" + look + "|" + colours.glyph() + "|" + colours.fill() + "|" + px, () -> {
                 Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
-                fresh.render(new Canvas(b), look, colours.glyph(), px);
+                fresh.render(new Canvas(b), look, colours.glyph(), colours.fill(), px);
                 return badged(c, b, user);
             });
         } else if (look.glyph().equals("original")) { // the app's own icon, cut to the container if there is one

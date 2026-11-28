@@ -348,6 +348,8 @@ final class T {
         it("Line", "Linea");
         it("Bold", "Marcato");
         it("Sharp", "Spigoloso");
+        it("Duotone", "Bicolore");
+        it("Hollow", "Contorno");
         it("Dots (minimal)", "Puntini (minimal)");
         it("Remove from home screen", "Togli dalla Home");
         it("Add to home screen", "Aggiungi alla Home");

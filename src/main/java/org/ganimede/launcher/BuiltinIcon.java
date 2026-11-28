@@ -49,12 +49,18 @@ final class BuiltinIcon extends Drawable {
     }
 
     /**
-     * The glyph on a px square with a treatment: Line, Bold or Sharp set width, cap and join of every stroked path (the
-     * set's own are not used); fitted to the container by GlyphFit when there is one.
+     * The glyph on a px square with a treatment: Line, Bold, Sharp, Duotone or Hollow set width, cap and join of every
+     * stroked path (the set's own are not used); fitted to the container by GlyphFit when there is one. {@code fill}:
+     * Duotone's colour for the closed shapes (0: none).
      */
-    void render(Canvas c, IconLook look, int color, int px) {
+    void render(Canvas c, IconLook look, int color, int fill, int px) {
         IconLook.Stroke s = look.stroke();
-        GlyphFit fit = look.plated() ? GlyphFit.onContainer(GlyphFit.bounds(data), s.width(), px) : GlyphFit.grid(s.width(), px);
+        Path[] shapes = paths;
+        if (s.outline() > 0) {
+            shapes = outlines(s);
+            if (shapes == null) s = s.fallback(); // no outline to be had: Bold
+        }
+        GlyphFit fit = look.plated() ? GlyphFit.onContainer(GlyphFit.bounds(data), s.extent(), px) : GlyphFit.grid(s.extent(), px);
         Matrix m = new Matrix();
         m.setScale(fit.scale(), fit.scale());
         m.postTranslate(fit.dx(), fit.dy());
@@ -62,7 +68,7 @@ final class BuiltinIcon extends Drawable {
         paint.setColorFilter(filter);
         for (int i = 0; i < paths.length; i++) {
             IconSet.PathData p = data.get(i);
-            Path path = new Path(paths[i]);
+            Path path = new Path(shapes[i]);
             path.transform(m);
             paint.setColor(color);
             paint.setAlpha(Math.round(Color.alpha(color) * p.alpha() * alpha / 255f));
@@ -71,8 +77,16 @@ final class BuiltinIcon extends Drawable {
                 c.drawPath(path, paint);
             }
             if (!p.stroke()) continue;
+            if (s.fillsClosed() && !p.fill()) {
+                Path closed = path(p, true);
+                closed.transform(m);
+                paint.setColor(fill);
+                paint.setStyle(Paint.Style.FILL);
+                c.drawPath(closed, paint);
+                paint.setColor(color);
+            }
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(fit.strokePx());
+            paint.setStrokeWidth(s.width() * px / 48f);
             paint.setStrokeCap(Paint.Cap.valueOf(s.cap().name()));
             paint.setStrokeJoin(Paint.Join.valueOf(s.join().name()));
             c.drawPath(path, paint);
@@ -84,12 +98,39 @@ final class BuiltinIcon extends Drawable {
         }
     }
 
+    /** Each stroked path as the outline of a stroke {@code s.outline()} wide, in grid units; null when one can't be had. */
+    private Path[] outlines(IconLook.Stroke s) {
+        Paint wide = new Paint();
+        wide.setStyle(Paint.Style.STROKE);
+        wide.setStrokeWidth(s.outline());
+        wide.setStrokeCap(Paint.Cap.valueOf(s.cap().name()));
+        wide.setStrokeJoin(Paint.Join.valueOf(s.join().name()));
+        Path[] out = new Path[paths.length];
+        for (int i = 0; i < paths.length; i++) {
+            if (!data.get(i).stroke()) { out[i] = paths[i]; continue; }
+            Path edge = new Path(), united = new Path();
+            wide.getFillPath(paths[i], edge);
+            if (!united.op(edge, edge, Path.Op.UNION) || united.isEmpty()) return null;
+            out[i] = united;
+        }
+        return out;
+    }
+
     private static Path path(IconSet.PathData p) {
+        return path(p, false);
+    }
+
+    /** {@code closedOnly}: just the closed subpaths (a Z, or back to the start; ovals), the ones Duotone fills. */
+    private static Path path(IconSet.PathData p, boolean closedOnly) {
         Path path = new Path();
         path.setFillType(p.evenOdd() ? Path.FillType.EVEN_ODD : Path.FillType.WINDING);
         float[] q = p.points();
         int k = 0;
+        boolean keep = true;
         for (IconSet.Op op : p.ops()) {
+            if (op == IconSet.Op.MOVE || op == IconSet.Op.MOVE_CLOSED) keep = !closedOnly || op == IconSet.Op.MOVE_CLOSED;
+            else if (op == IconSet.Op.OVAL) keep = true;
+            if (!keep) { k += 2 * IconSet.points(op); continue; }
             switch (op) {
                 case MOVE, MOVE_CLOSED -> path.moveTo(q[k++], q[k++]); // MOVE_CLOSED only marks a closed subpath
                 case LINE -> path.lineTo(q[k++], q[k++]);
@@ -106,7 +147,7 @@ final class BuiltinIcon extends Drawable {
         Rect b = getBounds();
         int save = c.save();
         c.translate(b.left, b.top);
-        render(c, look, color, Math.min(b.width(), b.height()));
+        render(c, look, color, 0, Math.min(b.width(), b.height()));
         c.restoreToCount(save);
     }
 

@@ -40,6 +40,12 @@ public class GlyphFitTest {
         fit(GlyphFit.onContainer(new float[]{2, 20, 46, 28}, 1, 96), 50 / 44.0, 20.727273, 20.727273, 2);
     }
 
+    public static void testHollowOutset() {
+        // contours: 2.6/2 + 0.6/2 = 1.6 units a side, 3.2 in all = 6.4 px at 96; scale (52 - 6.4)/24
+        float extent = IconLook.of("hollow", "circle", "solid", "accent").stroke().extent();
+        fit(GlyphFit.onContainer(new float[]{8, 12, 28, 36}, extent, 96), 1.9, 13.8, 2.4, 6.4);
+    }
+
     public static void testNoContainerKeepsNativeGrid() {
         fit(GlyphFit.grid(1, 96), 2, 0, 0, 2);
     }

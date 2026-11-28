@@ -13,7 +13,7 @@ import org.ganimede.launcher.core.IconSet.Join;
  * "original" is the app's own icon (cut to the container, if any); "dot" replaces the icon and ignores the container.
  */
 public record IconLook(String glyph, String container, String fill, String color) {
-    public static final String[] GLYPHS = {"original", "line", "bold", "sharp", "dot"};
+    public static final String[] GLYPHS = {"original", "line", "bold", "sharp", "duotone", "hollow", "dot"};
     public static final String[] CONTAINERS = {"none", "squircle", "circle", "square", "teardrop"};
     public static final String[] FILLS = {"solid", "soft"};
     public static final String[] COLORS = {"accent", "text"};
@@ -22,13 +22,25 @@ public record IconLook(String glyph, String container, String fill, String color
     /** The settings the model replaced: a backup, a phone or a copied theme from before still carries them. */
     public static final String[] LEGACY = {"icon_shape", "themed_shape", "drawer_icon_shape"};
     private static final String[][] VALUES = {GLYPHS, CONTAINERS, FILLS, COLORS};
-    private static final int SOFT_PLATE = 0x38, TEXT_NO_PLATE = 0xD0; // 22% of 255 = 56; today's Monochrome alpha
+    private static final int SOFT_PLATE = 0x38, TEXT_NO_PLATE = 0xD0, DUOTONE_FILL = 0x52; // 32% of 255 = 82 // 22% of 255 = 56; today's Monochrome alpha
 
-    /** The colours to draw with: plate 0 = no plate, border 0 = no border; alpha is the glyph's opacity (0-255). */
-    public record Colours(int plate, int border, int glyph, int alpha) {}
+    /** The colours to draw with: plate 0 = no plate, border 0 = no border; alpha is the glyph's opacity (0-255); fill 0 = no fill of closed shapes. */
+    public record Colours(int plate, int border, int glyph, int alpha, int fill) {
+        Colours(int plate, int border, int glyph, int alpha) { this(plate, border, glyph, alpha, 0); }
+    }
 
     /** The stroke of a built-in glyph in 48-grid units; caps and joins named as Android's Paint.Cap and Paint.Join. */
-    public record Stroke(float width, Cap cap, Join join) {
+    public record Stroke(float width, Cap cap, Join join, boolean fillsClosed, float outline) {
+        private static final Stroke BOLD = new Stroke(2.2f, Cap.ROUND, Join.ROUND, false, 0);
+
+        Stroke(float width, Cap cap, Join join) { this(width, cap, join, false, 0); }
+
+        /** How far the glyph reaches past its path, in both: half the stroke, or half the outlined stroke plus half the line. */
+        public float extent() { return width + outline; }
+
+        /** Hollow draws the outline of a stroke {@code outline} wide; when it can't be had, as Bold. */
+        public Stroke fallback() { return outline > 0 ? BOLD : this; }
+
         /** Zero-length subpaths (dots) show only with a ROUND or SQUARE cap: under BUTT they would vanish. */
         public Cap dotCap() { return cap == Cap.BUTT ? Cap.ROUND : cap; }
     }
@@ -107,15 +119,19 @@ public record IconLook(String glyph, String container, String fill, String color
         int c = color.equals("text") ? fg : accent;
         if (glyph.equals("dot")) return new Colours(0, 0, c, 0xFF); // the dot is C, as it always was
         int line = Colors.lineIcon(c, fg); // a glyph on the wallpaper or on a 22% plate: issue 077's 3:1 rule
-        if (!plated()) return new Colours(0, 0, line, color.equals("text") && !glyph.equals("original") ? TEXT_NO_PLATE : 0xFF);
-        if (fill.equals("soft")) return new Colours(Colors.alpha(c, SOFT_PLATE), line, line, 0xFF);
-        return new Colours(c, 0, Colors.on(c), 0xFF);
+        boolean solid = plated() && !fill.equals("soft");
+        int closed = glyph.equals("duotone") ? Colors.alpha(solid ? Colors.on(c) : c, DUOTONE_FILL) : 0; // issue 080
+        if (!plated()) return new Colours(0, 0, line, color.equals("text") && !glyph.equals("original") ? TEXT_NO_PLATE : 0xFF, closed);
+        if (!solid) return new Colours(Colors.alpha(c, SOFT_PLATE), line, line, 0xFF, closed);
+        return new Colours(c, 0, Colors.on(c), 0xFF, closed);
     }
 
-    /** Line, Bold and Sharp set width, cap and join of every stroked path (the set's own are not used); others draw as Line. */
+    /** Line, Bold, Sharp, Duotone and Hollow set width, cap and join of every stroked path (the set's own are not used); others draw as Line. */
     public Stroke stroke() {
         switch (glyph) {
-            case "bold": return new Stroke(2.2f, Cap.ROUND, Join.ROUND);
+            case "bold": return Stroke.BOLD;
+            case "duotone": return new Stroke(1.4f, Cap.ROUND, Join.ROUND, true, 0);
+            case "hollow": return new Stroke(0.6f, Cap.ROUND, Join.ROUND, false, 2.6f);
             case "sharp": return new Stroke(1.4f, Cap.BUTT, Join.MITER);
             default: return new Stroke(1f, Cap.ROUND, Join.ROUND);
         }

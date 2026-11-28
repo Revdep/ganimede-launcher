@@ -272,13 +272,13 @@ for mode in list classic; do
   setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true # only the icon in the crop
   if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi
   sums=""
-  for g in original line bold sharp; do
+  for g in original line bold sharp duotone hollow; do
     look $g circle solid accent
     capture_calendar "$OUT/icons-$mode-builtin-$g.png" || ko "$mode: no Calendar with $g"
     sums="$sums$(magick "$OUT/icons-$mode-builtin-$g.png" -format %# info:)"$'\n'
   done
   n=$(printf %s "$sums" | sort -u | grep -c .)
-  [ "$n" = 3 ] && ok "$mode: Line, Bold and Sharp differ" || ko "$mode: $n different of Line, Bold, Sharp"
+  [ "$n" = 5 ] && ok "$mode: Line, Bold, Sharp, Duotone and Hollow differ" || ko "$mode: $n different of Line, Bold, Sharp, Duotone, Hollow (expected 5)"
   same "$OUT/icons-$mode-builtin-original.png" "$OUT/icons-$mode-builtin-line.png" \
     && ok "$mode: Original draws a built-in icon as Line (it has no colours of its own)" || ko "$mode: built-in Original differs from Line"
   img="$OUT/icons-$mode-builtin-line.png"
@@ -289,6 +289,25 @@ for mode in list classic; do
   else ko "$mode: no white glyph or red plate in the built-in Line icon"; fi
 done
 
+step "Duotone fills the closed shapes at 32%; Hollow is centred on its plate"
+seed classic
+setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true; setp int grid_icon 64
+look line none solid accent
+capture_calendar "$OUT/icons-d-line.png"
+look duotone none solid accent
+capture_calendar "$OUT/icons-d-duo.png"
+stroke_line=$(colour_pixels "$OUT/icons-d-line.png" "$RED"); stroke_duo=$(colour_pixels "$OUT/icons-d-duo.png" "$RED")
+other=$(( $(magick "$OUT/icons-d-duo.png" -format '%[fx:w*h]' info:) - stroke_duo - $(colour_pixels "$OUT/icons-d-duo.png" "$(magick "$OUT/icons-d-duo.png" -format '%[hex:u.p{0,0}]' info: | cut -c1-6 | sed 's/^/#/')") ))
+[ "$stroke_duo" -gt 20 ] && ok "Duotone: $stroke_duo stroke pixels in the accent" || ko "Duotone: $stroke_duo accent pixels, expected more than 20"
+[ "$other" -gt 20 ] && ok "Duotone: $other translucent fill pixels" || ko "Duotone: $other fill pixels, expected more than 20"
+look hollow circle solid accent
+capture_calendar "$OUT/icons-d-hollow.png"
+if read -r gx gy gw gh <<<"$(box "$OUT/icons-d-hollow.png" "#FFFFFF")" && [ -n "$gx" ] && read -r qx qy qw qh <<<"$(box "$OUT/icons-d-hollow.png" "$RED")" && [ -n "$qx" ]; then
+  dx=$(( (2 * gx + gw) - (2 * qx + qw) )); dy=$(( (2 * gy + gh) - (2 * qy + qh) ))
+  [ ${dx#-} -le 4 ] && [ ${dy#-} -le 4 ] && ok "Hollow glyph centred on its plate (offset $dx/2, $dy/2 px)" \
+    || ko "Hollow glyph off centre by $dx/2, $dy/2 px"
+else ko "Hollow: no white glyph or red plate"; fi
+
 step "Icons card: Line, Bold, Sharp on a built-in glyph; rows shown only where they mean something"
 seed classic
 setp int accent -2093040
@@ -296,10 +315,10 @@ look original circle solid accent
 pg_settings; stap "Personalizza"
 pill "Temi"; tap "Temi"
 find_desc "${S}Spigoloso" >/dev/null || ko "no Sharp tile"
-for tile in Linea Marcato Spigoloso; do hasd "$S$tile" && ok "sees the $tile tile" || ko "no $tile tile"; done
+for tile in Linea Marcato Spigoloso Bicolore Contorno; do hasd "$S$tile" && ok "sees the $tile tile" || ko "no $tile tile"; done
 A exec-out screencap -p > "$OUT/icons-screen.png"
 sums=""
-for tile in Originale Linea Marcato Spigoloso; do # the icon part of each tile: 10 dp padding, then the 44 dp icon
+for tile in Originale Linea Marcato Spigoloso Bicolore Contorno; do # the icon part of each tile: 10 dp padding, then the 44 dp icon
   if read -r x1 y1 x2 y2 <<<"$(bounds "desc:$S$tile")" && [ -n "$x1" ]; then
     s=$(dp 44)
     magick "$OUT/icons-screen.png" -crop "${s}x${s}+$(( (x1 + x2 - s) / 2 ))+$((y1 + $(dp 10)))" +repage "$OUT/icons-tile-$tile.png"
@@ -307,7 +326,7 @@ for tile in Originale Linea Marcato Spigoloso; do # the icon part of each tile: 
   fi
 done
 n=$(printf %s "$sums" | sort -u | grep -c .)
-[ "$n" = 4 ] && ok "Original, Line, Bold, Sharp tiles all differ" || ko "$n different tiles of 4"
+[ "$n" = 6 ] && ok "Original, Line, Bold, Sharp, Duotone, Hollow tiles all differ" || ko "$n different tiles of 6"
 tile="$OUT/icons-tile-Linea.png"
 if read -r gx gy gw gh <<<"$(box "$tile" "#FFFFFF")" && [ -n "$gx" ] && read -r qx qy qw qh <<<"$(box "$tile" "$RED")" && [ -n "$qx" ]; then
   dx=$(( (2 * gx + gw) - (2 * qx + qw) )); dy=$(( (2 * gy + gh) - (2 * qy + qh) )) # twice the offset of the centres

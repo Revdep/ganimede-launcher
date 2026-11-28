@@ -117,6 +117,36 @@ public class IconLookTest {
         stroke("original", 1f, Cap.ROUND, Join.ROUND); // built-in glyphs have no colours of their own: drawn as Line
     }
 
+    public static void testDuotoneParams() {
+        IconLook.Stroke d = IconLook.of("duotone", "none", "solid", "accent").stroke();
+        eq(List.of(1.4f, Cap.ROUND, Join.ROUND, true), List.of(d.width(), d.cap(), d.join(), d.fillsClosed()), "duotone");
+        for (String g : new String[]{"line", "bold", "sharp", "hollow"})
+            yes(!IconLook.of(g, "none", "solid", "accent").stroke().fillsClosed(), g + " fills nothing");
+    }
+
+    private static void duotoneFill(String what, String color, String container, String fill, int expected) {
+        eq(expected, IconLook.of("duotone", container, fill, color).colours(RED, WHITE).fill(), what);
+    }
+
+    public static void testDuotoneFillColour() {
+        duotoneFill("accent, solid plate: the glyph's on-colour", "accent", "circle", "solid", 0x52FFFFFF);
+        duotoneFill("accent, soft plate", "accent", "circle", "soft", 0x52E01010);
+        duotoneFill("accent, no plate", "accent", "none", "solid", 0x52E01010);
+        duotoneFill("text, solid plate", "text", "circle", "solid", 0x521B1820);
+        duotoneFill("text, no plate", "text", "none", "solid", 0x52FFFFFF);
+        eq(0, IconLook.of("line", "circle", "solid", "accent").colours(RED, WHITE).fill(), "other treatments: no fill");
+    }
+
+    public static void testHollowFallsBackToBold() {
+        IconLook.Stroke h = IconLook.of("hollow", "circle", "solid", "accent").stroke();
+        eq(List.of(0.6f, 2.6f), List.of(h.width(), h.outline()), "hollow: outline of a 2.6 stroke, drawn 0.6");
+        yes(Math.abs(h.extent() - 3.2f) < 1e-5, "1.6 units a side");
+        IconLook.Stroke bold = IconLook.of("bold", "circle", "solid", "accent").stroke();
+        eq(bold, h.fallback(), "no outline: bold's parameters");
+        eq(2.2f, h.fallback().extent(), "bold's extent");
+        eq(bold, bold.fallback(), "the others stay as they are");
+    }
+
     public static void testUnknownValuesFallBack() {
         IconLook l = IconLook.of("cutout", "hexagon", "x", "x");
         eq(List.of("original", "none", "solid", "accent"), List.of(l.glyph(), l.container(), l.fill(), l.color()), "unknown values");
