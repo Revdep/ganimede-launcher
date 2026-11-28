@@ -224,6 +224,15 @@ public class IconSetTest {
         yes(!IconSet.needed(java.util.Map.of()), "nothing picked");
     }
 
+    /** Fable c2 P2-2: a deleted folder's picked icon key is the one the set check looks at, so removing it frees the 4 MB set. */
+    public static void testDroppedPickKeepsNothingNeeded() {
+        java.util.Map<String, Object> prefs = new java.util.HashMap<>(java.util.Map.of("mode", "classic"));
+        prefs.put(IconSet.pickedKey("f:12"), "builtin:arcticons|okay");
+        yes(IconSet.needed(prefs), "the folder's pick needs the set");
+        prefs.remove(IconSet.pickedKey("f:12"));
+        yes(!IconSet.needed(prefs), "its key gone, nothing needs the set");
+    }
+
     /** Reads everything a set offers, as the launcher does: every icon and name, and an index lookup. */
     private static void readAll(IconSet set) {
         for (int i = 0; i < set.count(); i++) {

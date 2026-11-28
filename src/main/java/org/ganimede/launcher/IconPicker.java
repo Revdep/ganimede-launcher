@@ -52,7 +52,7 @@ final class IconPicker {
         packs.put(IconSet.PACK, ui.tr("Arcticons (built-in)"));
         packs.putAll(Icons.packs(ui.a));
         List<Sheets.Row> rows = new ArrayList<>();
-        boolean picked = ui.prefs.contains("icon:" + entry);
+        boolean picked = ui.prefs.contains(IconSet.pickedKey(entry));
         rows.add(item(picked ? "reset" : "check", ui.tr("Original icon"), () -> apply(entry, null)));
         rows.add(item("search", ui.tr("All icon packs"), () -> grid(entry, new ArrayList<>(packs.keySet()), ui.tr("All icon packs"))));
         for (Map.Entry<String, String> e : packs.entrySet())
@@ -62,8 +62,8 @@ final class IconPicker {
 
     /** Saves the picked icon ("pack|drawable", or null for the original) and shows it everywhere at once. */
     private void apply(String entry, String pick) {
-        if (pick == null) ui.prefs.edit().remove("icon:" + entry).apply();
-        else ui.prefs.edit().putString("icon:" + entry, pick).apply();
+        if (pick == null) ui.prefs.edit().remove(IconSet.pickedKey(entry)).apply();
+        else ui.prefs.edit().putString(IconSet.pickedKey(entry), pick).apply();
         if (entry.startsWith("f:") || entry.startsWith("s:")) refresh.run(); else reloadApps.run(); // apps cache their icon
     }
 

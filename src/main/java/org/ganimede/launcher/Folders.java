@@ -1,5 +1,6 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.IconSet;
 import static org.ganimede.launcher.Sheets.item;
 
 import org.ganimede.launcher.Apps.Item;
@@ -76,7 +77,7 @@ final class Folders {
      */
     private Set<String> looks(String id) {
         return FolderOrder.looks(Layout.strings(layout.folder(id).optJSONArray("apps")), entries::name, k -> {
-            if (k.startsWith("s:")) return ui.prefs.getString("icon:" + k, "");
+            if (k.startsWith("s:")) return ui.prefs.getString(IconSet.pickedKey(k), "");
             Item it = apps.find(k);
             return it == null ? null : FolderOrder.drawnIcon(it.picked, it.installed);
         });

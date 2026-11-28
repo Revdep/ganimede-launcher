@@ -1,5 +1,6 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Search;
 
 import android.app.Activity;
@@ -67,7 +68,7 @@ final class Apps {
      */
     static void resolveIcon(Context c, SharedPreferences prefs, Item it) {
         Drawable packed = Icons.picked(c, prefs, it.key);
-        it.picked = prefs.getString("icon:" + it.key, "");
+        it.picked = prefs.getString(IconSet.pickedKey(it.key), "");
         if (packed == null) packed = Icons.fromPack(it.info.getComponentName());
         it.fromPack = packed != null;
         it.category = packed == null ? Icons.category(prefs, it.info) : null;

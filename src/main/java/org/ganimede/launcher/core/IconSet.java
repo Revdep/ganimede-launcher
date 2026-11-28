@@ -137,10 +137,15 @@ public final class IconSet {
         return query.isBlank() ? keys : Search.rank(keys, k -> k.substring(k.indexOf('|') + 1), k -> 0, query);
     }
 
+    /** The preference name of an entry's picked icon: delete it with the entry, or the set stays needed (and in the backup). */
+    public static String pickedKey(String entry) {
+        return "icon:" + entry;
+    }
+
     /** Whether any entry's picked icon ("icon:<entry>" = "builtin:arcticons|name") comes from this set. */
     public static boolean needed(Map<String, ?> prefs) {
         for (Map.Entry<String, ?> e : prefs.entrySet())
-            if (e.getKey().startsWith("icon:") && e.getValue() instanceof String v && v.startsWith(PACK + "|")) return true;
+            if (e.getKey().startsWith(pickedKey("")) && e.getValue() instanceof String v && v.startsWith(PACK + "|")) return true;
         return false;
     }
 

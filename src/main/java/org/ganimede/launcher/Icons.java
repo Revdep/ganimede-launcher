@@ -346,7 +346,7 @@ final class Icons {
 
     /** The icon picked for an entry from an installed pack (stored under "icon:<entry>"), or null. */
     static Drawable picked(Context c, SharedPreferences p, String entry) {
-        return named(c, p.getString("icon:" + entry, ""));
+        return named(c, p.getString(IconSet.pickedKey(entry), ""));
     }
 
     /** The icon settings of the home (the drawer's own: Layout.drawerIconLook). */
