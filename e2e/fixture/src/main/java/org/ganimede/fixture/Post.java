@@ -7,6 +7,9 @@ import android.app.Person;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.net.Uri;
 
 import java.io.DataOutputStream;
@@ -24,6 +27,7 @@ import java.io.IOException;
  * (h) one note whose stream never ends (Notes "hang.wav"); (s) a note sent slowly (Notes "slow.wav"), then note A;
  * (x) one note whose provider takes 20 s to fail its open (Notes "block.wav").
  * `--ei id n` posts under another id (default 1); `--ez cancel true` cancels that id instead of posting.
+ * `--ez duck true` only takes audio focus (GAIN_TRANSIENT_MAY_DUCK) and releases it at once, as a notification sound does.
  * `--ez quiet true` updates a shown notification without sounding again (setOnlyAlertOnce), as a chat app does.
  * The notes are silent WAVs of 30 and 40 s: their sizes tell which one plays, and they last long enough to be checked
  * while playing.
@@ -33,6 +37,13 @@ public final class Post extends BroadcastReceiver {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         int id = i.getIntExtra("id", 1);
         if (i.getBooleanExtra("cancel", false)) { nm.cancel(id); return; }
+        if (i.getBooleanExtra("duck", false)) { // what a sounding notification asks for; the loss is notified on the request
+            AudioManager am = c.getSystemService(AudioManager.class);
+            AudioFocusRequest r = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build()).build();
+            am.requestAudioFocus(r); am.abandonAudioFocusRequest(r);
+            return;
+        }
         nm.createNotificationChannel(new NotificationChannel("chat", "Chat", NotificationManager.IMPORTANCE_DEFAULT));
         Person anna = new Person.Builder().setName("Anna").build();
         Notification.MessagingStyle style = new Notification.MessagingStyle(new Person.Builder().setName("Me").build());
