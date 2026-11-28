@@ -207,7 +207,17 @@ pill() {
 }
 cx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo $((($1 + $3) / 2)) $((($2 + $4) / 2)); }
 lx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo "$1" $((($2 + $4) / 2)); } # left edge, middle height
-see() { local n=0; while [ $n -lt 30 ]; do has "$1" && { ok "sees “$1”"; return 0; }; _scroll; n=$((n + 1)); done; ko "doesn't see “$1”"; return 1; }
+# scroll_find cmd…: runs the command on each screen read, scrolling a page between; 0 found, 1 the page's end reached without it
+# (two scrolls in a row that change nothing: one can be swallowed; a text absent from a long page cost 30 scrolls, ~80 s), 2 gave up after 30 scrolls
+scroll_find() {
+  local n=0 prev= cur same=0
+  while [ $n -lt 30 ]; do
+    "$@" && return 0
+    cur=$(screen); if [ -n "$cur" ] && [ "$cur" = "$prev" ]; then same=$((same + 1)); [ $same -ge 2 ] && return 1; else same=0; fi; prev=$cur
+    _scroll; n=$((n + 1))
+  done; return 2
+}
+see() { scroll_find has "$1" && { ok "sees “$1”"; return 0; }; ko "doesn't see “$1”"; return 1; }
 near() { local d=$(($1 - $2)); [ ${d#-} -le "$3" ]; } # near a b tolerance
 # put_prefs file: the app's prefs become this file. Through `adb shell`, which waits for the device command and returns
 # its status: `adb exec-in` returns once stdin is sent, neither waiting for the device command nor reporting it, so the
