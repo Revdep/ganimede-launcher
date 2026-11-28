@@ -25,6 +25,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -108,10 +111,24 @@ final class IconPicker {
             }
         };
         grid.setAdapter(ad);
+        // Tens of thousands of names ranked on every key: off the main thread, one at a time, a newer key makes the older ones give up.
+        AtomicInteger searches = new AtomicInteger();
+        ExecutorService searcher = Executors.newSingleThreadExecutor();
         Runnable filter = () -> {
-            shown.clear();
-            shown.addAll(IconSet.search(all, find.getText().toString()));
-            ad.notifyDataSetChanged();
+            if (searcher.isShutdown()) return; // closed before the packs were read
+            int mine = searches.incrementAndGet();
+            String query = find.getText().toString();
+            List<String> keys = new ArrayList<>(all);
+            searcher.execute(() -> {
+                if (mine != searches.get()) return;
+                List<String> found = IconSet.search(keys, query);
+                handler.post(() -> {
+                    if (mine != searches.get()) return;
+                    shown.clear();
+                    shown.addAll(found);
+                    ad.notifyDataSetChanged();
+                });
+            });
         };
         find.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
@@ -125,7 +142,7 @@ final class IconPicker {
             dlg.dismiss();
         });
         Icons.pickerOpen(true);
-        dlg.setOnDismissListener(d -> Icons.pickerOpen(false));
+        dlg.setOnDismissListener(d -> { Icons.pickerOpen(false); searcher.shutdown(); });
         dlg.show();
         new Thread(() -> {
             List<String> got = new ArrayList<>();
