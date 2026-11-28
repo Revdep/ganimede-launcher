@@ -107,8 +107,9 @@ public class SummaryTest {
 
     public static void testCountsAHoldOnceNotOnEachRepost() {
         java.util.Set<String> held = Summary.hold(java.util.Set.of(), "k", 9_000_000L, 0);
-        eq(1, Summary.counted(0, java.util.Set.of(), "k"), "first hold counts");
-        eq(1, Summary.counted(1, held, "k"), "the same key already held does not");
-        eq(2, Summary.counted(1, held, "j"), "another key does");
+        eq(1, Summary.counted(0, java.util.Set.of(), "k", 9_000_000L), "first hold counts");
+        eq(1, Summary.counted(1, held, "k", 9_000_000L), "the same key already held does not");
+        eq(2, Summary.counted(1, held, "j", 9_000_000L), "another key does");
+        eq(2, Summary.counted(1, held, "k", 9_500_000L), "the same key held again for a later summary (the first was cancelled) does");
     }
 }

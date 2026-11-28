@@ -137,7 +137,7 @@ public class NotifService extends NotificationListenerService {
                 worker.post(() -> {
                     Set<String> stored = p.getStringSet("summary_held", Set.of());
                     p.edit().putStringSet("summary_held", Summary.hold(stored, key, now + wait, now))
-                            .putInt("summary_count", Summary.counted(p.getInt("summary_count", 0), stored, key)).apply();
+                            .putInt("summary_count", Summary.counted(p.getInt("summary_count", 0), stored, key, now + wait)).apply();
                 });
             } catch (RuntimeException e) { // access just lost: shown, not held
                 Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
