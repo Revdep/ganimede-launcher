@@ -7,16 +7,11 @@ public final class IconMask {
      * filled square, disc or rounded tile (an old icon) has too little, and would only make a flat blob.
      */
     public static boolean isUsable(int[] pixels, int width) {
-        int opaque = 0, minX = width, maxX = -1, minY = Integer.MAX_VALUE, maxY = -1;
-        for (int i = 0; i < pixels.length; i++) {
-            if ((pixels[i] >>> 24) < 0x20) continue;
-            opaque++;
-            int x = i % width, y = i / width;
-            minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-        }
+        int opaque = 0;
+        for (int p : pixels) if ((p >>> 24) >= GlyphFit.SEEN) opaque++;
         if (opaque * 100 < pixels.length * 2) return false;
-        int box = (maxX - minX + 1) * (maxY - minY + 1);
+        float[] b = GlyphFit.bounds(pixels, width);
+        int box = (int) ((b[2] - b[0]) * (b[3] - b[1]));
         return (box - opaque) * 100 >= box * 25;
     }
 

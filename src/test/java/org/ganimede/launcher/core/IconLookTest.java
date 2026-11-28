@@ -134,4 +134,11 @@ public class IconLookTest {
         yes(!IconLook.allows("icon_glyph", "cutout") && !IconLook.allows("drawer_icon_color", "soft"), "unlisted values");
         yes(IconLook.allows("font", "anything"), "not a model key: not this rule's business");
     }
+
+    public static void testInsideAFolderTile() {
+        // a folder tile is the plate: its icons take the page's glyph and colour with no plate of their own; Dots draws as Line
+        eq(IconLook.of("bold", "none", "soft", "text"), IconLook.of("bold", "squircle", "soft", "text").inFolder(), "the plate dropped");
+        eq(IconLook.of("line", "none", "solid", "accent"), IconLook.of("dot", "circle", "solid", "accent").inFolder(), "Dots: a Line glyph");
+        eq(IconLook.of("original", "none", "solid", "accent"), IconLook.of("original", "circle", "solid", "accent").inFolder(), "Original stays");
+    }
 }

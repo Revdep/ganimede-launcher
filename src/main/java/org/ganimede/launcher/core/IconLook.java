@@ -92,6 +92,11 @@ public record IconLook(String glyph, String container, String fill, String color
         return builtinSet || !glyph.equals("original");
     }
 
+    /** Inside a folder tile (the tile is the plate): the page's glyph and colour, no plate of its own; Dots draws as Line. */
+    public IconLook inFolder() {
+        return new IconLook(glyph.equals("dot") ? "line" : glyph, "none", fill, color);
+    }
+
     /** A plate is drawn: a container chosen, and not Dots (which replaces the icon). */
     public boolean plated() {
         return !container.equals("none") && !glyph.equals("dot");

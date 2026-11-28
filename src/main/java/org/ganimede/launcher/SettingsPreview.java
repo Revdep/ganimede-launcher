@@ -444,7 +444,7 @@ final class SettingsPreview extends FrameLayout {
         ImageView icon = new ImageView(getContext());
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         Drawable packed = Icons.fromPack(a.info.getComponentName()); // once: it decodes the built-in icon
-        Icons.apply(icon, packed != null ? packed : a.info.getBadgedIcon(0), packed != null, look, fg, accent, size);
+        Icons.apply(icon, packed != null ? packed : a.info.getIcon(0), packed != null, a.info.getUser(), look, fg, accent, size);
         return icon;
     }
 
