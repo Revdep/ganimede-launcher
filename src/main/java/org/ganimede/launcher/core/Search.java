@@ -72,10 +72,10 @@ public final class Search {
         return beginsWith(l, q) ? 2 : 1;
     }
 
-    /** A contact stays when the typed words each begin a different word of its name and other entries (email, company, nickname) taken together. */
+    /** A contact stays when the typed words each begin a different word of its name and other entries (email, company, nickname) taken together; of an email only what comes before the @ counts, not its domain. */
     public static boolean contactMatches(String name, List<String> others, String query) {
         StringBuilder all = new StringBuilder(name);
-        for (String o : others) if (o != null) all.append(' ').append(o);
+        for (String o : others) if (o != null) all.append(' ').append(o.indexOf('@') < 0 ? o : o.substring(0, o.indexOf('@')));
         return score(all.toString(), query) > 0;
     }
 
