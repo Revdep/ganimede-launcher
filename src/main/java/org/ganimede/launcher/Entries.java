@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.IconLook;
 
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
@@ -81,22 +82,22 @@ final class Entries {
 
     /** The entry's icon at this size: an app's own (or picked) icon, a folder tile, a shortcut's icon. */
     private View icon(String entry, int size, boolean drawer) {
-        String shape = drawer ? layout.drawerString("icon_shape", Icons.DEFAULT_SHAPE) : ui.shape;
+        IconLook look = drawer ? layout.drawerIconLook() : ui.look;
         boolean folder = entry.startsWith("f:");
         if (!folder && !entry.startsWith("s:")) {
             Item it = apps.find(entry);
-            return it == null ? null : ui.icon(it.icon, it.fromPack, size, shape); // Apps.load already applied a picked icon
+            return it == null ? null : ui.icon(it.icon, it.fromPack, size, look); // Apps.load already applied a picked icon
         }
         Drawable picked = Icons.picked(ui.a, ui.prefs, entry);
-        if (picked != null) return ui.icon(picked, true, size, shape);
-        if (folder) return folderTile(entry.substring(2), size);
+        if (picked != null) return ui.icon(picked, true, size, look);
+        if (folder) return folderTile(entry.substring(2), size, look);
         String[] p = entry.substring(2).split("\\|", 3);
         Drawable d = p.length > 1 ? apps.shortcutIcon(p[0], p[1]) : null;
-        return d != null ? ui.icon(d, false, size, shape) : folderTile(null, size);
+        return d != null ? ui.icon(d, false, size, look) : folderTile(null, size, look);
     }
 
-    /** A folder's icon: a soft tile with the first four apps inside, two by two (or a folder mark). */
-    private View folderTile(String id, int size) {
+    /** A folder's icon: a soft tile with the first four apps inside, two by two, in the look of the page it is on (or a folder mark). */
+    private View folderTile(String id, int size, IconLook look) {
         LinearLayout g = new LinearLayout(ui.a);
         g.setOrientation(LinearLayout.VERTICAL);
         g.setGravity(Gravity.CENTER);
@@ -118,7 +119,7 @@ final class Entries {
             LinearLayout line = new LinearLayout(ui.a);
             for (int k = r * 2; k < Math.min(inside.size(), r * 2 + 2); k++) {
                 ImageView iv = new ImageView(ui.a);
-                iv.setImageDrawable(Icons.plain(inside.get(k), Colors.lineIcon(ui.accent, ui.fg))); // the tile sits on the home's backdrop
+                iv.setImageDrawable(Icons.thumbnail(inside.get(k), look, ui.accent, ui.fg)); // drawn in the look of the page the tile is on
                 LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(mini, mini);
                 if (k % 2 == 1) ml.setMarginStart(pad);
                 line.addView(iv, ml);

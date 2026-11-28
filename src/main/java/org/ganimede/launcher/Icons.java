@@ -20,7 +20,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.widget.ImageView;
 
-import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.IconMask;
 import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.LimitedInputStream;
@@ -38,13 +38,11 @@ import java.util.function.BiPredicate;
 
 /** Icon packs (the common appfilter.xml format, or the built-in set of core/IconSet) and icon shapes. */
 final class Icons {
-    static final String[] SHAPES = {"original", "squircle", "circle", "square", "teardrop", "theme", "mono", "dot"};
-    static final String[] SHAPE_NAMES = {"Original", "Squircle", "Circle", "Rounded square", "Teardrop",
-            "Tinted", "Monochrome", "Dots (minimal)"};
-    static final String DEFAULT_SHAPE = "original";
-    static final String[] THEMED_SHAPES = {"none", "squircle", "circle", "square", "teardrop"};
-    static final String[] THEMED_SHAPE_NAMES = {"No plate", "Squircle", "Circle", "Rounded square", "Teardrop"};
-    static final String DEFAULT_THEMED_SHAPE = "circle";
+    /** The names of IconLook.GLYPHS, CONTAINERS, FILLS and COLORS, in their order. */
+    static final String[] GLYPH_NAMES = {"Original", "Line", "Bold", "Sharp", "Dots (minimal)"};
+    static final String[] CONTAINER_NAMES = {"No plate", "Squircle", "Circle", "Rounded square", "Teardrop"};
+    static final String[] FILL_NAMES = {"Solid", "Soft"};
+    static final String[] COLOR_NAMES = {"Theme colour", "Text colour"};
     /**
      * A number for each icon object, never reused (identity hash codes can repeat, and a freed icon's code can come
      * back for another one): the cache below can't hand out the wrong app's picture.
@@ -171,6 +169,32 @@ final class Icons {
         }
     }
 
+    /** The Icons settings' Calendar from the built-in set, decoded once (the set itself is not kept for it). */
+    private static volatile BuiltinIcon sample;
+
+    /**
+     * The Icons settings' sample of a built-in glyph (Calendar) in the view: at once when the set was read, else the
+     * placeholder first and the sample once the set is read on the render thread (never on the UI thread).
+     */
+    static void applySample(ImageView v, Drawable placeholder, IconLook look, int fg, int accent, int size) {
+        BuiltinIcon s = sample;
+        if (s != null) { apply(v, s, false, look, fg, accent, size); return; }
+        apply(v, placeholder, false, look, fg, accent, size);
+        Context c = v.getContext().getApplicationContext();
+        RENDER.execute(() -> {
+            try {
+                if (sample == null) { // one render thread: the tiles queued after the first find it decoded
+                    IconSet set = loaded.set != null ? loaded.set : IconSet.of(asset(c, "icons.bin")); // read here, then let go
+                    sample = new BuiltinIcon(set.icon(set.index().find("com.google.android.calendar",
+                            "com.android.calendar.AllInOneActivity").orElse(0)));
+                }
+                v.post(() -> apply(v, sample, false, look, fg, accent, size));
+            } catch (IOException | RuntimeException e) {
+                // an unreadable set: the placeholder stays
+            }
+        });
+    }
+
     private static byte[] asset(Context c, String name) throws IOException {
         try (InputStream in = c.getAssets().open(name)) {
             return LimitedInputStream.readAll(in, 16 << 20); // the set is 4 MB
@@ -241,51 +265,66 @@ final class Icons {
         return named(c, p.getString("icon:" + entry, ""));
     }
 
-    /** Puts an icon into an ImageView in the chosen shape. */
-    static void apply(ImageView v, Drawable icon, boolean fromPack, String shape, String themedShape,
-                      int fg, int accent, int size) {
-        v.setBackground(null);
-        v.setPadding(0, 0, 0, 0);
-        v.setImageAlpha(0xFF);
-        Drawable mono = !fromPack && Build.VERSION.SDK_INT >= 33 && icon instanceof AdaptiveIconDrawable
-                ? ((AdaptiveIconDrawable) icon).getMonochrome() : null;
-        switch (shape) {
-            case "dot": {
-                GradientDrawable dot = new GradientDrawable();
-                dot.setShape(GradientDrawable.OVAL);
-                dot.setColor(accent);
-                v.setImageDrawable(null);
-                int pad = size * 7 / 20;
-                v.setPadding(pad, pad, pad, pad);
-                v.setBackground(new android.graphics.drawable.InsetDrawable(dot, pad));
-                return;
-            }
-            case "theme":
-            case "mono":
-                boolean themed = shape.equals("theme");
-                int tint = themed ? Colors.on(accent) : fg;
-                if (mono != null) {
-                    Drawable m = copy(mono);
-                    m.setTint(tint);
-                    v.setImageDrawable(m);
-                } else {
-                    styledInto(v, icon, tint, themed, size);
-                }
-                if (themed) v.setBackground(plate(themedShape, accent, size));
-                else v.setImageAlpha(0xD0);
-                return;
-            case "circle":
-            case "squircle":
-            case "square":
-            case "teardrop":
-                v.setImageDrawable(icon instanceof AdaptiveIconDrawable ? clip(icon, shape, size) : plain(icon, Colors.lineIcon(accent, fg)));
-                return;
-            default: // original: the app's own icon, nothing added
-                v.setImageDrawable(plain(icon, Colors.lineIcon(accent, fg)));
-        }
+    /** The icon settings of the home (the drawer's own: Layout.drawerIconLook). */
+    static IconLook look(SharedPreferences p) {
+        return IconLook.read(k -> p.getString(k, null));
     }
 
-    /** The icon as it is; a built-in line icon is drawn in {@code tint} (issue 077; 078 brings its own styles). */
+    /** Puts an icon into an ImageView as the icon model says (glyph treatment, container, fill, colour). */
+    static void apply(ImageView v, Drawable icon, boolean fromPack, IconLook look, int fg, int accent, int size) {
+        int px = size <= 0 ? 96 : size;
+        v.setBackground(null);
+        v.setPadding(0, 0, 0, 0);
+        IconLook.Colours colours = look.colours(accent, fg);
+        v.setImageAlpha(colours.alpha());
+        if (look.glyph().equals("dot")) {
+            GradientDrawable dot = new GradientDrawable();
+            dot.setShape(GradientDrawable.OVAL);
+            dot.setColor(colours.glyph());
+            v.setImageDrawable(null);
+            int pad = size * 7 / 20;
+            v.setPadding(pad, pad, pad, pad);
+            v.setBackground(new android.graphics.drawable.InsetDrawable(dot, pad));
+            return;
+        }
+        if (icon instanceof BuiltinIcon) { // built-in geometry, with the treatment's stroke (original draws as Line)
+            BuiltinIcon fresh = (BuiltinIcon) copy(icon); // its own tint, alpha and look: the shared one stays as it is
+            renderInto(v, ((BuiltinIcon) plain(icon, colours.glyph())).look(look), idOf(icon) + "|" + look + "|" + colours.glyph() + "|" + px, () -> {
+                Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
+                fresh.render(new Canvas(b), look, colours.glyph(), px);
+                return b;
+            });
+        } else if (look.glyph().equals("original")) { // the app's own icon, cut to the container if there is one
+            v.setImageDrawable(look.container().equals("none") ? copy(icon) : clip(icon, look.container(), px));
+            return;
+        } else { // no built-in geometry: the adaptive icon's monochrome layer, else styled() (same glyph for every stroke)
+            Drawable mono = !fromPack && Build.VERSION.SDK_INT >= 33 && icon instanceof AdaptiveIconDrawable
+                    ? ((AdaptiveIconDrawable) icon).getMonochrome() : null;
+            if (mono != null) {
+                Drawable m = copy(mono);
+                m.setTint(colours.glyph());
+                v.setImageDrawable(m);
+            } else {
+                boolean tintGreys = look.plated() || look.color().equals("accent"); // today's Monochrome kept plain greys
+                int tint = colours.glyph();
+                renderInto(v, copy(icon), idOf(icon) + "|" + tintGreys + "|" + tint + "|" + px,
+                        () -> styled(icon, tint, tintGreys, px));
+            }
+        }
+        if (look.plated()) v.setBackground(plate(look.container(), colours, px));
+    }
+
+    /** An icon inside a folder tile: no plate there, so a built-in glyph takes the model's no-plate colour and stroke. */
+    static Drawable thumbnail(Drawable icon, IconLook look, int accent, int fg) {
+        IconLook bare = new IconLook(look.glyph().equals("dot") ? "line" : look.glyph(), "none", look.fill(), look.color());
+        IconLook.Colours colours = bare.colours(accent, fg);
+        Drawable d = plain(icon, colours.glyph());
+        if (!(d instanceof BuiltinIcon)) return d;
+        d.setAlpha(colours.alpha()); // D0 for a text-coloured glyph, as on the home
+        return ((BuiltinIcon) d).look(bare);
+    }
+
+    /** The icon as it is; a built-in icon is drawn in {@code tint}. */
     static Drawable plain(Drawable icon, int tint) {
         Drawable d = copy(icon);
         if (icon instanceof BuiltinIcon) d.setTint(tint);
@@ -293,10 +332,11 @@ final class Icons {
     }
 
     /**
-     * An adaptive icon cut to a shape, edge to edge. Old square icons are not clipped (Icons.apply leaves them as they
-     * are, no white plate behind them), so nothing looks like a sticker.
+     * An adaptive icon cut to a shape, edge to edge; an old square icon as it is (no white plate behind it), so nothing
+     * looks like a sticker.
      */
     private static Drawable clip(Drawable icon, String shape, int size) {
+        if (!(icon instanceof AdaptiveIconDrawable)) return copy(icon);
         if (size <= 0) size = 96;
         String key = idOf(icon) + "|" + shape + "|" + size;
         Bitmap cached = CACHE.get(key);
@@ -316,22 +356,18 @@ final class Icons {
     private static final java.util.concurrent.Executor RENDER = java.util.concurrent.Executors.newSingleThreadExecutor();
 
     /**
-     * Shows the styled icon in the view: at once when it was drawn before, otherwise the app's own icon first and the
-     * styled one as soon as it is ready (if the view still shows that icon).
+     * Shows a drawn icon in the view: at once when it was drawn before, otherwise the placeholder first and the drawn
+     * one as soon as it is ready (if the view still shows the placeholder).
      */
-    private static void styledInto(ImageView v, Drawable icon, int tint, boolean themed, int size) {
-        if (size <= 0) size = 96;
-        final int px = size;
-        String key = idOf(icon) + "|" + (themed ? "theme" : "mono") + "|" + tint + "|" + px;
+    private static void renderInto(ImageView v, Drawable placeholder, String key, java.util.function.Supplier<Bitmap> draw) {
         Bitmap cached = CACHE.get(key);
         if (cached != null) {
             v.setImageDrawable(new BitmapDrawable(null, cached));
             return;
         }
-        Drawable placeholder = copy(icon);
         v.setImageDrawable(placeholder);
         RENDER.execute(() -> {
-            Bitmap b = styled(icon, tint, themed, px);
+            Bitmap b = draw.get();
             CACHE.put(key, b);
             v.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, b)); });
         });
@@ -381,16 +417,26 @@ final class Icons {
         d.draw(c);
     }
 
-    private static Drawable plate(String shape, int color, int size) {
-        if (shape.equals("none")) return null;
-        if (size <= 0) size = 96;
-        String key = "plate|" + shape + "|" + color + "|" + size;
+    /** The container in the plate colour, with a border 1/48 of the size inside its edge when there is one (Soft). */
+    private static Drawable plate(String shape, IconLook.Colours colours, int size) {
+        String key = "plate|" + shape + "|" + colours.plate() + "|" + colours.border() + "|" + size;
         Bitmap cached = CACHE.get(key);
         if (cached != null) return new BitmapDrawable(null, cached);
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setColor(color);
-        new Canvas(b).drawPath(shapePath(shape, size), paint);
+        paint.setColor(colours.plate());
+        c.drawPath(shapePath(shape, size), paint);
+        if (colours.border() != 0) {
+            float w = size / 48f;
+            paint.setColor(colours.border());
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(w);
+            c.save();
+            c.scale((size - w) / size, (size - w) / size, size / 2f, size / 2f); // the stroke's outer edge on the shape's
+            c.drawPath(shapePath(shape, size), paint);
+            c.restore();
+        }
         CACHE.put(key, b);
         return new BitmapDrawable(null, b);
     }

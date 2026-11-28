@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.IconLook;
 
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
@@ -57,7 +58,8 @@ final class SettingsSamples {
         LinearLayout marks = new LinearLayout(kit.activity());
         marks.setGravity(Gravity.CENTER_VERTICAL);
         marks.setPadding(0, kit.ui.dp(8), 0, 0);
-        marks.addView(sampleIcon((String) val(pr, "icon_shape"), 28, fg, acc));
+        marks.addView(sampleIcon(IconLook.of((String) val(pr, "icon_glyph"), (String) val(pr, "icon_container"),
+                (String) val(pr, "icon_fill"), (String) val(pr, "icon_color")), 28, fg, acc));
         View dot = new View(kit.activity());
         dot.setBackground(SettingsKit.oval(acc));
         LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(kit.ui.dp(14), kit.ui.dp(14));
@@ -124,17 +126,16 @@ final class SettingsSamples {
         return v;
     }
 
-    View sampleIcon(String shape, float sizeDp, int fg, int acc) {
-        return sampleIcon(shape, kit.prefs().getString("themed_shape", Icons.DEFAULT_THEMED_SHAPE), sizeDp, fg, acc);
-    }
-
-    View sampleIcon(String shape, String themedShape, float sizeDp, int fg, int acc) {
+    View sampleIcon(IconLook look, float sizeDp, int fg, int acc) {
         int size = kit.ui.dp(sizeDp);
         Drawable d = kit.activity().getDrawable(R.drawable.ic_launcher);
         ImageView icon = new ImageView(kit.activity());
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        // Monochrome icons in dark text would vanish on these dark cards: show them white here.
-        Icons.apply(icon, d, false, shape, themedShape, fg == Colors.INK ? Colors.WHITE : fg, acc, size);
+        // Text-coloured icons in dark text would vanish on these dark cards: show them white here.
+        int sampleFg = fg == Colors.INK ? Colors.WHITE : fg;
+        // Line, Bold and Sharp differ only on built-in glyphs: their tiles show one (the asset is always there).
+        if (look.glyph().equals("original") || look.glyph().equals("dot")) Icons.apply(icon, d, false, look, sampleFg, acc, size);
+        else Icons.applySample(icon, d, look, sampleFg, acc, size);
         icon.setLayoutParams(new LinearLayout.LayoutParams(size, size));
         return icon;
     }

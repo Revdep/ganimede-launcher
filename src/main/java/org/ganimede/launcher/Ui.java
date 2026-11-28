@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.IconLook;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -26,8 +27,7 @@ final class Ui {
     final SharedPreferences prefs;
     int fg = Colors.WHITE, accent = Colors.ACCENT;
     Typeface face = Typeface.SANS_SERIF;
-    String shape = "theme";
-    String themedShape = Icons.DEFAULT_THEMED_SHAPE;
+    IconLook look = IconLook.of(null, null, null, null);
     /** Where the last touch on this screen began: a pop-up opens from the thing under it. */
     float touchX = -1, touchY = -1;
 
@@ -40,8 +40,7 @@ final class Ui {
         fg = darkText(prefs) ? Colors.INK : Colors.WHITE;
         accent = accent(prefs);
         face = font(prefs.getString("font", "sans-serif"));
-        shape = prefs.getString("icon_shape", Icons.DEFAULT_SHAPE);
-        themedShape = prefs.getString("themed_shape", Icons.DEFAULT_THEMED_SHAPE);
+        look = Icons.look(prefs);
     }
 
     /** Dark text chosen for a light wallpaper (shared by the home, the settings and their preview). */
@@ -112,13 +111,13 @@ final class Ui {
     }
 
     ImageView icon(Drawable d, boolean fromPack, int size) {
-        return icon(d, fromPack, size, shape);
+        return icon(d, fromPack, size, look);
     }
 
-    ImageView icon(Drawable d, boolean fromPack, int size, String iconShape) {
+    ImageView icon(Drawable d, boolean fromPack, int size, IconLook iconLook) {
         ImageView icon = new ImageView(a);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        Icons.apply(icon, d, fromPack, iconShape, themedShape, fg, accent, size);
+        Icons.apply(icon, d, fromPack, iconLook, fg, accent, size);
         return icon;
     }
 

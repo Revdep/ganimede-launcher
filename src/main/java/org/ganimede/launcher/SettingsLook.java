@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.FolderLook;
+import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.Preferences;
 import org.ganimede.launcher.core.Safe;
 
@@ -29,6 +30,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 
 /** The look: themes, clock, font, colours, icons and the Ganimede button, with the choosers the wizard and bricks reuse. */
 final class SettingsLook {
@@ -42,15 +44,21 @@ final class SettingsLook {
     /** Theme presets: name, description, then setting/value pairs. */
     private static final Object[][] PRESETS = {
             {"Lavender wave", "Overlapping clock, round tinted icons", "clock_style", "overlap", "font", "sans-serif",
-                    "text_color", "light", "accent", Colors.ACCENT, "icon_shape", "theme", "themed_shape", "circle",
+                    "text_color", "light", "accent", Colors.ACCENT,
+                    "icon_glyph", "line", "icon_container", "circle", "icon_fill", "solid", "icon_color", "accent",
                     "hide_labels", false, "alpha_home", true, "fab", false},
             {"Night rain", "Weekday clock, white icons, no labels", "clock_style", "dayofweek", "font", "sans-serif-light",
-                    "text_color", "light", "accent", 0xFFF0F0F0, "icon_shape", "mono", "hide_labels", true, "alpha_home", false, "fab", false},
+                    "text_color", "light", "accent", 0xFFF0F0F0,
+                    "icon_glyph", "line", "icon_container", "none", "icon_fill", "solid", "icon_color", "text",
+                    "hide_labels", true, "alpha_home", false, "fab", false},
             {"Sakura", "Simple clock, red dots, Ganimede button", "clock_style", "basic", "font", "casual",
-                    "text_color", "dark", "accent", 0xFFE01010, "icon_shape", "dot", "hide_labels", false, "alpha_home", false, "fab", true,
-                    "show_battery", true},
+                    "text_color", "dark", "accent", 0xFFE01010,
+                    "icon_glyph", "dot", "icon_container", "none", "icon_fill", "solid", "icon_color", "accent",
+                    "hide_labels", false, "alpha_home", false, "fab", true, "show_battery", true},
             {"Misty forest", "Tall vertical clock, square icons", "clock_style", "vertical", "font", "sans-serif-condensed",
-                    "text_color", "light", "accent", 0xFF9FD3C7, "icon_shape", "square", "hide_labels", false, "alpha_home", false, "fab", false}};
+                    "text_color", "light", "accent", 0xFF9FD3C7,
+                    "icon_glyph", "original", "icon_container", "square", "icon_fill", "solid", "icon_color", "accent",
+                    "hide_labels", false, "alpha_home", false, "fab", false}};
 
     private final SettingsKit kit;
     private final SettingsPerms perms;
@@ -180,21 +188,40 @@ final class SettingsLook {
     }
 
     void iconChoices(LinearLayout c) {
-        iconChoices(c, "icon_shape");
+        iconChoices(c, UnaryOperator.identity());
     }
 
-    void iconChoices(LinearLayout c, String key) {
+    /** The icon model's four rows; {@code key} maps a home key to the one saved (the drawer's own on the app pages). */
+    void iconChoices(LinearLayout c, UnaryOperator<String> key) {
+        SharedPreferences p = kit.prefs();
+        IconLook l = IconLook.read(k -> p.getString(key.apply(k), p.getString(k, null)));
         kit.sub(c, kit.ui.tr("Icon style"));
-        String selected = kit.prefs().getString(key, kit.prefs().getString("icon_shape", Icons.DEFAULT_SHAPE));
-        kit.tiles(c, Icons.SHAPES.length, Math.max(0, SettingsKit.indexOf(Icons.SHAPES, selected)), kit.tr(Icons.SHAPE_NAMES),
-                i -> samples.sampleIcon(Icons.SHAPES[i], 44, kit.ui.fg, kit.ui.accent), i -> kit.put(key, Icons.SHAPES[i]));
-        if (selected.equals("theme")) {
-            kit.sub(c, kit.ui.tr("Tinted plate"));
-            kit.tiles(c, Icons.THEMED_SHAPES.length, Math.max(0, SettingsKit.indexOf(Icons.THEMED_SHAPES,
-                            kit.prefs().getString("themed_shape", Icons.DEFAULT_THEMED_SHAPE))), kit.tr(Icons.THEMED_SHAPE_NAMES),
-                    i -> samples.sampleIcon("theme", Icons.THEMED_SHAPES[i], 44, kit.ui.fg, kit.ui.accent),
-                    i -> kit.put("themed_shape", Icons.THEMED_SHAPES[i]));
+        iconRow(c, "Icon style", IconLook.GLYPHS, Icons.GLYPH_NAMES, l.glyph(), "icon_glyph", key,
+                v -> IconLook.of(v, l.container(), l.fill(), l.color()));
+        kit.para(c, kit.ui.tr("Line, Bold and Sharp change the stroke only for Arcticons (built-in) icons; the others take the same colour and plate."),
+                13, SettingsKit.SUB);
+        if (!l.glyph().equals("dot")) { // Dots replace the icon: no plate
+            kit.sub(c, kit.ui.tr("Plate"));
+            iconRow(c, "Plate", IconLook.CONTAINERS, Icons.CONTAINER_NAMES, l.container(), "icon_container", key,
+                    v -> IconLook.of(l.glyph(), v, l.fill(), l.color()));
         }
+        if (!l.tinted(Icons.BUILTIN.equals(p.getString("icon_pack", "")))) return; // the apps' own colours: no fill, no colour
+        if (l.plated()) {
+            kit.sub(c, kit.ui.tr("Fill"));
+            iconRow(c, "Fill", IconLook.FILLS, Icons.FILL_NAMES, l.fill(), "icon_fill", key,
+                    v -> IconLook.of(l.glyph(), l.container(), v, l.color()));
+        }
+        kit.sub(c, kit.ui.tr("Colour"));
+        iconRow(c, "Colour", IconLook.COLORS, Icons.COLOR_NAMES, l.color(), "icon_color", key,
+                v -> IconLook.of(l.glyph(), l.container(), l.fill(), v));
+    }
+
+    /** One row of tiles, each showing the sample icon with that value; TalkBack hears "group: choice" (rows share names). */
+    private void iconRow(LinearLayout c, String group, String[] values, String[] names, String selected, String homeKey,
+                         UnaryOperator<String> key, java.util.function.Function<String, IconLook> with) {
+        kit.tiles(c, values.length, Math.max(0, SettingsKit.indexOf(values, selected)), kit.tr(names), described(group, names),
+                i -> samples.sampleIcon(with.apply(values[i]), 44, kit.ui.fg, kit.ui.accent),
+                i -> kit.put(key.apply(homeKey), values[i]));
     }
 
     void iconPacks(LinearLayout c) {
@@ -349,13 +376,18 @@ final class SettingsLook {
             ClipData c = kit.activity().getSystemService(ClipboardManager.class).getPrimaryClip();
             JSONObject o = new JSONObject(String.valueOf(c.getItemAt(0).coerceToText(kit.activity())));
             if (o.optInt("ganimede_theme") != 1) throw new Exception();
-            List<Object> kv = new ArrayList<>();
-            for (String k : Preferences.THEME_KEYS) {
+            Map<String, Object> theme = new java.util.HashMap<>();
+            List<String> keys = new ArrayList<>(List.of(Preferences.THEME_KEYS));
+            keys.addAll(List.of("icon_shape", "themed_shape")); // a theme copied before the icon model: translated below
+            for (String k : keys) {
                 if (!o.has(k)) continue;
                 Object v = o.get(k);
                 // A theme comes from other people: only values of the right type and size are taken.
-                if ((v instanceof Boolean || v instanceof Integer || v instanceof String) && SettingsBackup.fits(k, v)) { kv.add(k); kv.add(v); }
+                if ((v instanceof Boolean || v instanceof Integer || v instanceof String) && SettingsBackup.fits(k, v)) theme.put(k, v);
             }
+            theme.putAll(IconLook.migrate(theme));
+            List<Object> kv = new ArrayList<>();
+            for (Map.Entry<String, Object> e : theme.entrySet()) { kv.add(e.getKey()); kv.add(e.getValue()); }
             preset(kv.toArray(), 0);
         } catch (Exception | StackOverflowError e) { // deeply nested JSON overflows the parser's stack
             kit.ui.toast(kit.ui.tr("The clipboard doesn't hold a Ganimede theme"));

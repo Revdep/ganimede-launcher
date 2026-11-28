@@ -31,4 +31,11 @@ public class PreferencesTest {
                         "clock_offset", 76, "list_clock_y", -28, Preferences.LINE_MIGRATED, true)),
                 "resetting either line axis later is not mistaken for an old installation");
     }
+
+    public static void testThemeCarriesTheIconModel() {
+        java.util.List<String> keys = java.util.List.of(Preferences.THEME_KEYS);
+        for (String k : new String[]{"icon_glyph", "icon_container", "icon_fill", "icon_color"})
+            org.ganimede.launcher.Expect.yes(keys.contains(k), k + " is part of a theme");
+        org.ganimede.launcher.Expect.yes(!keys.contains("icon_shape") && !keys.contains("themed_shape"), "the old keys are not");
+    }
 }

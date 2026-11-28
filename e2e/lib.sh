@@ -164,7 +164,12 @@ noclock() { is_emulator || return 0; A shell pm clear com.google.android.deskclo
 pg_settings() {
   local hint="${2:-}"
   [ -n "$hint" ] || hint="Tocca una parte dell'anteprima per regolarla"
-  A shell input swipe 540 1900 540 1900 1500; tap "${1:-Impostazioni Ganimede}"
+  local n row="${1:-Impostazioni Ganimede}"
+  for n in 1 2 3; do # a long press sent while the home is still settling after a restart is lost: press again
+    A shell input swipe 540 1900 540 1900 1500; rm -f "$SCR"; wait_until 3 has "$row" && break
+    echo "  WARN: pg_settings: long press $n lost (section ${CUR:-?}): the home menu did not open" # count them across runs
+  done
+  tap "$row"
   expect "$hint"
 }
 # one node (the dialog message is one) whose text holds all the fragments in order (the dump wraps a text holding " in single quotes)
@@ -187,7 +192,7 @@ seed() {
     <string name="mode">$1</string>
     <string name="fav">$fav</string>
     <string name="lang">it</string>
-    <string name="icon_shape">squircle</string>
+    <string name="icon_container">squircle</string>
 </map>
 XML
   A exec-in "run-as $PK sh -c 'mkdir -p shared_prefs; cat > shared_prefs/ganimede.xml'" < "$f"

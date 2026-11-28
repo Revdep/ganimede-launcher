@@ -37,7 +37,10 @@ expect "Le tue app preferite" && shot 04-favs
 for app in Calendar Clock Contacts; do stap "$app" >/dev/null; done # not in the preview, so the list row is hit
 tap "Avanti"
 expect "Stile delle icone" && shot 05-icons
-tap "Squircle"; tap "Avanti"
+stap "Squircle" # the Plate row, under the Style row (issue 078)
+squircle() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"icon_container\">squircle</string>"; }
+wait_until 5 squircle && ok "the wizard saves the Squircle plate" || ko "the wizard saved no Squircle plate"
+tap "Avanti"
 expect "Ognuno è mostrato" && shot 06-font; tap "Avanti"
 expect "Nove stili" && shot 07-clock; tap "Avanti"
 expect "Il pulsante Ganimede" && tap "Usa il pulsante Ganimede"; shot 08-button
