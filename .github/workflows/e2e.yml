@@ -106,6 +106,7 @@ jobs:
             adb shell cat /proc/loadavg
             # the suite never uses Bluetooth, and its stack (bt_stack_manage) aborted and took system_server down in runs 46107202244 and 46105280536
             adb shell 'cmd bluetooth_manager disable || svc bluetooth disable' || true
+            echo "bluetooth_on=$(adb shell settings get global bluetooth_on | tr -d '\r') (0 = off; 1 = the disable did not take, see the run's system-restart.txt if the system server dies)"
             bash -c 'vmstat -t -w 10 > e2e/out/emulator-5554/vmstat.log 2>&1 &'
             bash -o pipefail -c 'bash e2e/run.sh emulator-5554 2>&1 | tee e2e/out/emulator-5554/run.log'
       - if: always()
