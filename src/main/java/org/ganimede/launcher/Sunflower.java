@@ -66,18 +66,23 @@ final class Sunflower {
             {"Take a photo", android.provider.MediaStore.ACTION_IMAGE_CAPTURE},
             {"Record a video", android.provider.MediaStore.ACTION_VIDEO_CAPTURE}};
 
+    private static Intent action(String[] a) {
+        String[] p = a[1].split("\\|", 2);
+        Intent i = new Intent(p[0]);
+        if (p.length > 1) {
+            if (p[1].equals("event")) i.setData(android.provider.CalendarContract.Events.CONTENT_URI);
+            else if (p[1].equals("contact")) i.setType(android.provider.ContactsContract.Contacts.CONTENT_TYPE);
+            else i.setData(Uri.parse(p[1]));
+        }
+        return i;
+    }
+
     static List<Hit> actions(Context c, String q) {
         List<Hit> out = new ArrayList<>();
         for (String[] a : ACTIONS) {
             String name = T.t(c, a[0]);
             if (Search.score(name, q) == 0 && Search.score(a[0], q) == 0) continue;
-            String[] p = a[1].split("\\|", 2);
-            Intent i = new Intent(p[0]);
-            if (p.length > 1) {
-                if (p[1].equals("event")) i.setData(android.provider.CalendarContract.Events.CONTENT_URI);
-                else if (p[1].equals("contact")) i.setType(android.provider.ContactsContract.Contacts.CONTENT_TYPE);
-                else i.setData(Uri.parse(p[1]));
-            }
+            Intent i = action(a);
             if (opens(c, i)) out.add(new Hit(name, null, null, i));
         }
         Search.sortByScore(out, h -> h.label, q);
@@ -150,6 +155,9 @@ final class Sunflower {
         synchronized (opens) {
             opens.clear(); // apps came or went
         }
+        // Ask here, off the main thread, so typing never calls resolveActivity.
+        for (String[] p : PAGES) opens(c, new Intent(p[1]));
+        for (String[] a : ACTIONS) opens(c, action(a));
     }
 
     static List<Hit> shortcuts(String q, java.util.function.Function<String, String> appName) {
