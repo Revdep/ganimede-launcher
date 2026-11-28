@@ -18,6 +18,8 @@ tap "Ganimede"; tap "Set as default"
 holder() { A shell cmd role get-role-holders android.app.role.HOME | grep -q ganimede; }
 wait_until 10 holder && ok "Ganimede is the home app" || ko "home app not set"
 expect "Rendila la tua Home"                  # still in the wizard afterwards
+# Once Ganimede is home and the wizard goes on, nothing may send the Home back to the settings later (issue 063: return_to_settings)
+wait_until 5 pref_lacks return_to_settings true && ok "the home-role request left no return_to_settings behind" || ko "return_to_settings is still set after the wizard got the home role"
 tap "Avanti"
 
 step "Wizard: style"
