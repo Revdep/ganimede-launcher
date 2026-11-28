@@ -106,6 +106,13 @@ bounds() {
   wait_until 3 _bounds_try && echo "$r"
   return 0
 }
+# label_whole text min-width% [min-height%]: the node's label is drawn whole (issue 088): its crop, trimmed, covers that much of the node
+label_whole() {
+  local b x1 y1 x2 y2 w h tw th; b=$(bounds "$1"); [ -n "$b" ] || return 1; read -r x1 y1 x2 y2 <<<"$b"
+  w=$((x2 - x1)); h=$((y2 - y1))
+  read -r tw th <<<"$(A exec-out screencap -p | magick png:- -crop "${w}x${h}+${x1}+${y1}" +repage -fuzz 12% -trim -format '%w %h' info: 2>/dev/null)"
+  [ -n "$th" ] && [ $((tw * 100)) -ge $(($2 * w)) ] && [ $((th * 100)) -ge $((${3:-0} * h)) ]
+}
 # Center of a node with this content-desc, scrolling a settings page until it is stable and visible.
 find_desc() {
   local n=0 b prev= want="$1"

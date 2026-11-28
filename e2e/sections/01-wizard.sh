@@ -37,6 +37,12 @@ expect "Le tue app preferite" && shot 04-favs
 for app in Calendar Clock Contacts; do stap "$app" >/dev/null; done # not in the preview, so the list row is hit
 tap "Avanti"
 expect "Stile delle icone" && shot 05-icons
+# The selected tile's "✓ Originale" and the two-line "Quadrato arrotondato" are drawn whole, not cut after the tick (issue 088)
+label_whole "✓ Originale" 80 && ok "tile “✓ Originale” shows its whole label" || ko "tile “✓ Originale” is cut"
+read -r _ ty _ _ <<<"$(bounds "✓ Originale")"
+A shell input swipe 900 $((ty + 40)) 200 $((ty + 40)) 200 # the row scrolls sideways: bring the fourth tile in
+tap "Quadrato arrotondato"
+wait_until 5 has "✓ Quadrato arrotondato" && label_whole "✓ Quadrato arrotondato" 80 70 && ok "tile “Quadrato arrotondato” shows its whole label" || ko "tile “✓ Quadrato arrotondato” is cut"
 stap "Squircle" # the Plate row, under the Style row (issue 078)
 squircle() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"icon_container\">squircle</string>"; }
 wait_until 5 squircle && ok "the wizard saves the Squircle plate" || ko "the wizard saved no Squircle plate"
