@@ -8,7 +8,7 @@ shot 12-search
 
 step "Search: letters scattered in a name do not match"
 seed classic; A shell input swipe 540 1900 540 600 150; expect "Cerca app"
-A shell input text "cl"
+typ "cl"
 wait_until 5 has "Clock" && ok "cl finds Clock" || ko "cl misses Clock"
 hasnt "Calendar" && ok "cl leaves out Calendar (c and l scattered)" || ko "cl still finds Calendar"
 
