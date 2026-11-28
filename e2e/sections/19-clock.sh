@@ -177,9 +177,9 @@ a11y_off() { # gives back the device's own accessibility settings (a test phone 
   A shell settings put secure accessibility_enabled "${A11Y_ENABLED_BEFORE/null/0}" >/dev/null
 }
 a11y_done() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed='; }
-a11y() { # a11y list|click|label [regex]: asks the service to act on the clock node and waits for its answer
+a11y() { # a11y list|click|label [regex] [desc]: asks the service to act on the node whose description starts with desc (default the clock) and waits for its answer
   A logcat -b main -c
-  A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "Orologio" --es mode "$1" --es label "'${2:-.}'" >/dev/null # quoted again for the device shell, where | is a pipe
+  A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "${3:-Orologio}" --es mode "$1" --es label "'${2:-.}'" >/dev/null # quoted again for the device shell, where | is a pipe
   wait_until 5 a11y_done
 }
 a11y_performed() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed=true'; }
@@ -231,6 +231,22 @@ for mode in list classic; do
     || ko "$mode_it: dopo una pressione lunga sulla data, il click accessibile non apre le sveglie"
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 done
+
+step "Blocchi: ridimensionare con un lettore di schermo"
+BOTTOM_HANDLE="Ridimensiona bordo inferiore"
+seed classic
+wait_until 5 clock_bounds >/dev/null
+read -r x1 y1 x2 y2 <<<"$(clock_bounds)"
+A shell input swipe $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) 1300
+tap "Ridimensiona"; wait_until 5 hasd "$BOTTOM_HANDLE"
+a11y list . "$BOTTOM_HANDLE"
+A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Allarga' && A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Restringi' \
+  && ok "la maniglia espone Allarga e Restringi" || ko "la maniglia non espone Allarga/Restringi (solo: $(A logcat -d -s $A11Y_TAG:I | tr '\n' ' '))"
+a11y label Restringi "$BOTTOM_HANDLE"
+a11y_performed && wait_until 5 test -n "$(prefstr blocks | grep -o 'rowSpan&quot;:1')" \
+  && ok "Restringi salva il blocco più basso di una cella" || ko "Restringi non cambia la misura (blocks: $(prefstr blocks))"
+wait_until 5 hasd "$BOTTOM_HANDLE" && ok "il ridimensionamento resta attivo dopo l'azione" || ko "il ridimensionamento si è chiuso dopo l'azione"
+A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 a11y_off; clock_fixture_cleanup
 
 step "Un'attività rifiutata non scrive l'URI dei dati nel log"
