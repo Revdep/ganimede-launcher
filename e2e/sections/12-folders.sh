@@ -535,8 +535,12 @@ first=$(longkeys | head -1)
 tap Lunga; wait_until 10 has "Lunga"
 # the pop-up's own ScrollView (the last in the dump): its first row is just under the title
 read -r x1 y1 x2 y2 <<<"$(screen | grep -o 'class="android.widget.ScrollView"[^>]*bounds="[^"]*"' | tail -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   ')"
+lab=$(screen | grep -o 'text="[^"]*"' | grep -A1 -x 'text="Lunga"' | tail -1 | sed 's/^text="//; s/"$//') # the first row's label
 A shell input draganddrop $(((x1 + x2) / 2)) $((y1 + $(dp 90))) $(((x1 + x2) / 2)) $((H - $(dp 24))) 8000
 last_is_first() { [ "$(longkeys | tail -1)" = "$first" ]; }
 wait_until 5 last_is_first && ok "the first entry was carried to the last place: the drag scrolled the pop-up to reach it" \
   || ko "the first entry is not last: order ends in $(longkeys | tail -1), expected $first"
+# the icon must really sit in the last row, in the lower half of the scrolled pop-up, not just be stored last
+in_last_row() { read -r _ ly <<<"$(cx "$lab")"; [ -n "$ly" ] && [ "$ly" -gt $(((y1 + y2) / 2)) ]; }
+[ -n "$lab" ] && wait_until 5 in_last_row && ok "“$lab” is drawn in the last row of the scrolled pop-up" || ko "“${lab:-?}” is not in the pop-up's last row"
 shot 132-folder-long
