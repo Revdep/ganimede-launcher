@@ -439,6 +439,8 @@ def collect(el, classes, inherited, m, alpha, out):
     if tag in ("use", "text", "image"):
         raise ValueError("<%s> is not supported: the packer would drop it silently" % tag)
     st = style_of(el, classes, inherited)
+    if st.get("clip-path") or st.get("mask") or el.get("clip-path") or el.get("mask"):
+        raise ValueError("clip-path and mask are not supported: the packer would draw the shape uncut")
     if st.get("display") == "none":
         raise ValueError("display:none is not supported: the packer would draw it")
     m = mul(m, matrix(el.get("transform")))
