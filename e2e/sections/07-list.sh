@@ -76,6 +76,19 @@ tapn "Settings" 30; tap "Salva"
 wait_until 5 hasnt "Settings" && ok "unchecked favourite is neither a favourite nor a suggestion" \
   || ko "unchecked favourite came back as a suggestion"
 
+step "Smart sort: apps opened from the drawer rise within their letter after coming back"
+seed list boolean smart_sort true
+cy() { bounds "$1" | awk '{print $2}'; }
+open_drawer; expect "Contacts"
+[ "$(cy Calendar)" -lt "$(cy Contacts)" ] && ok "alphabetical before any use" || ko "Calendar is not above Contacts at the start"
+for _ in 1 2 3; do
+  tap "Contacts"; wait_until 10 hasnt "Cerca app"
+  A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+  open_drawer; expect "Contacts"
+done
+[ "$(cy Contacts)" -lt "$(cy Calendar)" ] && ok "the app opened three times is first in its letter" || ko "Contacts did not rise after three launches"
+A shell input keyevent KEYCODE_BACK
+
 step "List mode: hidden alphabet keeps its touch column clear"
 alpha_offset=12
 seed list boolean alpha_home false int alpha_offset "$alpha_offset" boolean left_handed false

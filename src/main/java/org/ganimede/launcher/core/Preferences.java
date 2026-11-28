@@ -27,6 +27,17 @@ public final class Preferences {
             "hide_labels", "show_battery", "show_date", "alpha_home", "fab", "dim", "dim_home", "hide_status_bar",
             FolderLook.BACKGROUND_KEY, FolderLook.ALPHA_KEY, FolderLook.COLUMNS_KEY};
 
+    /** Written by the app itself, not drawn by the home: a change in these needs no rebuild. */
+    private static final Set<String> NOT_DRAWN = Set.of("summary_held", "summary_last", "summary_count", "icon_pack_loaded",
+            "return_to_settings", "pending_widget", "pending_widget_for", "fab_left", "fab_y");
+
+    /** Whether a written setting changes what the home draws. Unknown keys do, so a forgotten one costs a rebuild, never a stale screen. */
+    public static boolean rebuildsHome(String key, boolean smartSort, boolean suggest) {
+        if (key == null) return true; // the whole file was cleared
+        if (key.startsWith("use:")) return smartSort || suggest; // the open counts order the list and the suggestions
+        return !NOT_DRAWN.contains(key);
+    }
+
     /** New line positions inherit the old combined clock position, but only while each new key is missing. */
     public static Map<String, Object> lineMigration(Map<String, ?> current) {
         if (Boolean.TRUE.equals(current.get(LINE_MIGRATED))) return Map.of();

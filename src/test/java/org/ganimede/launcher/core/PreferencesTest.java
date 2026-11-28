@@ -38,4 +38,22 @@ public class PreferencesTest {
             org.ganimede.launcher.Expect.yes(keys.contains(k), k + " is part of a theme");
         org.ganimede.launcher.Expect.yes(!keys.contains("icon_shape") && !keys.contains("themed_shape"), "the old keys are not");
     }
+
+    public static void testKeysTheHomeDoesNotDrawDoNotRebuildIt() {
+        for (String k : new String[]{"summary_held", "summary_last", "summary_count", "icon_pack_loaded", "return_to_settings",
+                "pending_widget", "pending_widget_for", "fab_left", "fab_y"})
+            org.ganimede.launcher.Expect.yes(!Preferences.rebuildsHome(k, true, true), k + " alone never rebuilds the home");
+    }
+
+    public static void testOpeningAnAppRebuildsOnlyWhenUsageIsShown() {
+        org.ganimede.launcher.Expect.yes(!Preferences.rebuildsHome("use:a/b", false, false), "usage counts are not drawn");
+        org.ganimede.launcher.Expect.yes(Preferences.rebuildsHome("use:a/b", true, false), "smart sort orders the list by them");
+        org.ganimede.launcher.Expect.yes(Preferences.rebuildsHome("use:a/b", false, true), "suggestions come from them");
+    }
+
+    public static void testOtherKeysAndAClearedFileRebuild() {
+        org.ganimede.launcher.Expect.yes(Preferences.rebuildsHome("accent", false, false), "a setting the home draws");
+        org.ganimede.launcher.Expect.yes(Preferences.rebuildsHome("a_new_key", false, false), "an unknown key rebuilds by default");
+        org.ganimede.launcher.Expect.yes(Preferences.rebuildsHome(null, false, false), "clear() passes no key");
+    }
 }

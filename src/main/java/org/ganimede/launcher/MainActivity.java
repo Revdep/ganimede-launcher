@@ -7,6 +7,7 @@ import org.ganimede.launcher.core.Favourites;
 import org.ganimede.launcher.core.Gestures;
 import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Morph;
+import org.ganimede.launcher.core.Preferences;
 import org.ganimede.launcher.core.Search;
 
 import android.app.Activity;
@@ -81,7 +82,7 @@ public class MainActivity extends Activity implements Actions.Home {
     /** Settings written so far, and how many (and which dark/light mode) the screen was last built for: onResume rebuilds only if they differ. */
     private int prefChanges, builtAtChanges = -1, builtAtUiMode = -1;
     private final SharedPreferences.OnSharedPreferenceChangeListener prefWatch = (p, key) -> {
-        prefChanges++;
+        if (Preferences.rebuildsHome(key, p.getBoolean("smart_sort", false), p.getBoolean("suggest", false))) prefChanges++;
         if (WeatherStore.KEY.equals(key)) handler.post(this::updateWeather);
         else if ("fab_icon".equals(key)) handler.post(() -> fab.style(!listMode)); // a late import, restore or fallback
     };
