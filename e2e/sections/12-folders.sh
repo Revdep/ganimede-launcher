@@ -54,16 +54,26 @@ wait_until 5 docked && ok "Calendar is in the dock slot" || ko "Calendar not doc
 [ "$(nfold)" = 0 ] && hasnt "Cartella" && ok "no folder revived in the dock" || ko "a folder came back: stored $(nfold)"
 
 step "Folders: one made on page 2 lands in the pressed cell of page 2"
-seed classic; setp int grid_pages 2; wait_until 5 has Calendar
-A shell input swipe $((W - $(dp 40))) $((H / 2)) $(dp 40) $((H / 2)) 250; wait_until 5 hasnt Calendar; wait_until 5 settled
+seed classic; setp int grid_cols 5; setp int grid_rows 6; setp int grid_pages 2; wait_until 5 has Calendar # 5x6: x = W/2 is the middle of column 3, page 2 is cells 30-59
+A shell input swipe $((W - $(dp 40))) $((H / 2)) $(dp 40) $((H / 2)) 250
+wait_until 5 hasnt Calendar && ok "the swipe shows page 2" || ko "the swipe left page 1 on screen"
+wait_until 5 settled
 hold $((W / 2)) $((H / 2))
-tap "Crea cartella pop-up"; wait_until 5 has "Nome cartella"
-typ Pag2; tap "Crea"; wait_until 5 has "Più tardi" # "add apps now?": Back says no and opens nothing
-A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Più tardi"; wait_until 5 settled
-wait_until 5 has Pag2 && hasnt Calendar && ok "the folder is on page 2" || ko "no “Pag2” on page 2"
+tap "Crea cartella pop-up"; wait_until 5 has "Nome cartella" && ok "the name dialog shows" || ko "no “Nome cartella” after “Crea cartella pop-up”"
+typ Pag2; tap "Crea"
+wait_until 5 has "Più tardi" && ok "“add apps now?” shows" || ko "no “Più tardi” after “Crea”"
+id=$(fid); [ -n "$id" ] && ok "folder:$id is stored" || ko "no folder: stored"
+cell=$(pstr grid | sed 's/&quot;/"/g' | grep -o "\"[0-9]*\":\"f:${id:-none}\"" | grep -o '^"[0-9]*' | tr -d '"')
+[ -n "$cell" ] && [ $((cell / 30)) -eq 1 ] && [ $((cell % 5)) -eq 2 ] && ok "grid: f:$id in cell $cell (page 2, column 3)" \
+  || ko "grid cell of f:${id:-?}: ${cell:-none} (want page 2 = cells 30-59, column 3); grid = $(pstr grid | sed 's/&quot;/"/g')"
+A shell input keyevent KEYCODE_BACK # "add apps now?": Back says no and opens nothing
+wait_until 5 hasnt "Più tardi" && ok "Back closes “add apps now?”" || ko "“Più tardi” still shown after Back"
+wait_until 5 settled
+hasnt Calendar && ok "after Back the home is still on page 2" || ko "after Back the home went back to page 1"
+on2=; wait_until 5 has Pag2 && hasnt Calendar && { on2=1; ok "the folder is on page 2"; } || ko "no “Pag2” on page 2"
 read -r px _ <<<"$(cx Pag2)"; near "${px:-0}" $((W / 2)) $((W / 10)) && ok "in the pressed cell" || ko "Pag2 at x=$px, pressed $((W / 2))"
-A shell input swipe $(dp 40) $((H / 2)) $((W - $(dp 40))) $((H / 2)) 250; wait_until 5 has Calendar
-hasnt Pag2 && ok "page 1 has no “Pag2”" || ko "“Pag2” went to page 1"
+A shell input swipe $(dp 40) $((H / 2)) $((W - $(dp 40))) $((H / 2)) 250
+wait_until 5 has Calendar && [ -n "$on2" ] && hasnt Pag2 && ok "page 1 has no “Pag2”" || ko "page 1 check: Calendar shown? Pag2 seen on page 2 (${on2:-no}) and absent here?"
 
 step "Folders: Settings defaults, one-folder look, then changed defaults"
 seed classic

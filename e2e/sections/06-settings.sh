@@ -124,14 +124,18 @@ for mode in classic list; do
     # The preview clock sits just above its date/weather row (text: date, then weather): grab it there.
     read -r lx0 ly0 _ _ <<<"$(bounds '[^"]*☁ imposta meteo')"
     cy=$((ly0 - $(dp 30))); A shell input draganddrop $((lx0 + $(dp 20))) "$cy" $((lx0 + $(dp 20))) $((cy - 60)) 1200 # 60 px up: inside the top limit
-    clocked() { local x; x=$(pref list_clock_y); [ "${x:-0}" -lt 0 ] && [ $((x % 4)) -eq 0 ]; } # the drop snaps to the 4 dp grid
-    wait_until 5 clocked
-    v=$(pref list_clock_y)
-    [ "${v:-0}" -lt 0 ] && [ $((${v:-1} % 4)) -eq 0 ] && ok "clock dragged in the preview: list_clock_y = $v dp" || ko "drag in the preview: list_clock_y = ${v:-unset}"
+    # The stored value is the one "Posizione" shows (x … · y … dp), above the top, on the 4 dp grid.
+    clocked() {
+      v=$(pref list_clock_y); sy=$(screen | grep -o 'text="x [^"]* y [-+]*[0-9]* dp"' | head -1 | sed 's/.* y \([-+]*[0-9]*\) dp"$/\1/'); sy=${sy#+}
+      [ -n "$v" ] && [ "$v" = "$sy" ] && [ "$v" -lt 0 ] && [ $((v % 4)) -eq 0 ]
+    }
+    wait_until 5 clocked && ok "clock dragged in the preview: list_clock_y = $v dp, as “Posizione” shows" \
+      || ko "drag in the preview: list_clock_y = ${v:-unset}, “Posizione” shows y ${sy:-nothing}; files: $(A exec-out run-as $PK ls shared_prefs | tr '\n' ' ')"
+    dragged=${v:-0}
     wait_until 5 hasd "Orologio: Sposta su" && ok "the dragged brick's controls show" || ko "dragging did not pick the brick"
     tap "Annulla"
     zero() { local x; x=$(pref list_clock_y); [ "${x:-0}" -eq 0 ]; }; wait_until 5 zero
-    v=$(pref list_clock_y); [ "${v:-0}" -eq 0 ] && ok "Undo takes the drag back" || ko "after undo list_clock_y = $v"
+    v=$(pref list_clock_y); [ "$dragged" -lt 0 ] && [ "${v:-0}" -eq 0 ] && ok "Undo takes the drag back ($dragged → ${v:-unset})" || ko "undo: list_clock_y $dragged → ${v:-unset} (needs a stored drag < 0 first)"
 
     # The line has no size knob: hit its weather text, drag it, and prove only its key changed (it may cling to the clock's edge).
     line0=$(pref list_line_y); line0=${line0:-0}
