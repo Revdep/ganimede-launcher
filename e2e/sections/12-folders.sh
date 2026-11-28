@@ -324,14 +324,14 @@ a11y list . Calendar
 { A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Sposta giù' && ! A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Sposta su'; } \
   && ok "the first icon offers Sposta giù and not Sposta su" || ko "first icon actions: $(A logcat -d -s $A11Y_TAG:I | tr '\n' ' ')"
 a11y label "Sposta giù" Calendar
-moved() { [ "$(order)" = "deskclock,calendar,contacts" ]; }
-a11y_performed && wait_until 5 moved && ok "Sposta giù saves Calendar one place later" || ko "order after Sposta giù: $(order)"
+sr_moved() { [ "$(order)" = "deskclock,calendar,contacts" ]; }
+a11y_performed && wait_until 5 sr_moved && ok "Sposta giù saves Calendar one place later" || ko "order after Sposta giù: $(order)"
 wait_until 5 settled
 [ "$(shown)" = "$(order)" ] && ok "the pop-up shows the new order" || ko "views in the order $(shown), saved $(order)"
 wait_until 5 a11y_said "Posizione 2 di 3" && ok "the move is announced" || ko "no «Posizione 2 di 3» announcement"
 a11y label "Sposta su" Calendar
-back() { [ "$(order)" = "calendar,deskclock,contacts" ]; }
-a11y_performed && wait_until 5 back && ok "Sposta su puts Calendar back" || ko "order after Sposta su: $(order)"
+sr_back() { [ "$(order)" = "calendar,deskclock,contacts" ]; }
+a11y_performed && wait_until 5 sr_back && ok "Sposta su puts Calendar back" || ko "order after Sposta su: $(order)"
 wait_until 5 settled
 [ "$(shown)" = "$(order)" ] && ok "the pop-up shows the order back" || ko "views in the order $(shown), saved $(order)"
 a11y_off; A shell input keyevent KEYCODE_BACK

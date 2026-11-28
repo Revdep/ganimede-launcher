@@ -52,8 +52,8 @@ setp int fav_gap 20 string folder:x '{"name":"Changed","where":"fav","apps":[],"
 changed_folder_look() { local f; f=$(pref folder:x | sed 's/&quot;/"/g'); [[ $f == *'"bg":-7686920'* && $f == *'"alpha":12'* && $f == *'"cols":2'* ]]; }
 changed_folder_look && ok "changed all three folder look values before restore" || ko "changed folder:x = $(pref folder:x)"
 restore_file ganimede-backup.json
-back() { [ "$(pref fav_gap)" = 12 ]; }
-wait_until 10 back && ok "fav_gap is 12 again" || ko "restore left fav_gap = $(pref fav_gap)"
+gap_back() { [ "$(pref fav_gap)" = 12 ]; }
+wait_until 10 gap_back && ok "fav_gap is 12 again" || ko "restore left fav_gap = $(pref fav_gap)"
 shot 41-backup-restored
 restored_folder_look() { local f; f=$(pref folder:x | sed 's/&quot;/"/g'); [[ $f == *'"bg":-2093040'* && $f == *'"alpha":73'* && $f == *'"cols":4'* ]]; }
 wait_until 10 restored_folder_look && ok "restore returns the folder's exact bg, alpha and cols overrides" \
@@ -115,7 +115,7 @@ A shell rm -f $BAD
 # Ganimede is not the home app on this install, so a restore goes on to the "home app" step; the restored prefs are already saved.
 restored_to_home_step() { # restored_to_home_step what
   expect "Rendila la tua Home" && ok "$1: lands on the home-app step, not on the home" || ko "$1: not on the home-app step"
-  wait_until 10 back && ok "$1: fav_gap is 12 from the restored backup" || ko "$1: fav_gap = $(pref fav_gap)"
+  wait_until 10 gap_back && ok "$1: fav_gap is 12 from the restored backup" || ko "$1: fav_gap = $(pref fav_gap)"
   [ -n "$(pref folder:x)" ] && ok "$1: folder:x restored" || ko "$1: folder:x missing"
   hasnt "Indietro" && ok "$1: no Back on the home-app step (nothing behind it)" || ko "$1: Back shown on the home-app step"
   tap "Avanti"; wait_until 10 focus && ok "$1: home in front after the home-app step" || ko "$1: home not in front"
