@@ -100,4 +100,4 @@ Tocca la riga del meteo per le previsioni orarie e giornaliere.
 
 - **Il meteo dice "imposta meteo"**: Breezy non è installato o non ha ancora condiviso i dati.
 - **Niente pallini o anteprime**: manca l'accesso alle notifiche (vedi Primo avvio, punto 3).
-- **Il doppio tocco non blocca lo schermo**: attiva "Ganimede Quick Lock" in Impostazioni Android → Accessibilità.
+- **Il doppio tocco non blocca lo schermo**: attiva "Blocco rapido Ganimede" ("Ganimede Quick Lock" con Android in inglese) in Impostazioni Android → Accessibilità.

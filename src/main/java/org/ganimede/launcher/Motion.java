@@ -113,6 +113,11 @@ final class Motion extends Dialog {
         });
     }
 
+    /** Its close animation has started: on its way out, though still showing until the animation ends. */
+    boolean closing() {
+        return closing;
+    }
+
     @Override
     public void dismiss() {
         if (closing) return;
@@ -235,6 +240,7 @@ final class Motion extends Dialog {
             return startsPull(e) || super.onInterceptTouchEvent(e);
         }
 
+        //noinspection ClickableViewAccessibility: a pull to close (Back does the same); every other touch goes to super
         @Override
         public boolean onTouchEvent(MotionEvent e) {
             // Touches on plain text reach here directly, without passing onInterceptTouchEvent first.

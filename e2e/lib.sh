@@ -173,6 +173,7 @@ start_home() {
     || A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1 # another launcher holding HOME would start a second task
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" || { ko "Ganimede doesn't hold the HOME role"; return 1; }
   A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME; wait_until 10 focus && wait_until 10 drawn && wait_until 10 settled; }
+target48() { local b; b=$(bounds "$1"); [ -n "$b" ] || return 1; set -- $b; [ $(($3 - $1)) -ge $(($(dp 48) - 1)) ] && [ $(($4 - $2)) -ge $(($(dp 48) - 1)) ]; } # target48 text|desc:…: the node is at least 48 x 48 dp
 hasd() { screen | grep -q "content-desc=\"$1\""; }  # a node with this content-desc
 valid() { screen >/dev/null; [ -s "$SCR" ]; } # a screen read that worked: an absent node means nothing without one
 hasnt() { valid && ! has "$1"; }
@@ -207,6 +208,8 @@ shows() { local f re='text=["'"'"'][^>]*'; for f in "$@"; do re="$re$f[^>]*"; do
 noshows() { ! shows "$@"; }
 # fdiff a.png b.png [WxH+X+Y]: how many pixels differ (inside the crop, if given). Pixels, never file bytes: a PNG
 # written by magick carries its dates, so cmp calls two identical pictures different (issue 086).
+hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu (home or pop-up)
+clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
 fdiff() { compare -metric AE "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
 # seed classic|list: a configured app without the wizard: onboarded, mode, favourites, Italian, the home role.
 # (the APK must be installed). Leaves the home screen in front.

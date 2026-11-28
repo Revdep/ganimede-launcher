@@ -65,6 +65,7 @@ final class Widgets {
         strip.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             if (r - l != or - ol && r > l) v.post(() -> { built = ""; rebuild(); });
         });
+        //noinspection ClickableViewAccessibility: it only snaps the page after a swipe and consumes nothing
         strip.setOnTouchListener((v, e) -> {
             if (e.getActionMasked() == MotionEvent.ACTION_UP && row.getChildCount() > 0) {
                 int w = strip.getWidth();

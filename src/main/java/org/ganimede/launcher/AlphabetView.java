@@ -128,6 +128,7 @@ public class AlphabetView extends View {
         }
     }
 
+    //noinspection ClickableViewAccessibility: a scrub that acts as the finger lands and moves; the list itself is the accessible path
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         if (!isEnabled()) return false; // the Settings preview draws this view, it doesn't use it

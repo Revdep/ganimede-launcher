@@ -4,6 +4,7 @@ import static org.ganimede.launcher.Sheets.item;
 
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.FolderLook;
+import org.ganimede.launcher.core.FolderOrder;
 
 import android.app.Dialog;
 import android.graphics.drawable.GradientDrawable;
@@ -23,6 +24,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 
 /** Pop-up folders: creating one, putting things in, its menu, and the pop-up itself (its widgets, then its apps). */
@@ -39,11 +41,15 @@ final class Folders {
     private final IconPicker icons;
     private final ClassicHome classic;
     private final Runnable refresh;
-    /** The menu of a pinned shortcut inside a folder: (entry, folder id). */
-    private final BiConsumer<String, String> shortcutMenu;
+    /** The long-press menu of an entry inside a folder: (entry, folder id). */
+    private final BiConsumer<String, String> entryMenu;
+    private Motion popup;          // the pop-up last opened
+    private String popupId;        // its folder
+    private Set<String> popupLook; // what it shows of each entry (see looks)
+    private FolderDrag popupDrag;  // its icons' touch handling: no rebuild under a finger
 
     Folders(Ui ui, Sheets sheets, Layout layout, Apps apps, Entries entries, Launcher launcher, Widgets widgets,
-            IconPicker icons, ClassicHome classic, Runnable refresh, BiConsumer<String, String> shortcutMenu) {
+            IconPicker icons, ClassicHome classic, Runnable refresh, BiConsumer<String, String> entryMenu) {
         this.ui = ui;
         this.sheets = sheets;
         this.layout = layout;
@@ -54,7 +60,43 @@ final class Folders {
         this.icons = icons;
         this.classic = classic;
         this.refresh = refresh;
-        this.shortcutMenu = shortcutMenu;
+        this.entryMenu = entryMenu;
+    }
+
+    /** "Remove from this folder" in an entry's menu: out of the folder; the open pop-up follows (reshowIfChanged). */
+    void remove(String id, String entry) {
+        if (layout.editFolderApps(id, a -> a.remove(entry))) refresh.run();
+    }
+
+    /**
+     * What a pop-up draws (FolderOrder.looks). An app's icon is the one its Item was made with (Item.picked and
+     * Item.installed): a newly picked icon or an update of that app counts once Apps.load has made the new Item, and
+     * other apps' updates change nothing here. A shortcut draws its picked icon straight from the setting.
+     */
+    private Set<String> looks(String id) {
+        return FolderOrder.looks(Layout.strings(layout.folder(id).optJSONArray("apps")), entries::name, k -> {
+            if (k.startsWith("s:")) return ui.prefs.getString("icon:" + k, "");
+            Item it = apps.find(k);
+            return it == null ? null : FolderOrder.drawnIcon(it.picked, it.installed);
+        });
+    }
+
+    /**
+     * After any change (MainActivity.refreshAll) and whenever the open pop-up comes back in front (a menu, dialog or
+     * other app on top closed): if its entries now look different (an entry taken out or uninstalled, renamed, a new icon) it
+     * is built again. A reorder alone changes nothing here, the pop-up already shows it; an open menu or dialog is
+     * waited for, so the new pop-up never covers it, and so is a finger on an icon (FolderDrag calls back once it
+     * lifts).
+     * The entry TalkBack was on keeps its focus.
+     */
+    void reshowIfChanged() {
+        if (popup == null || !popup.isShowing() || popup.closing()) return; // closing: tapped away, or an app opening
+        if (!popup.getWindow().getDecorView().hasWindowFocus()) return;
+        if (popupDrag.busy() || looks(popupId).equals(popupLook)) return;
+        String focused = popupDrag.focused();
+        popup.dismiss();
+        show(popupId);
+        if (focused != null) popupDrag.focus(focused);
     }
 
     private void save(String id, JSONObject f) {
@@ -203,22 +245,22 @@ final class Folders {
         return value == null ? fallback : value;
     }
 
+    /** The folder's pinned shortcuts, then every app, with check boxes: unchecking takes an entry out of the folder. */
     private void chooseApps(String id) {
-        List<Item> all = apps.visible();
         JSONObject f = layout.folder(id);
-        List<String> inside = Layout.strings(f.optJSONArray("apps"));
-        String[] names = new String[all.size()];
-        boolean[] on = new boolean[all.size()];
-        for (int i = 0; i < names.length; i++) { names[i] = apps.label(all.get(i)); on[i] = inside.contains(all.get(i).key); }
+        List<String> inside = Layout.strings(f.optJSONArray("apps")), listed = new ArrayList<>(), names = new ArrayList<>();
+        for (String k : inside) if (k.startsWith("s:")) { listed.add(k); names.add(Entries.shortcutName(k)); }
+        for (Item it : apps.visible()) { listed.add(it.key); names.add(apps.label(it)); }
+        boolean[] on = new boolean[listed.size()];
+        for (int i = 0; i < on.length; i++) on[i] = inside.contains(listed.get(i));
         ui.ask().setTitle(ui.tr("Apps in this pop-up"))
-                .setMultiChoiceItems(names, on, (d, w, c) -> on[w] = c)
+                .setMultiChoiceItems(names.toArray(new String[0]), on, (d, w, c) -> on[w] = c)
                 .setPositiveButton(ui.tr("Save"), (d, w) -> {
-                    List<String> keep = new ArrayList<>();
-                    for (String k : inside) if (k.startsWith("s:")) keep.add(k); // pinned shortcuts stay
-                    for (int i = 0; i < names.length; i++) if (on[i]) keep.add(all.get(i).key);
+                    List<String> checked = new ArrayList<>();
+                    for (int i = 0; i < on.length; i++) if (on[i]) checked.add(listed.get(i));
                     try {
                         if (!f.has("name")) f.put("name", defaultName(id));
-                        f.put("apps", new JSONArray(keep));
+                        f.put("apps", new JSONArray(FolderOrder.chosen(inside, checked)));
                     } catch (Exception ignored) { return; }
                     save(id, f);
                     show(id); // show the result right away
@@ -259,8 +301,13 @@ final class Folders {
         }
         Dialog[] dlg = new Dialog[1];
         List<View> appViews = new ArrayList<>();
+        FolderDrag drag = new FolderDrag(ui, entry -> entryMenu.accept(entry, id), sheets::dismissLast,
+                this::reshowIfChanged, shown -> {
+            layout.editFolderApps(id, a -> { List<String> sorted = FolderOrder.reorderShown(a, shown); a.clear(); a.addAll(sorted); });
+            refresh.run();
+        });
         for (String k : Layout.strings(f.optJSONArray("apps"))) {
-            View v = folderEntry(id, k, look.columns() > 1, dlg);
+            View v = folderEntry(id, k, look.columns() > 1, dlg, drag);
             if (v != null) appViews.add(v);
         }
         if (look.columns() == 1) {
@@ -306,31 +353,27 @@ final class Folders {
             lp.setMargins(m, m, m, m);
             sv.setLayoutParams(lp);
         }
-        dlg[0] = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
+        popup = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
+        dlg[0] = popup;
         dlg[0].show();
+        popupId = id;
+        popupLook = looks(id);
+        popupDrag = drag;
+        dlg[0].getWindow().getDecorView().getViewTreeObserver()
+                .addOnWindowFocusChangeListener(has -> { if (has) reshowIfChanged(); });
     }
 
-    private View folderEntry(String id, String key, boolean cell, Dialog[] dlg) {
+    private View folderEntry(String id, String key, boolean cell, Dialog[] dlg, FolderDrag drag) {
         if (key.startsWith("s:")) {
             View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP) : entries.shortcutRow(key, false);
-            v.setOnLongClickListener(x -> {
-                dlg[0].dismiss();
-                shortcutMenu.accept(key, id);
-                return true;
-            });
+            drag.add(v, key);
             return v;
         }
         Item app = apps.find(key);
         if (app == null) return null;
         View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP) : entries.appRow(app, false);
         v.setOnClickListener(x -> { dlg[0].dismiss(); launcher.launch(app, x); });
-        v.setOnLongClickListener(x -> {
-            if (!layout.editFolderApps(id, a -> a.remove(key))) return true;
-            refresh.run();
-            dlg[0].dismiss();
-            ui.toast(ui.f("%s removed from the pop-up", apps.label(app)));
-            return true;
-        });
+        drag.add(v, key);
         return v;
     }
 }

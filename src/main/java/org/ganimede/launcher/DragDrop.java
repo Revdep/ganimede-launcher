@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.Gestures;
 
 import android.content.ClipData;
 import android.graphics.drawable.Drawable;
@@ -137,7 +138,7 @@ final class DragDrop {
         if (a == MotionEvent.ACTION_DOWN) { armed[0] = false; return false; }
         if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) { armed[0] = false; return false; }
         if (a != MotionEvent.ACTION_MOVE || !armed[0]) return false;
-        if (Math.hypot(e.getRawX() - down[0], e.getRawY() - down[1]) < ui.slop()) return true;
+        if (!Gestures.pickedUp(e.getRawX() - down[0], e.getRawY() - down[1], ui.slop())) return true;
         armed[0] = false;
         sheets.dismissLast();
         start(v, entry, where);
@@ -148,6 +149,7 @@ final class DragDrop {
     void cell(View c, String entry, String where) {
         boolean[] armed = arm(c, () -> menu.accept(entry));
         float[] down = new float[2];
+        //noinspection ClickableViewAccessibility: only the drag after the long-press menu is taken; taps reach the click listener
         c.setOnTouchListener((v, e) -> {
             if (e.getActionMasked() == MotionEvent.ACTION_DOWN) { down[0] = e.getRawX(); down[1] = e.getRawY(); }
             return afterMenu(armed, v, e, down, entry, where);
@@ -183,7 +185,7 @@ final class DragDrop {
             }
             float distance = (float) Math.hypot(e.getRawX() - x, e.getRawY() - y);
             if (action == MotionEvent.ACTION_MOVE && !armed && distance > ui.slop()) handler.removeCallbacks(longPress);
-            if (action == MotionEvent.ACTION_MOVE && armed && distance >= ui.slop()) {
+            if (action == MotionEvent.ACTION_MOVE && armed && Gestures.pickedUp(e.getRawX() - x, e.getRawY() - y, ui.slop())) {
                 armed = false;
                 handler.removeCallbacks(longPress);
                 sheets.dismissLast();
@@ -221,6 +223,7 @@ final class DragDrop {
         View.OnTouchListener swipe = app == null ? null : notices.swipeOpens(app.notifGroup);
         if (app != null) notices.accessibleOpens(row, app.notifGroup);
         float[] down = new float[2];
+        //noinspection ClickableViewAccessibility: drag and swipe only (the swipe is also an accessibility action); taps reach the click listener
         row.setOnTouchListener((v, e) -> {
             if (e.getActionMasked() == MotionEvent.ACTION_DOWN) { down[0] = e.getRawX(); down[1] = e.getRawY(); }
             if (afterMenu(armed, v, e, down, entry, where)) return true;

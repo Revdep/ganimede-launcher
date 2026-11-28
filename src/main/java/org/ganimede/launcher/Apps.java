@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Search;
 
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** The installed apps (every profile that isn't paused), with the names, icons and launch counts the home shows. */
 final class Apps {
@@ -28,6 +30,14 @@ final class Apps {
         final String key, pkg, label, notifGroup;
         Drawable icon;
         boolean fromPack;
+        /** The icon picked for it when this Item was made ("" for none): what its icon shows, as a stable key. */
+        String picked = "";
+        /**
+         * Its app's install as of this Item: the APK path, which changes with every update (an update may bring a new
+         * icon of its own), in its own profile. Android 11+ installs each update under a new random /data/app/~~…/
+         * directory; 8 to 10 alternate /data/app/<pkg>-1 and -2, which still differs from the install before.
+         */
+        final String installed;
 
         Item(LauncherActivityInfo info, String key) {
             this.info = info;
@@ -35,6 +45,7 @@ final class Apps {
             pkg = info.getComponentName().getPackageName();
             notifGroup = NotifService.group(pkg, info.getUser());
             label = info.getLabel().toString();
+            installed = String.valueOf(info.getApplicationInfo().sourceDir);
         }
     }
 
@@ -46,6 +57,14 @@ final class Apps {
                 out.add(new Item(info, info.getComponentName().flattenToString()));
         out.sort((a, b) -> a.label.compareToIgnoreCase(b.label));
         return out;
+    }
+
+    /** The same list read off the main thread (a label each, from the system), then handed over on it while a is open. */
+    static void named(Activity a, Consumer<List<Item>> then) {
+        new Thread(() -> {
+            List<Item> l = named(a);
+            a.runOnUiThread(() -> { if (!a.isDestroyed()) then.accept(l); });
+        }).start();
     }
 
     private final Context c;
@@ -77,6 +96,7 @@ final class Apps {
             List<UserHandle> users;
             try { users = launcherApps.getProfiles(); } catch (RuntimeException e) { users = List.of(Process.myUserHandle()); }
             Icons.load(c, pack);
+            Icons.preload(c, prefs); // a folder's or shortcut's picked built-in icon: drawn on the main thread at refreshAll
             for (UserHandle user : users) {
                     // Paused work profiles and a locked private space stay out of the list.
                     List<LauncherActivityInfo> list;
@@ -92,6 +112,7 @@ final class Apps {
                                 + (user.equals(Process.myUserHandle()) ? "" : "#" + um.getSerialNumberForUser(user)));
                         // An icon picked for this one app wins over the pack's and the app's own.
                         Drawable packed = Icons.picked(c, prefs, it.key);
+                        it.picked = prefs.getString("icon:" + it.key, "");
                         if (packed == null) packed = Icons.fromPack(info.getComponentName());
                         it.fromPack = packed != null;
                         it.icon = packed != null ? packed : info.getBadgedIcon(0);

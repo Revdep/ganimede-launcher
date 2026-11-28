@@ -18,6 +18,16 @@ wait_until 5 shows "Consenti impostazioni con restrizioni" && ok "the explanatio
 step "Notification preview: the explanation gives numbered steps ending in App info"
 shows "1\." "Info app" && ok "the explanation lists steps (“1.” … “Info app”)" || ko "the explanation has no numbered steps (“1.” … “Info app”)"
 
+step "Notification preview: a rotation with the explanation open keeps the switch on and the explanation (issue 063)"
+A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
+turned() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; } # the dump's root says the display is turned
+wait_until 8 turned || ko "the screen did not turn"
+wait_until 5 shows "Consenti impostazioni con restrizioni" && ok "the explanation is back after the rotation" || ko "the explanation vanished on rotation"
+bpref notif_preview && ok "the rotation left notif_preview on" || ko "the rotation turned notif_preview off"
+A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1
+upright() { screen | grep -q '<hierarchy[^>]*rotation="0"'; }; wait_until 8 upright
+wait_until 5 shows "Consenti impostazioni con restrizioni" || ko "the explanation vanished on turning back"
+
 step "Notification preview: Cancel leaves the switch off and the pref false"
 tap "Annulla"; wait_until 5 noshows "Consenti impostazioni con restrizioni"
 bpref notif_preview && ko "Cancel left notif_preview = true" || ok "Cancel: notif_preview is not true"
@@ -46,6 +56,10 @@ step "Quick Lock: Cancel in the explanation leaves quick_lock false"
 perm_settings "Gesti"
 see "Blocco rapido" && tap "Blocco rapido"
 wait_until 5 shows "Consenti impostazioni con restrizioni" && ok "Quick Lock explains the restricted setting" || ko "Quick Lock gave no explanation"
+# issue 064: it names the switch as Android's Accessibility screen does, in the system language (not Ganimede's)
+loc=$(A shell getprop persist.sys.locale | tr -d '\r'); [ -n "$loc" ] || loc=$(A shell getprop ro.product.locale | tr -d '\r')
+case "$loc" in it*) label="Blocco rapido Ganimede";; *) label="Ganimede Quick Lock";; esac
+shows "Attiva" "$label" && ok "the explanation names “$label”" || ko "the explanation does not name “$label”"
 tap "Annulla"; wait_until 5 noshows "Consenti impostazioni con restrizioni"
 bpref quick_lock && ko "Cancel left quick_lock = true" || ok "Cancel: quick_lock is not true"
 
