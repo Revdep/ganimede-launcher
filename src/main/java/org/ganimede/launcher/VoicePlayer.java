@@ -340,7 +340,10 @@ final class VoicePlayer {
     }
 
     private void play() {
-        if (audio.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) player.start(); // not during a call
+        if (audio.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) { // not during a call
+            player.start();
+            Log.i("Ganimede", "voice plays " + player.getDuration()); // the e2e suite reads it: the screen never rests while a note plays (13-popup)
+        }
         tick();
     }
 
@@ -356,6 +359,7 @@ final class VoicePlayer {
     /** Stops whatever plays and deletes every copy (also any left by a crash). */
     void stop() {
         run++;
+        Log.i("Ganimede", "voice stops"); // the e2e suite reads it (13-popup)
         main.removeCallbacks(tick);
         if (player != null) player.release();
         player = null;
