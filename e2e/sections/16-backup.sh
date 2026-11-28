@@ -14,7 +14,7 @@ backup_page() { # home screen → Settings → Backup & restore
   wait_until 5 has "Crea un backup"
 }
 restore_file() { # restore_file name: Settings → Restore → pick the file → confirm
-  backup_page
+  { has "Ripristina un backup" && settled; } || backup_page # already on the page (a refused file leaves it there): no second trip
   tap "Ripristina un backup"
   pick_file "$1" || return 1
   wait_until 8 has "Ripristinare il backup?" || { ko "no confirmation dialog for $1"; return 1; }
