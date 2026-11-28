@@ -58,7 +58,10 @@ wait_until() {
   local end=$((SECONDS + $1)); shift
   while :; do "$@" && return 0; [ $SECONDS -ge $end ] && return 1; sleep 0.2; rm -f "$SCR"; done # every retry reads the screen again
 }
-step() { echo; echo "== $*"; }
+# Every step's time, printed when the next one starts (run.sh closes a section's last one): the slow steps show in the log.
+STEP_T=
+step_time() { [ -z "$STEP_T" ] || echo "  (step: $((SECONDS - STEP_T)) s)"; STEP_T=; }
+step() { step_time; echo; echo "== $*"; STEP_T=$SECONDS; }
 ok() { echo "  PASS: $*"; PASS=$((PASS + 1)); }
 ko() { echo "  FAIL: $*"; FAIL=$((FAIL + 1)); A exec-out screencap -p > "$OUT/fail-$FAIL.png"; } # the screen at the failure
 # One adb call straight to stdout (~2 s: uiautomator starts a VM and waits for 1 s of idle): a failed dump is no XML,

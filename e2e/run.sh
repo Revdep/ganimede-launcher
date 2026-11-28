@@ -34,6 +34,7 @@ case "${picked[*]}" in *-wizard.sh*) ;; *) A install -r "$APK" >/dev/null || { e
 for f in "${picked[@]}"; do
   CUR=$(basename "$f" .sh); t=$SECONDS; before=$((PASS + FAIL + SKIPS))
   if bash -n "$f"; then . "$f"; else ko "$CUR: syntax error"; fi
+  step_time
   [ $((PASS + FAIL + SKIPS)) -gt $before ] || ko "$CUR: ran no check (nor a skip)"
   if A logcat -d -b crash | grep -q "org.ganimede.launcher"; then ko "$CUR: the app crashed"; A logcat -d -b crash | grep -A5 "org.ganimede" | head -20; A logcat -b crash -c; fi
   echo "  [$CUR: $((SECONDS - t)) s]"; mkdir -p "${TIMES%/*}"; echo "${CUR#*-} $((SECONDS - t))" >> "$TIMES"
