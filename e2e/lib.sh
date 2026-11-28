@@ -106,6 +106,22 @@ bounds() {
   wait_until 3 _bounds_try && echo "$r"
   return 0
 }
+# hsee text row-text: swipes the sideways row holding row-text until the node "text" is whole inside the card (at most 6 times)
+hsee() {
+  local n=0 y b x1 y1 x2 y2; b=$(bounds "$2"); [ -n "$b" ] || return 1; read -r x1 y1 x2 y2 <<<"$b"; y=$(((y1 + y2) / 2))
+  while [ $n -lt 6 ]; do
+    b=$(bounds "$1"); [ -n "$b" ] && { read -r x1 y1 x2 y2 <<<"$b"; [ "$x2" -le $((W - 60)) ] && return 0; }
+    A shell input swipe $((W - 100)) $y 200 $y 300; rm -f "$SCR"; n=$((n + 1))
+  done
+  ko "no “$1” in the row of “$2”"; return 1
+}
+# label_whole text min-width% [min-height%]: the node's label is drawn whole (issue 088): its crop, trimmed, covers that much of the node
+label_whole() {
+  local b x1 y1 x2 y2 w h tw th; b=$(bounds "$1"); [ -n "$b" ] || return 1; read -r x1 y1 x2 y2 <<<"$b"
+  w=$((x2 - x1)); h=$((y2 - y1))
+  read -r tw th <<<"$(A exec-out screencap -p | magick png:- -crop "${w}x${h}+${x1}+${y1}" +repage -fuzz 12% -trim -format '%w %h' info: 2>/dev/null)"
+  [ -n "$th" ] && [ $((tw * 100)) -ge $(($2 * w)) ] && [ $((th * 100)) -ge $((${3:-0} * h)) ]
+}
 # Center of a node with this content-desc, scrolling a settings page until it is stable and visible.
 find_desc() {
   local n=0 b prev= want="$1"

@@ -391,8 +391,9 @@ final class SettingsKit {
             if (v != null) tile.addView(v);
             TextView name = text((i == sel ? "✓ " : "") + names[i], 13, i == sel ? Colors.WHITE : SUB);
             name.setGravity(Gravity.CENTER);
-            name.setMaxWidth(ui.dp(120));
-            name.setMaxLines(2);
+            // One exact width, so the measure that sizes the tile and the layout that draws the label agree: it wraps at spaces
+            // into two rows that make the tile taller. A max width left it to wrap at whatever width the tile ended up with (issue 088).
+            name.setWidth(Math.min((int) Math.ceil(name.getPaint().measureText(name.getText().toString())), ui.dp(120)));
             name.setPadding(0, v == null ? ui.dp(4) : ui.dp(6), 0, v == null ? ui.dp(4) : 0);
             tile.addView(name);
             tile.setContentDescription(descriptions[i]);
