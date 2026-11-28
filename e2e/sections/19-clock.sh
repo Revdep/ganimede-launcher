@@ -111,8 +111,6 @@ for mode in list classic; do
     || ko "$mode: appare «Nessuna app può aprirlo»"
 done
 
-clock_fixture_cleanup
-
 # DayOfWeek draws its time and date at the left and right ends of the middle band.
 dayofweek_points() {
   local b x1 y1 x2 y2 band_from_bottom
@@ -129,35 +127,6 @@ google_calendar_front() { # Ganimede started the calendar's time view (offline, 
 google_clock_front() {
   A shell dumpsys window | grep -q 'mCurrentFocus.*com.google.android.deskclock'
 }
-
-step "Data e ora dell'orologio aprono destinazioni distinte in Lista e Classica"
-for mode in list classic; do
-  [ "$mode" = list ] && mode_it=Lista || mode_it=Classica
-  A shell pm grant "$PK" android.permission.READ_CALENDAR >/dev/null # granted before the start, as before
-  seed "$mode" string clock_style dayofweek boolean agenda true
-  read -r time_x date_x band_y <<<"$(dayofweek_points)"
-  A shell input tap "$date_x" "$band_y"
-  wait_until 5 has "La tua agenda" \
-    && ok "$mode_it: toccando la data si apre «La tua agenda»" \
-    || ko "$mode_it: toccando la data non si apre «La tua agenda»"
-  A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-
-  setp boolean agenda false
-  A shell am force-stop com.google.android.calendar; A logcat -b main -c
-  read -r time_x date_x band_y <<<"$(dayofweek_points)"
-  A shell input tap "$date_x" "$band_y"
-  wait_until 5 google_calendar_front \
-    && ok "$mode_it: con agenda disattivata la data apre Google Calendar" \
-    || ko "$mode_it: con agenda disattivata la data non apre Google Calendar"
-  A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-
-  read -r time_x date_x band_y <<<"$(dayofweek_points)"
-  A shell input tap "$time_x" "$band_y"
-  wait_until 5 google_clock_front \
-    && ok "$mode_it: toccando l'ora si apre Orologio" \
-    || ko "$mode_it: toccando l'ora non si apre Orologio"
-  A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-done
 
 # ---- The date of the clock for a screen reader, and clicks that are not touches ----
 # The fixture's ScreenReader service stands in for TalkBack: it lists, and performs, the actions of the clock node.
@@ -184,10 +153,8 @@ a11y_date_action() { A logcat -d -s $A11Y_TAG:I | grep -iEq 'action label=.*(dat
 DATE_ACTION='data|agenda|calendario'
 
 step "Orologio con data: azione accessibile separata e click da accessibilità (Lista e Classica)"
-fixture_install && ok "fixture screen reader installata" \
-  || ko "fixture screen reader non installata (./gradlew -Pe2e :fixture:assembleDebug)"
-defer a11y_off; defer clock_fixture_cleanup
-A shell pm disable-user --user 0 com.google.android.deskclock >/dev/null
+# the fixture and the disabled Google Clock of the alarms step stay: one install, one disable (issue 048)
+defer a11y_off
 A shell settings put secure enabled_accessibility_services $FIX/.ScreenReader >/dev/null
 A shell settings put secure accessibility_enabled 1 >/dev/null
 for mode in list classic; do
@@ -220,7 +187,7 @@ for mode in list classic; do
   read -r time_x date_x band_y <<<"$(dayofweek_points)"
   A shell input swipe "$date_x" "$band_y" "$date_x" "$band_y" 1300
   A shell input keyevent KEYCODE_BACK; wait_until 5 focus
-  a11y click
+  CLOCK_RESULT=; a11y click # the alarms step's result just before must not count
   wait_until 5 clock_result
   [ "$CLOCK_RESULT" = opened ] && ! has "La tua agenda" \
     && ok "$mode_it: dopo una pressione lunga sulla data, il click accessibile apre le sveglie" \
@@ -228,6 +195,35 @@ for mode in list classic; do
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 done
 a11y_off; clock_fixture_cleanup
+
+step "Data e ora dell'orologio aprono destinazioni distinte in Lista e Classica"
+for mode in list classic; do
+  [ "$mode" = list ] && mode_it=Lista || mode_it=Classica
+  A shell pm grant "$PK" android.permission.READ_CALENDAR >/dev/null # granted before the start, as before
+  seed "$mode" string clock_style dayofweek boolean agenda true
+  read -r time_x date_x band_y <<<"$(dayofweek_points)"
+  A shell input tap "$date_x" "$band_y"
+  wait_until 5 has "La tua agenda" \
+    && ok "$mode_it: toccando la data si apre «La tua agenda»" \
+    || ko "$mode_it: toccando la data non si apre «La tua agenda»"
+  A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+
+  setp boolean agenda false
+  A shell am force-stop com.google.android.calendar; A logcat -b main -c
+  read -r time_x date_x band_y <<<"$(dayofweek_points)"
+  A shell input tap "$date_x" "$band_y"
+  wait_until 5 google_calendar_front \
+    && ok "$mode_it: con agenda disattivata la data apre Google Calendar" \
+    || ko "$mode_it: con agenda disattivata la data non apre Google Calendar"
+  A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+
+  read -r time_x date_x band_y <<<"$(dayofweek_points)"
+  A shell input tap "$time_x" "$band_y"
+  wait_until 5 google_clock_front \
+    && ok "$mode_it: toccando l'ora si apre Orologio" \
+    || ko "$mode_it: toccando l'ora non si apre Orologio"
+  A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+done
 
 step "Un'attività rifiutata non scrive l'URI dei dati nel log"
 # Calendar gone: the date tap's VIEW content://com.android.calendar/time/... has no handler, so Ui.start refuses it.
