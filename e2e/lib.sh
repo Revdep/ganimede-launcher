@@ -6,7 +6,7 @@
 # (emu_only, setting); every setting changed is put back on exit, also on Ctrl-C or a failure (keep, defer).
 case "$SERIAL" in emulator-*) ;; *) case " ${E2E_DEVICES:-} " in *" $SERIAL "*) ;; *) echo "emulators only: $SERIAL (or list it in E2E_DEVICES)" >&2; exit 2;; esac;; esac
 exec 9>"/tmp/ganimede-e2e-$SERIAL.lock"; flock 9
-OUT="$HERE/out/$SERIAL"; mkdir -p "$OUT"; rm -f "$OUT"/fail-*.png # per device: two runs from one checkout keep apart; fail-N is this run's
+OUT="$HERE/out/$SERIAL"; mkdir -p "$OUT"; rm -f "$OUT"/fail-* # per device: two runs from one checkout keep apart; fail-N is this run's
 SCR="$OUT/screen.xml" # the last screen read, a file so that subshells share it
 PK=org.ganimede.launcher
 # Every adb call goes through A. One that can change the screen drops the cached screen read (see `screen`).
@@ -238,7 +238,12 @@ moved() { # moved "what" axis(x|y) before after expected-px
 # In an Open document picker, show $1 (Recent may list only indexed files) and tap it.
 _file_shown() { has "$1" || screen | grep -q "content-desc=\"$1, "; } # a list row, or a grid cell (named only in its desc)
 pick_file() {
-  wait_until 8 hasd "Show roots"
+  if ! wait_until 8 hasd "Show roots"; then # who is in front, and which activity or process went (run 46093576561: the home, no picker; issue 089)
+    ko "the file picker did not open"
+    A shell dumpsys activity activities | grep -E "topResumedActivity|ResumedActivity|\* Task" > "$OUT/fail-$FAIL-activities.txt"
+    A logcat -d -b events | grep -E "am_finish_activity|am_proc_died|am_kill|am_anr|wm_task_moved|am_proc_start" | tail -200 > "$OUT/fail-$FAIL-events.txt"
+    return 1
+  fi
   if ! wait_until 4 _file_shown "$1"; then
     read -r rx ry <<<"$(cx "desc:Show roots")"; [ -n "$rx" ] && A shell input tap "$rx" "$ry"
     tap "Downloads"; wait_until 8 _file_shown "$1"
