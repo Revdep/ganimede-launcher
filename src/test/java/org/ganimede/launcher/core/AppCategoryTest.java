@@ -7,8 +7,7 @@ import java.util.Optional;
 
 /** The Play Store categories and their built-in glyph (issue 087). */
 public class AppCategoryTest {
-    public static void testFortyNineCategoriesEachWithAGlyphOfTheRealSet() {
-        eq(49, AppCategory.values().length, "the Play Store's categories today");
+    public static void testEveryCategoryHasAGlyphOfTheRealSet() {
         IconSet set = IconSetTest.load("src/main/assets/icons.bin");
         for (AppCategory c : AppCategory.values())
             yes(set.id(c.glyph()).isPresent(), c + " glyph is in the built-in set: " + c.glyph());

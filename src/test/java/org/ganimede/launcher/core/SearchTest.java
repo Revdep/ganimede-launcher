@@ -139,6 +139,15 @@ public class SearchTest {
         eq(List.of("#", "A", "Z"), new java.util.ArrayList<>(Search.sections(List.of("Zz Prova", "alfa", "Àlpha", "9 Nove"))), "sorted, once each, # first");
     }
 
+    public static void testContactStaysOnAnyEntryWithAWordStartingWithTheText() {
+        java.util.List<String> other = java.util.List.of("anna@acme.com", "Acme Srl", "Boss");
+        yes(Search.contactMatches("Zz Prova", other, "acme"), "company or email word");
+        yes(Search.contactMatches("Zz Prova", other, "boss"), "nickname");
+        yes(Search.contactMatches("Zz Prova", other, "pro"), "the name");
+        yes(!Search.contactMatches("Zz Prova", other, "cme"), "letters mid-word stay out");
+        yes(!Search.contactMatches("Zz Prova", java.util.List.of(), "rova"), "no other entries, mid-word name");
+    }
+
     public static void testNumberQueryNeedsThreeDigitsAndNothingElse() {
         yes(Search.isNumberQuery("347 12"), "digits and a space");
         yes(Search.isNumberQuery("+39 347-1"), "plus and dash are allowed");
@@ -160,6 +169,9 @@ public class SearchTest {
         yes(Search.numberMatches("347 1234567", "+353 347 1234567"), "three-digit prefix");
         yes(!Search.numberMatches("347 1234567", "+39 348 1234567"), "prefix does not make other digits match");
         yes(!Search.numberMatches("347 1234567", "+39 99"), "what is left of the prefix needs 3 digits");
+        yes(!Search.numberMatches("02 5471 000", "+39 3471"), "after a prefix the rest starts the number, not any place in it");
+        yes(!Search.numberMatches("02 5471 000", "0039 471"), "same with 0039");
+        yes(Search.numberMatches("02 5471 000", "+39 254"), "the rest at the start of the number");
         yes(!Search.numberMatches("+39 347 1234567", "348"), "other digits");
         yes(!Search.numberMatches(null, "347"), "no number");
     }

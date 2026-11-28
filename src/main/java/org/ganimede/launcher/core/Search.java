@@ -34,8 +34,11 @@ public final class Search {
 
     /** The name begins with the typed text, ignoring case and accents. */
     public static boolean startsWith(String label, String query) {
-        String q = typed(query);
-        return !q.isEmpty() && plain(label).regionMatches(true, 0, q, 0, q.length());
+        return beginsWith(plain(label), typed(query));
+    }
+
+    private static boolean beginsWith(String plainLabel, String typedQuery) {
+        return !typedQuery.isEmpty() && plainLabel.regionMatches(true, 0, typedQuery, 0, typedQuery.length());
     }
 
     /**
@@ -43,7 +46,12 @@ public final class Search {
      * letters mid-word or scattered, case and accents ignored. 2: the name begins with the text; 1: a match; 0: none.
      */
     public static int score(String label, String query) {
-        String l = plain(label), q = typed(query);
+        return scoreTyped(label, typed(query));
+    }
+
+    /** As score, for a query already run through typed(). */
+    private static int scoreTyped(String label, String q) {
+        String l = plain(label);
         if (q.isEmpty()) return 0;
         List<Integer> starts = new ArrayList<>();
         for (int i = 0; i < l.length(); i++) if (wordStart(l, i)) starts.add(i);
@@ -57,15 +65,24 @@ public final class Search {
             if (j == starts.size()) return 0;
             starts.remove(j); // each word of the name begins one typed word only
         }
-        return startsWith(label, query) ? 2 : 1;
+        return beginsWith(l, q) ? 2 : 1;
+    }
+
+    /** A contact stays when its name or any other entry (email, company, nickname) has a word beginning with the text. */
+    public static boolean contactMatches(String name, List<String> others, String query) {
+        String q = typed(query);
+        if (scoreTyped(name, q) > 0) return true;
+        for (String o : others) if (o != null && scoreTyped(o, q) > 0) return true;
+        return false;
     }
 
     /** The items whose name matches, best score first; ties go to the one opened most. Each scored once. */
     public static <T> List<T> rank(List<T> items, Function<T, String> name, ToIntFunction<T> uses, String query) {
         Map<T, Integer> scores = new HashMap<>();
         List<T> found = new ArrayList<>();
+        String q = typed(query); // once, not per name
         for (T it : items) {
-            int s = score(name.apply(it), query);
+            int s = scoreTyped(name.apply(it), q);
             if (s > 0) { found.add(it); scores.put(it, s); }
         }
         found.sort(best(scores, uses));
@@ -75,7 +92,8 @@ public final class Search {
     /** Items found some other way too (another language, their app's name): best name match first, each scored once. */
     public static <T> void sortByScore(List<T> items, Function<T, String> name, String query) {
         Map<T, Integer> scores = new HashMap<>();
-        for (T it : items) scores.put(it, score(name.apply(it), query));
+        String q = typed(query);
+        for (T it : items) scores.put(it, scoreTyped(name.apply(it), q));
         items.sort(best(scores, it -> 0));
     }
 
@@ -101,16 +119,20 @@ public final class Search {
         if (saved.contains(typed)) return true;
         if (!q.startsWith("+") && !q.startsWith("00")) return false;
         // typed with a prefix the saved number may lack: the country code is 1 to 3 digits, the rest must still be 3+
+        // and begin the saved number (its leading zeros dropped), not sit anywhere in it
+        String local = saved.replaceFirst("^0+", "");
         int from = q.startsWith("+") ? 0 : 2;
         for (int cc = 1; cc <= 3; cc++) {
             String rest = typed.substring(Math.min(typed.length(), from + cc));
-            if (rest.length() >= 3 && saved.contains(rest)) return true;
+            if (rest.length() >= 3 && local.startsWith(rest)) return true;
         }
         return false;
     }
 
-    private static String digits(String s) {
-        return s.replaceAll("[^0-9]", "");
+    private static final java.util.regex.Pattern NON_DIGITS = java.util.regex.Pattern.compile("[^0-9]");
+
+    public static String digits(String s) {
+        return NON_DIGITS.matcher(s).replaceAll("");
     }
 
     /** Section letter for the A–Z list. */

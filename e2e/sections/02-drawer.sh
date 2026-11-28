@@ -92,15 +92,16 @@ wait_until 5 has "Mostra tutti (8)" && ok "search reopened: five again, with Sho
 
 step "Search: contacts follow the same rule"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"'
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "pro"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "pro"
 wait_until 5 has "Zz Prova A" && ok "pro finds Zz Prova (a word start)" || ko "pro misses Zz Prova"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'pro"' # keyboard, then search
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "rova"
-wait_until 5 has 'rova"' || ko "rova not typed"
-wait_until 3 has "Zz Prova A" && ko "rova finds Zz Prova (mid-word)" || ok "rova leaves out Zz Prova (mid-word)"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "pro pro"
+wait_until 5 has 'pro pro"' || ko "pro pro not typed"
+# the provider matches each typed word to a name token, the same token twice too; the rule wants two different words
+wait_until 3 has "Zz Prova A" && ko "pro pro finds Zz Prova (one word for two)" || ok "pro pro leaves out Zz Prova (one word cannot serve two)"
 
 step "Search: a contact is found by its phone number, digits only"
-A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'rova"'
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'pro pro"'
 A shell "content insert --uri $CONTACTS/raw_contacts --bind account_type:s:org.ganimede.e2e --bind account_name:s:e2e"
 id=$(A shell content query --uri $CONTACTS/raw_contacts --projection _id --sort "'_id DESC'" | head -1 | grep -o '_id=[0-9]*' | cut -d= -f2)
 A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/name --bind data1:s:'Zz Prova Num'"
