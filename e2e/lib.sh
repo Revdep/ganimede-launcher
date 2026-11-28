@@ -322,7 +322,6 @@ seed() {
 XML
   shift; edit_prefs "$f" "$@"
   put_prefs "$f"
-  A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1
   start_home
 }
 # Crop of the wallpaper (an empty spot of the classic home) as a hash: anything drawn over the home changes it.
