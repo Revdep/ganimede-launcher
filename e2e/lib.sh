@@ -50,6 +50,9 @@ a11y() { # a11y list|click|label [regex] [desc]: asks the service to act on the 
     A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "'${3:-Orologio}'" --es mode "$1" --es label "'${2:-.}'" >/dev/null # desc and label quoted again for the device shell: a space splits, a | is a pipe
     wait_until 5 a11y_done && return 0
   done
+  # never answered: run 46109393420 (folders-b) showed only that no fixture process ever started; this line says why
+  ko "the fixture's ScreenReader never answered ($1 ${3:-Orologio}); the system's accessibility state: $(A shell dumpsys accessibility \
+    | grep -E 'installedServiceCount|Bound services|Enabled services|Binding services|Crashed services|UiAutomation' | cut -c1-200 | tr -s ' \r\n' ' ')"
   return 1
 }
 a11y_performed() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed=true'; }
