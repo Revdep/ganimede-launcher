@@ -126,8 +126,8 @@ public final class Backup {
         return free;
     }
 
-    /** Written to a backup file: only what a restore would read back, so this phone's bookkeeping stays home. */
-    public static boolean travels(String k) { return restorable(k); }
+    /** Written to a backup file: what a restore reads back, minus the old icon keys (read from an old file only). */
+    public static boolean travels(String k) { return restorable(k) && !List.of(IconLook.LEGACY).contains(k); }
 
     private Backup() {}
 }
