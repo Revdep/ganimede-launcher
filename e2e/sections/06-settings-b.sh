@@ -48,9 +48,12 @@ for mode in classic list; do
       v=$(pref list_clock_y); sy=$(screen | grep -o 'text="x [^"]* y [-+]*[0-9]* dp"' | head -1 | sed 's/.* y \([-+]*[0-9]*\) dp"$/\1/'); sy=${sy#+}
       [ -n "$v" ] && [ "$v" = "$sy" ] && [ "$v" -lt 0 ] && [ $((v % 4)) -eq 0 ]
     }
-    # On a FAIL: the files now (a .bak = a write still in flight), then whether the value reaches the file late (slow disk) or never (not saved).
+    # On a FAIL: the files now (a .bak = a write still in flight), whether the file can be read whole (if not: run-as/adb or a write
+    # in flight, not a lost value), then whether the value reaches the file late (slow disk) or never (not saved).
     wait_until 5 clocked && ok "clock dragged in the preview: list_clock_y = $v dp, as “Posizione” shows" \
-      || { files=$(A exec-out run-as $PK ls shared_prefs | tr '\n' ' '); late_t=$SECONDS; late() { lv=$(pref list_clock_y); [ -n "$lv" ]; }
+    || { files=$(A exec-out run-as $PK ls shared_prefs | tr '\n' ' ')
+        prefs_read && files="$files; read whole: list_clock_y=$(_val list_clock_y <<<"$PREFS_XML")" || files="$files; not read whole (${#PREFS_XML} bytes)"
+        late_t=$SECONDS; late() { lv=$(pref list_clock_y); [ -n "$lv" ]; }
         wait_until 20 late && lt="the file got $lv $((SECONDS - late_t)) s later" || lt="still not in the file 20 s later"
         ko "drag in the preview: list_clock_y = ${v:-unset}, “Posizione” shows y ${sy:-nothing}; files: $files; $lt"; }
     dragged=${v:-0}
