@@ -26,6 +26,7 @@ import android.widget.ImageView;
 import org.ganimede.launcher.core.GlyphFit;
 import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.IconMask;
+import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.IconSource;
 import org.ganimede.launcher.core.LimitedInputStream;
@@ -631,6 +632,20 @@ final class Icons {
             if (i == 0) p.moveTo(x, y); else p.lineTo(x, y);
         }
         p.close();
+    }
+
+    /** The soft plate of a folder's or shortcut's icon, as the home draws it. */
+    static android.graphics.drawable.GradientDrawable softTile(int size) {
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(size / 3f);
+        bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
+        return bg;
+    }
+
+    /** {@link #softTile} with a mark ("folder" or "link") in the middle. */
+    static Drawable markedTile(String mark, int size, int fg) {
+        return new android.graphics.drawable.LayerDrawable(new Drawable[]{softTile(size),
+                new android.graphics.drawable.InsetDrawable(new Glyph(mark, fg), size / 4)});
     }
 
     static Drawable copy(Drawable d) {

@@ -7,8 +7,6 @@ import org.ganimede.launcher.core.IconLook;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.InsetDrawable;
-import android.graphics.drawable.LayerDrawable;
 import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -103,18 +101,14 @@ final class Entries {
         g.setGravity(Gravity.CENTER);
         int pad = size / 12, mini = (size - pad * 3) / 2;
         g.setPadding(pad, pad, pad, pad);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(size / 3f);
-        bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
-        g.setBackground(bg);
+        g.setBackground(Icons.softTile(size));
         List<Item> inside = new ArrayList<>();
         for (String k : id == null ? List.<String>of() : layout.folderApps(id)) {
             Item a = apps.find(k);
             if (a != null) inside.add(a);
             if (inside.size() == 4) break;
         }
-        if (inside.isEmpty()) g.setBackground(new LayerDrawable(new Drawable[]{bg,
-                new InsetDrawable(new Glyph(id == null ? "link" : "folder", ui.fg), size / 4)}));
+        if (inside.isEmpty()) g.setBackground(Icons.markedTile(id == null ? "link" : "folder", size, ui.fg));
         for (int r = 0; r < 2 && r * 2 < inside.size(); r++) {
             LinearLayout line = new LinearLayout(ui.a);
             for (int k = r * 2; k < Math.min(inside.size(), r * 2 + 2); k++) {
