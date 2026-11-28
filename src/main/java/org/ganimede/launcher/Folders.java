@@ -12,6 +12,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -97,10 +98,11 @@ final class Folders {
         if (popupDrag.busy() || looks(popupId).equals(popupLook)) return;
         String focused = popupDrag.focused();
         int scrolled = popupScroll.getScrollY();
-        popup.dismiss();
-        show(popupId);
-        ScrollView again = popupScroll;
-        again.post(() -> again.scrollTo(0, scrolled));
+        ScrollView sv = popupScroll; // the same window: only what it holds is made again
+        sv.removeAllViews();
+        sv.addView(card(popupId, new Dialog[]{popup}, new boolean[1]), new ScrollView.LayoutParams(-1, -2));
+        popupLook = looks(popupId);
+        sv.post(() -> sv.scrollTo(0, scrolled));
         if (focused != null) popupDrag.focus(focused);
     }
 
@@ -277,9 +279,44 @@ final class Folders {
     /** A pop-up: the folder's widgets on top, then its apps. */
     void show(String id) {
         if (popup != null && popup.isShowing()) popup.dismiss(); // "New folder" from inside one must not open a second over it
-        JSONObject f = layout.folder(id);
+        Dialog[] dlg = new Dialog[1];
+        boolean[] hasWidgets = new boolean[1];
+        ScrollView sv = new ScrollView(ui.a);
+        sv.addView(card(id, dlg, hasWidgets), new ScrollView.LayoutParams(-1, -2));
+        FolderLook look = look(layout.folder(id));
+        if (look.columns() > 1) { // a grid needs a definite width; one column keeps Motion.pop's own margins
+            int screenMax = Math.min(ui.a.getResources().getDisplayMetrics().widthPixels - ui.dp(48), ui.dp(420));
+            float fontScale = Math.max(1, ui.a.getResources().getConfiguration().fontScale); // bigger text needs wider cells
+            int width = FolderLook.popupWidth(look.columns(), Math.round(ui.dp(CELL_DP) * fontScale), ui.dp(PAD_DP),
+                    hasWidgets[0] ? ui.dp(MIN_WIDGET_DP) : 0, screenMax); // a widget needs room to read
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(width, -2, Gravity.CENTER);
+            int m = ui.dp(24); // Motion.pop's margin, so a tall card stays clear of the bars
+            lp.setMargins(m, m, m, m);
+            sv.setLayoutParams(lp);
+        }
+        Motion shown = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
+        dlg[0] = popup = shown;
+        shown.setOnDismissListener(x -> { // an older pop-up ending after its rebuild must not clear the new one
+            if (sv.getChildAt(0) instanceof ViewGroup) ((ViewGroup) sv.getChildAt(0)).removeAllViews(); // Widgets keeps its host views: a closed card must not hold them
+            if (popup == shown) { popup = null; popupId = null; popupLook = null; popupDrag = null; }
+        });
+        dlg[0].show();
+        popupId = id;
+        popupLook = looks(id);
+        popupScroll = sv;
+        dlg[0].getWindow().getDecorView().getViewTreeObserver()
+                .addOnWindowFocusChangeListener(has -> { if (has) reshowIfChanged(); });
+    }
+
+    private FolderLook look(JSONObject f) {
         int[] d = FolderControls.defaults(ui.prefs, ui.light());
-        FolderLook look = FolderLook.resolve(number(f, BG), number(f, ALPHA), number(f, COLUMNS), d[0], d[1], d[2], ui.light());
+        return FolderLook.resolve(number(f, BG), number(f, ALPHA), number(f, COLUMNS), d[0], d[1], d[2], ui.light());
+    }
+
+    /** What a pop-up holds: the title, the widgets, the apps and "Edit pop-up". Sets popupDrag; hasWidgets[0] says if a widget is in. */
+    private View card(String id, Dialog[] dlg, boolean[] hasWidgets) {
+        JSONObject f = layout.folder(id);
+        FolderLook look = look(f);
         LinearLayout box = new LinearLayout(ui.a);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPaddingRelative(ui.dp(PAD_DP), ui.dp(12), ui.dp(PAD_DP), ui.dp(6));
@@ -296,18 +333,16 @@ final class Folders {
         title.setPaddingRelative(0, 0, 0, ui.dp(6));
         box.addView(title);
         int content = 0;
-        boolean hasWidgets = false;
         for (String w : Layout.strings(f.optJSONArray("widgets"))) {
             View v = widgets.view(w);
             if (v != null) {
                 box.addView(v);
-                hasWidgets = true;
+                hasWidgets[0] = true;
                 content++;
             }
         }
-        Dialog[] dlg = new Dialog[1];
         List<View> appViews = new ArrayList<>();
-        FolderDrag drag = new FolderDrag(ui, entry -> entryMenu.accept(entry, id), sheets::dismissLast,
+        FolderDrag drag = popupDrag = new FolderDrag(ui, entry -> entryMenu.accept(entry, id), sheets::dismissLast,
                 this::reshowIfChanged, shown -> {
             layout.editFolderApps(id, a -> { List<String> sorted = FolderOrder.reorderShown(a, shown); a.clear(); a.addAll(sorted); });
             refresh.run();
@@ -347,31 +382,7 @@ final class Folders {
         edit.setOnClickListener(v -> { dlg[0].dismiss(); menu(id); });
         box.addView(edit);
         ui.fg = homeText;
-        ScrollView sv = new ScrollView(ui.a);
-        sv.addView(box, new ScrollView.LayoutParams(-1, -2));
-        if (look.columns() > 1) { // a grid needs a definite width; one column keeps Motion.pop's own margins
-            int screenMax = Math.min(ui.a.getResources().getDisplayMetrics().widthPixels - ui.dp(48), ui.dp(420));
-            float fontScale = Math.max(1, ui.a.getResources().getConfiguration().fontScale); // bigger text needs wider cells
-            int width = FolderLook.popupWidth(look.columns(), Math.round(ui.dp(CELL_DP) * fontScale), ui.dp(PAD_DP),
-                    hasWidgets ? ui.dp(MIN_WIDGET_DP) : 0, screenMax); // a widget needs room to read
-            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(width, -2, Gravity.CENTER);
-            int m = ui.dp(24); // Motion.pop's margin, so a tall card stays clear of the bars
-            lp.setMargins(m, m, m, m);
-            sv.setLayoutParams(lp);
-        }
-        Motion shown = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
-        dlg[0] = popup = shown;
-        shown.setOnDismissListener(x -> { // an older pop-up ending after its rebuild must not clear the new one
-            box.removeAllViews(); // Widgets keeps its host views: a closed card must not hold them
-            if (popup == shown) { popup = null; popupId = null; popupLook = null; popupDrag = null; }
-        });
-        dlg[0].show();
-        popupId = id;
-        popupLook = looks(id);
-        popupDrag = drag;
-        popupScroll = sv;
-        dlg[0].getWindow().getDecorView().getViewTreeObserver()
-                .addOnWindowFocusChangeListener(has -> { if (has) reshowIfChanged(); });
+        return box;
     }
 
     private View folderEntry(String id, String key, boolean cell, Dialog[] dlg, FolderDrag drag) {
