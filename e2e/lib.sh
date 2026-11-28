@@ -183,7 +183,8 @@ put_prefs() {
 edit_prefs() {
   local f="$1"; shift
   while [ $# -ge 2 ]; do
-    sed -i "\\@ name=\"$2\"@d" "$f" # @: keys hold "/" (use:package/class)
+    # @: keys hold "/" (use:package/class). A set is deleted whole: its items sit on lines of their own up to </set>
+    sed -i -e "\\@^ *<set name=\"$2\">\$@,\\@</set>@d" -e "\\@ name=\"$2\"@d" "$f"
     case $1 in
       int|boolean) sed -i "s@</map>@    <$1 name=\"$2\" value=\"$3\" />\n</map>@" "$f" ;;
       string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
