@@ -42,7 +42,7 @@ strings() { # strings key value ...: several text settings in one write (value "
     [ "$2" = - ] || sed -i "s@</map>@    <string name=\"$1\">$2</string>\n</map>@" "$f"
     shift 2
   done
-  A exec-in "run-as $PK sh -c 'cat > shared_prefs/ganimede.xml'" < "$f"
+  put_prefs "$f"
   start_home
 }
 look() { strings icon_glyph "$1" icon_container "$2" icon_fill "$3" icon_color "$4"; } # look glyph container fill colour

@@ -138,12 +138,16 @@ cx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo $((($
 lx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo "$1" $((($2 + $4) / 2)); } # left edge, middle height
 see() { local n=0; while [ $n -lt 30 ]; do has "$1" && { ok "sees “$1”"; return 0; }; _scroll; n=$((n + 1)); done; ko "doesn't see “$1”"; return 1; }
 near() { local d=$(($1 - $2)); [ ${d#-} -le "$3" ]; } # near a b tolerance
-# put_prefs file: the app's prefs become this file. The app can start again right after a force-stop (it holds HOME, a
-# listener rebinds), so a file written in place can be read half-written: an empty read opens the wizard, which saves
-# over it (run 46083578007, settings).
-# Written beside, then renamed (atomic). A force-stop during the app's own save leaves ganimede.xml.bak, which Android
-# restores over any new file: a wizard's half-saved prefs came back over seed's (run 46081658363, menu). It goes.
-put_prefs() { A exec-in "run-as $PK sh -c 'mkdir -p shared_prefs; cat > shared_prefs/e2e.tmp && rm -f shared_prefs/ganimede.xml.bak && mv shared_prefs/e2e.tmp shared_prefs/ganimede.xml'" < "$1"; }
+# put_prefs file: the app's prefs become this file. Through `adb shell`, which waits for the device command and returns
+# its status: `adb exec-in` returns once stdin is sent, neither waiting for the device command nor reporting it, so the
+# rename after the copy ran late or never (run 46088594668: the first seed left no file and the wizard opened; later
+# writes left the old prefs).
+# Written beside, then renamed: a home started mid-write never reads a half file. A force-stop during the app's own save
+# leaves ganimede.xml.bak, which Android restores over any new file (run 46081658363, menu): it goes.
+put_prefs() {
+  A shell "run-as $PK sh -c 'mkdir -p shared_prefs && cat > shared_prefs/e2e.tmp && rm -f shared_prefs/ganimede.xml.bak && mv shared_prefs/e2e.tmp shared_prefs/ganimede.xml'" < "$1" \
+    || { ko "put_prefs: the prefs were not written"; return 1; }
+}
 # Change one setting the way the app stores it, then restart the home screen.
 setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item value)
   local f="$OUT/prefs.xml"
@@ -155,14 +159,8 @@ setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item
     string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
     set) sed -i "s@</map>@    <set name=\"$2\"><string>$3</string></set>\n</map>@" "$f" ;;
   esac
-  local _; for _ in 1 2 3; do # the relaunched home can write its prefs over ours (see seed): check, retry
-    put_prefs "$f"; start_home
-    [ "$1" = del ] && return 0
-    local want=" name=\"$2\""; case $1 in int|boolean) want=" name=\"$2\" value=\"$3\"" ;; esac
-    A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -qF "$want" && return 0
-    A shell am force-stop $PK
-  done
-  ko "setp $2: the value did not stick (the home rewrote the prefs)"; return 1
+  put_prefs "$f"
+  start_home
 }
 # the home screen has the focus and no window transition is playing (the focus moves when one starts: touches sent before it ends are lost)
 focus() { local w; w=$(A shell dumpsys window | grep -E "mCurrentFocus|reason=Transition"); [[ $w == *mCurrentFocus*MainActivity* && $w != *reason=Transition* ]]; }
@@ -227,13 +225,9 @@ seed() {
     <string name="icon_container">squircle</string>
 </map>
 XML
+  put_prefs "$f"
   A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1
-  # As the HOME app, Ganimede is relaunched right after a force-stop and may write its own prefs over ours: check, retry.
-  local _; for _ in 1 2 3; do
-    A shell am force-stop $PK; put_prefs "$f"; start_home
-    A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="onboarded" value="true"' && return 0
-  done
-  ko "seed $1: the seeded prefs did not stick (the home rewrote them)"; return 1
+  start_home
 }
 # Crop of the wallpaper (an empty spot of the classic home) as a hash: anything drawn over the home changes it.
 wall() { A exec-out screencap -p | magick png:- -crop "40x40+$((W - 120))+1000" +repage -depth 8 rgb:- 2>/dev/null | md5sum | cut -d' ' -f1; }
