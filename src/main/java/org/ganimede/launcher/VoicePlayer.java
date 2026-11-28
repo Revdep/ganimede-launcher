@@ -164,9 +164,9 @@ final class VoicePlayer {
     /**
      * Deletes the kept notes no longer in any of these notifications: removed, dismissed, gone from the chat, or turned
      * secret. Null (no notification access): deletes every one, halves being written too. After the copies already
-     * queued, so none lands once its note is gone.
+     * queued, so none lands once its note is gone. snapshot: when all was read; a copy made since is not swept.
      */
-    static void sweep(Context c, Iterable<StatusBarNotification> all) {
+    static void sweep(Context c, Iterable<StatusBarNotification> all, long snapshot) {
         KEEPER.execute(() -> {
             try {
                 File dir = keptDir(c);
@@ -175,13 +175,13 @@ final class VoicePlayer {
                 Set<String> wanted = all == null ? null : new HashSet<>();
                 if (all != null) for (StatusBarNotification s : all) for (Uri uri : notes(s)) wanted.add(Voice.keptName(s.getKey(), uri.toString()));
                 String[] names = new String[files.length];
-                long[] ages = new long[files.length];
+                long[] modified = new long[files.length];
                 long now = System.currentTimeMillis();
                 for (int i = 0; i < files.length; i++) {
                     names[i] = files[i].getName();
-                    ages[i] = now - files[i].lastModified();
+                    modified[i] = files[i].lastModified();
                 }
-                for (String name : Voice.drop(names, ages, wanted)) new File(dir, name).delete();
+                for (String name : Voice.drop(names, modified, wanted, snapshot, now)) new File(dir, name).delete();
             } catch (RuntimeException e) { // as in keep: never take the home's process down
                 Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
             }

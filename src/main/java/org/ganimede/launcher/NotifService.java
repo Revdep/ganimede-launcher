@@ -65,7 +65,7 @@ public class NotifService extends NotificationListenerService {
         worker.post(() -> lastSeen = ""); // reconnected, the same notifications must be read in again
         // Not through the worker: onDestroy quits it before Android calls this. No access, no kept voice notes; a rebind
         // with access on keeps them, a note's grant may be gone by then.
-        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null);
+        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null, 0);
         tell();
     }
 
@@ -180,13 +180,14 @@ public class NotifService extends NotificationListenerService {
 
     private void read() {
         StatusBarNotification[] all;
+        long snapshot = System.currentTimeMillis(); // before the read: a note kept after it is not in `all`
         try {
             all = getActiveNotifications();
         } catch (RuntimeException e) {
             return;
         }
         if (all == null) all = new StatusBarNotification[0];
-        sweepVoice(all);
+        sweepVoice(all, snapshot);
         Map<String, List<StatusBarNotification>> m = new HashMap<>();
         for (StatusBarNotification s : all) {
             Notification n = s.getNotification();
@@ -211,12 +212,12 @@ public class NotifService extends NotificationListenerService {
     }
 
     /** Kept voice notes stay while their notification is shown or held for the summary. */
-    private void sweepVoice(StatusBarNotification[] all) {
+    private void sweepVoice(StatusBarNotification[] all, long snapshot) {
         try {
             List<StatusBarNotification> l = new ArrayList<>(Arrays.asList(all));
             StatusBarNotification[] held = getSnoozedNotifications();
             if (held != null) l.addAll(Arrays.asList(held));
-            VoicePlayer.sweep(this, l);
+            VoicePlayer.sweep(this, l, snapshot);
         } catch (RuntimeException e) { // access revoked mid-read: the next read sweeps
             Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
         }
