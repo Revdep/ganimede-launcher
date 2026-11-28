@@ -37,17 +37,20 @@ step "Icons card: Line, Bold, Sharp on a built-in glyph; rows shown only where t
 seed classic int accent -2093040 $(model original circle solid accent)
 pg_settings; stap "Personalizza"
 pill "Temi"; tap "Temi"
-find_desc "${S}Spigoloso" >/dev/null || ko "no Sharp tile"
-for tile in Linea Marcato Spigoloso Bicolore Contorno; do hasd "$S$tile" && ok "sees the $tile tile" || ko "no $tile tile"; done
+# Seven tiles (080 added Duotone and Hollow) make a row wider than the screen: each is brought whole on the screen along
+# its row before it is seen and cropped, one screenshot each (run 46109393420: Duotone and Hollow were off to the right).
+xy=$(find_desc "${S}Originale") || ko "no Original tile"
+row=${xy#* }
 ! screen | grep -qiE 'text="[^"]*(Cutout|Ritaglio)' && ok "Icon style: no Cutout tile" || ko "a Cutout tile is still offered"
-A exec-out screencap -p > "$OUT/icons-screen.png"
 sums=""
 for tile in Originale Linea Marcato Spigoloso Bicolore Contorno; do # the icon part of each tile: 10 dp padding, then the 44 dp icon
-  if read -r x1 y1 x2 y2 <<<"$(bounds "desc:$S$tile")" && [ -n "$x1" ]; then
+  if [ -n "$row" ] && htile "$S$tile" "$row" && read -r x1 y1 x2 y2 <<<"$(bounds "desc:$S$tile")" && [ -n "$x1" ]; then
+    ok "sees the $tile tile"
+    A exec-out screencap -p > "$OUT/icons-screen.png"
     s=$(dp 44)
     magick "$OUT/icons-screen.png" -crop "${s}x${s}+$(( (x1 + x2 - s) / 2 ))+$((y1 + $(dp 10)))" +repage "$OUT/icons-tile-$tile.png"
     sums="$sums$(magick "$OUT/icons-tile-$tile.png" -format %# info:)"$'\n'
-  fi
+  else ko "no $tile tile"; fi
 done
 n=$(printf %s "$sums" | sort -u | grep -c .)
 [ "$n" = 6 ] && ok "Original, Line, Bold, Sharp, Duotone, Hollow tiles all differ" || ko "$n different tiles of 6"
@@ -69,7 +72,8 @@ reach "${C}Colore del testo" >/dev/null
 nofill && exact "Colore" && ok "No plate: no Fill row, a Colour row" || ko "No plate: Fill or Colour wrong"
 tapd "${C}Colore del testo"
 wait_until 5 stored icon_color text && ok "the Text colour tile saves icon_color = text" || ko "Text colour saved nothing"
-tapd "${S}Puntini (minimal)"
+xy=$(reach "${S}Marcato") && htile "${S}Puntini (minimal)" "${xy#* }" && read -r px py <<<"$(cx "desc:${S}Puntini (minimal)")" \
+  && A shell input tap "$px" "$py"
 wait_until 5 stored icon_glyph dot || ko "Dots saved nothing"
 reach "${S}Puntini (minimal)" >/dev/null
 valid && ! exact "Piastra" && ! exact "Riempimento" && ok "Dots: no Plate, no Fill" || ko "Dots shows Plate or Fill"
