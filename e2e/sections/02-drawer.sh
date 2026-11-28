@@ -113,6 +113,10 @@ A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind 
 open_drawer; typ "347 12"
 wait_until 5 has "Zz Prova Num" && ok "347 12 finds the contact by number, spaces ignored" || ko "number search misses the contact"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt '347 12"'
+# a contact added after a search is seen at the next one: the last queries' hits are dropped when the search closes
+open_drawer; typ "Zz Prova"
+wait_until 5 has "Mostra tutti (9)" && ok "Zz Prova Num, added after the first search, is counted: Show all (9)" || ko "a contact added since the last search is not counted"
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"'
 open_drawer; typ "+39 347 1234567"
 wait_until 5 has "Zz Prova Num" && ok "the whole number typed with +39 finds the contact saved without prefix" || ko "number with prefix misses the contact"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt '1234567"'

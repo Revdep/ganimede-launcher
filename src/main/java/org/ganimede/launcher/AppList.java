@@ -180,7 +180,7 @@ final class AppList {
         rows.clear();
         String q = search.getText().toString().trim();
         String ql = q.toLowerCase(Locale.ROOT);
-        if (q.isEmpty()) { numberIndex = null; numberEpoch++; }
+        if (q.isEmpty()) { numberIndex = null; numberEpoch++; contactHits.clear(); } // closed: contacts may change before the next search
         if (!q.equals(contactsAll)) contactsAll = ""; // another text, or search closed: the first few again
         List<Item> visible = apps.visible();
         if (!ql.isEmpty()) {
