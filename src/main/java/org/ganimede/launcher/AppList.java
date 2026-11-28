@@ -295,6 +295,7 @@ final class AppList {
         // on its email, company or nickname
         Set<Long> mailed = new HashSet<>();
         Map<Long, List<String>> others = byNumber ? Map.of() : otherEntries(found, mailed);
+        if (others == null) return null; // not read: the contacts with no number may have an email, so no answer, not a wrong one
         List<Long> ids = new ArrayList<>();
         List<Uri> looks = new ArrayList<>();
         List<String> names = new ArrayList<>();
@@ -325,7 +326,7 @@ final class AppList {
         return new ContactHits(count, people);
     }
 
-    /** The email addresses, companies and nicknames of each contact, by contact id; the ids of those with an email go into mailed. */
+    /** The email addresses, companies and nicknames of each contact, by contact id (null when the read failed); the ids of those with an email go into mailed. */
     private Map<Long, List<String>> otherEntries(List<Long> all, Set<Long> mailed) {
         Map<Long, List<String>> out = new HashMap<>();
         for (int from = 0; from < all.size(); from += 500) {
@@ -345,7 +346,7 @@ final class AppList {
                     if (Email.CONTENT_ITEM_TYPE.equals(d.getString(2))) mailed.add(d.getLong(0));
                 }
             } catch (Exception e) {
-                // the name alone decides
+                return null;
             }
         }
         return out;
