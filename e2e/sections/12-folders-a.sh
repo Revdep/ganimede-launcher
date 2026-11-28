@@ -329,7 +329,7 @@ wait_until 10 has "ConWidget"; tap "ConWidget"
 wait_until 10 has "Contacts" && ok "the pop-up opens with its apps" || ko "pop-up did not open"
 read -r ax ay <<<"$(cx Contacts)"; hold "$ax" "$ay"
 expect "Rimuovi dalla cartella" && tap "Rimuovi dalla cartella"
-wait_until 5 hasnt "Contacts" && focus && has "Clock" && ok "the pop-up came back without Contacts, widget kept" || ko "pop-up not rebuilt after removing an app (launcher died?)"
+wait_until 5 hasnt "Contacts" && A shell pidof $PK >/dev/null && has "Clock" && ok "the pop-up came back without Contacts, widget kept" || ko "pop-up not rebuilt after removing an app (launcher died?)"
 shot 126-folder-widget
 
 step "Folders: a long pop-up reorders past its first screen (the drag scrolls it near the edge)"

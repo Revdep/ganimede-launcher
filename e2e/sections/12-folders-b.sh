@@ -132,7 +132,7 @@ update_other() { A logcat -b main -c; A install -r "$FIXAPK" >/dev/null; } # a p
 # the log is cleared before the event, so any such line is the reload that event caused.
 reloaded() { A logcat -d -b main -s Ganimede:I | grep -q 'apps loaded'; }
 reload_ko() { ko "Ganimede never logged \"apps loaded\" after $1"; }
-popwin() { A shell dumpsys window windows | grep -o "Window{[0-9a-f]* u0 [^}]*$PK[^}]*}" | sort | paste -sd' ' -; } # its windows
+popwin() { A shell dumpsys window windows | grep -o "Window{[0-9a-f]* u0 \(Ordine\|[^}]*$PK[^}]*\)}" | sort | paste -sd' ' -; } # its windows
 seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' string fav 'f:ord' del grid
 tap Ordine; expect "Contacts"; wait_until 5 settled
 wins=$(popwin) # (not "before": run.sh counts checks in that name)

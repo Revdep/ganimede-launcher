@@ -82,6 +82,7 @@ tap "Elimina"
 wait_until 5 hasnt "Eliminare questa pagina?"
 wait_until 5 pages_is "$n" && ok "Delete page (confirmed): pages back to $n" || ko "Delete page: pages $(pages_n), expected $n"
 tap "Fatto"; wait_until 5 hasnt "Pagina 2"
+A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar || ko "Home did not bring page 1 back" # the + left the pager on the last page
 seen=0
 for _ in $(seq 1 "$n"); do has "$gone_app" && seen=1; swipe_h $((W - $(dp 40))) $(dp 40); done
 [ $seen = 0 ] && ok "“$gone_app” is gone from every page" || ko "“$gone_app” still on a page after deleting its page"
