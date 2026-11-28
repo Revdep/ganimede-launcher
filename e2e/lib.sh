@@ -104,9 +104,23 @@ expect() { wait_until 10 has "$1" && { ok "sees “$1”"; return 0; }; ko "does
 tap() { tapn "$1" 0; }
 stap() { tapn "$1" 3; } # in a scrolling page: scrolls down up to three times to find it
 kbd() { A shell dumpsys input_method | grep -q 'mInputShown=true'; } # the keyboard is up
-# typ text: types once the keyboard is up. Keys sent while it is still coming up arrive out of order ("cal" typed as
-# "cla", run 46083578007, drawer).
-typ() { wait_until 5 kbd; A shell input text "${1// /%s}"; } # %s is the space of "input text": a bare space cuts the text there
+# typ text: types once the keyboard is up, then checks the focused field holds what it held plus the text. Keys sent while the
+# keyboard is still coming up arrive out of order ("cal" typed as "cla", run 46083578007, drawer), and Gboard reorders keys
+# with the keyboard up too ("pro pro" came out "por pro", run 46107202244, shard 9). A wrong field is emptied (what it held
+# before is lost then) and typed again, 3 tries, then a ko with the text found. The text is the precondition of the check
+# that follows, not a gesture to retry.
+field() { screen | grep -o '<node [^>]*class="android.widget.EditText"[^>]*focused="true"[^>]*>' | head -1 | sed -n 's/.* text="\([^"]*\)".*/\1/p'; }
+typ() { # %s is the space of "input text": a bare space cuts the text there
+  local want="$1" before got n=0
+  wait_until 5 kbd; before=$(field)
+  while :; do
+    A shell input text "${want// /%s}"
+    got=$(field)
+    [ "$got" = "$before$want" ] || [ "$got" = "$want" ] && return 0
+    n=$((n + 1)); [ $n -lt 3 ] || { ko "typ: the field holds “$got”, not “$want” after 3 tries"; return 1; }
+    A shell input keyevent KEYCODE_MOVE_END $(printf 'KEYCODE_DEL %.0s' $(seq $((${#got} + 1)))); before=
+  done
+}
 _tb() { TB=$(screen | grep -o "text=\"$1\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]'); [ -n "$TB" ]; }
 _scroll() {
   local from=2120 to=1520 ime top # 600 px a step: a third of the screen, so nothing is skipped
