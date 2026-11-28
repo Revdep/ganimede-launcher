@@ -415,7 +415,16 @@ final class Icons {
             else if (user == null || user.equals(Process.myUserHandle())) v.setImageDrawable(copy(icon));
             else renderInto(v, () -> copy(icon), 0xFF, user, idOf(icon) + "|" + user + "|own|" + px, () -> { // the badge once, in the cache, not at every bind
                 Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
-                draw(new Canvas(b), icon, px, false);
+                Drawable d = copy(icon);
+                int w = d.getIntrinsicWidth(), h = d.getIntrinsicHeight();
+                Canvas canvas = new Canvas(b);
+                if (w > 0 && h > 0) { // as the ImageView draws the own app's: the icon at its size, scaled whole (a frame's stroke too), not its bounds stretched
+                    float s = Math.min((float) px / w, (float) px / h);
+                    canvas.translate((px - w * s) / 2, (px - h * s) / 2);
+                    canvas.scale(s, s);
+                    d.setBounds(0, 0, w, h);
+                } else d.setBounds(0, 0, px, px);
+                d.draw(canvas);
                 return b;
             });
             return;
