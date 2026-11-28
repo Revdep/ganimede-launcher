@@ -95,7 +95,7 @@ final class VoicePlayer {
         audio = ui.a.getSystemService(AudioManager.class);
         // Speech is paused rather than played under another sound.
         focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT).setAudioAttributes(SPEECH)
-                .setWillPauseWhenDucked(true).setOnAudioFocusChangeListener(c -> { if (c < 0) pause(); }, main).build();
+                .setWillPauseWhenDucked(true).setOnAudioFocusChangeListener(c -> { if (c < 0) stop("focus lost " + c); }, main).build();
     }
 
     /** A player row for each voice note of the notification this app may read (kept, or shared now), in the chat's order; none if it is secret. */
@@ -268,7 +268,7 @@ final class VoicePlayer {
             if (player.isPlaying()) pause(); else play();
             return;
         }
-        stop();
+        stop("another note");
         current = uri;
         if (kept.isFile()) {
             load(kept);
@@ -329,7 +329,7 @@ final class VoicePlayer {
         player = new MediaPlayer();
         player.setAudioAttributes(SPEECH);
         player.setOnPreparedListener(p -> { ready = true; play(); });
-        player.setOnCompletionListener(p -> stop());
+        player.setOnCompletionListener(p -> stop("ended"));
         player.setOnErrorListener((p, what, extra) -> { failed(); return true; });
         try (FileInputStream in = new FileInputStream(f)) {
             player.setDataSource(in.getFD());
@@ -348,18 +348,22 @@ final class VoicePlayer {
     }
 
     private void pause() {
-        stop(); // a paused private copy must not remain on disk
+        stop("paused"); // a paused private copy must not remain on disk
     }
 
     private void failed() {
-        stop();
+        stop("failed");
         ui.toast(ui.tr("Can't play this voice message"));
     }
 
     /** Stops whatever plays and deletes every copy (also any left by a crash). */
     void stop() {
+        stop("closed");
+    }
+
+    private void stop(String why) {
         run++;
-        Log.i("Ganimede", "voice stops"); // the e2e suite reads it (13-popup)
+        Log.i("Ganimede", "voice stops: " + why); // the e2e suite reads "voice stops" (13-popup); why tells a failed step what ended the note
         main.removeCallbacks(tick);
         if (player != null) player.release();
         player = null;

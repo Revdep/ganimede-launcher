@@ -179,7 +179,7 @@ wait_until 10 plays 480044 || ko "note A did not play (copied from the chat app)
 wait_until 15 kept_is 2 || ko "the chat's notes were not kept while A plays: $(kept)"
 voice --es shape s   # the re-post rebuilds the rows, now with kept copies
 wait_until 10 plays 480044 \
-  && ok "A is still playing after the re-post" || ko "the note stopped with the re-post: $(copies)"
+  && ok "A is still playing after the re-post" || ko "the note stopped with the re-post: $(A logcat -d -s Ganimede:I | grep -o 'voice .*' | tail -3 | paste -sd'|')"
 A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
 
