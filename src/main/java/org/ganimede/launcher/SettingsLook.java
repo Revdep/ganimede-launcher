@@ -241,7 +241,7 @@ final class SettingsLook {
     /** "Category icons" (issue 087): only the built-in set has glyphs to use. */
     void categoryIcons(LinearLayout c) {
         if (IconSet.PACK.equals(kit.prefs().getString("icon_pack", "")))
-            kit.toggle(c, kit.ui.tr("Category icons"), kit.ui.tr("A glyph for apps that have no icon in the set"), Icons.CATEGORY_KEY, true, kit::render);
+            kit.toggle(c, kit.ui.tr("Category icons"), kit.ui.tr("A glyph for apps that have no icon in the set"), IconPacks.CATEGORY_KEY, true, kit::render);
     }
 
     void iconPacks(LinearLayout c) {
@@ -250,7 +250,7 @@ final class SettingsLook {
         names.add(kit.ui.tr("None (apps' own icons)"));
         ids.add(IconSet.PACK);
         names.add(kit.ui.tr("Arcticons (built-in)"));
-        for (Map.Entry<String, String> e : Icons.packs(kit.activity()).entrySet()) { ids.add(e.getKey()); names.add(e.getValue()); }
+        for (Map.Entry<String, String> e : IconPacks.packs(kit.activity()).entrySet()) { ids.add(e.getKey()); names.add(e.getValue()); }
         kit.radios(c, names.toArray(new String[0]), Math.max(0, ids.indexOf(kit.prefs().getString("icon_pack", ""))), null, null,
                 i -> kit.put("icon_pack", ids.get(i)));
     }

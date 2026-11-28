@@ -88,7 +88,7 @@ final class Entries {
             Item it = apps.find(entry);
             return it == null ? null : ui.icon(it, size, look); // Apps.load already applied a picked icon
         }
-        Drawable picked = Icons.picked(ui.a, ui.prefs, entry);
+        Drawable picked = IconPacks.picked(ui.a, ui.prefs, entry);
         if (picked != null) return ui.icon(picked, true, size, look);
         if (folder) return folderTile(ui.a, layout, apps::find, entry.substring(2), size, look, ui.fg, ui.accent);
         String[] p = entry.substring(2).split("\\|", 3);

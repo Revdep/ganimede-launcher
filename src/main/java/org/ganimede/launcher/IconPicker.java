@@ -59,7 +59,7 @@ final class IconPicker {
     void choose(String entry) {
         Map<String, String> packs = new LinkedHashMap<>(); // the built-in set first: it is always there (issue 081)
         packs.put(IconSet.PACK, ui.tr("Arcticons (built-in)"));
-        packs.putAll(Icons.packs(ui.a));
+        packs.putAll(IconPacks.packs(ui.a));
         List<Sheets.Row> rows = new ArrayList<>();
         boolean picked = ui.prefs.contains(IconSet.pickedKey(entry));
         rows.add(item(picked ? "reset" : "check", ui.tr("Original icon"), () -> apply(entry, null)));
@@ -108,7 +108,7 @@ final class IconPicker {
                 String k = shown.get(i);
                 Drawable d = loaded.get(k);
                 if (d == null) {
-                    d = Icons.named(ui.a, k);
+                    d = IconPacks.named(ui.a, k);
                     if (d != null) loaded.put(k, d = Icons.plain(d, Colors.lineIcon(ui.accent, Colors.WHITE))); // built-in ones on the dark dialog
                 }
                 iv.setImageDrawable(d);
@@ -147,13 +147,13 @@ final class IconPicker {
             apply(entry, shown.get(i));
             dlg.dismiss();
         });
-        Icons.pickerOpen(true);
+        IconPacks.pickerOpen(true);
         open = dlg;
-        dlg.setOnDismissListener(d -> { Icons.pickerOpen(false); searcher.shutdown(); });
+        dlg.setOnDismissListener(d -> { IconPacks.pickerOpen(false); searcher.shutdown(); });
         dlg.show();
         new Thread(() -> {
             List<String> got = new ArrayList<>();
-            for (String pack : packs) for (String n : Icons.packIcons(ui.a, pack)) got.add(pack + "|" + n);
+            for (String pack : packs) for (String n : IconPacks.packIcons(ui.a, pack)) got.add(pack + "|" + n);
             handler.post(() -> { all.addAll(got); filter.run(); });
         }).start();
     }

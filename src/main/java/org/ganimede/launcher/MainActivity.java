@@ -86,9 +86,9 @@ public class MainActivity extends Activity implements Actions.Home {
         else if ("fab_icon".equals(key)) handler.post(() -> fab.style(!listMode)); // a late import, restore or fallback
     };
     private final LauncherApps.Callback appsChanged = new LauncherApps.Callback() {
-        @Override public void onPackageRemoved(String p, UserHandle u) { Icons.forget(p); forgetApp(p, u); loadAppsSoon(); }
-        @Override public void onPackageAdded(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
-        @Override public void onPackageChanged(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
+        @Override public void onPackageRemoved(String p, UserHandle u) { IconPacks.forget(p); forgetApp(p, u); loadAppsSoon(); }
+        @Override public void onPackageAdded(String p, UserHandle u) { IconPacks.forget(p); loadAppsSoon(); }
+        @Override public void onPackageChanged(String p, UserHandle u) { IconPacks.forget(p); loadAppsSoon(); }
         @Override public void onPackagesAvailable(String[] p, UserHandle u, boolean r) { loadAppsSoon(); }
         @Override public void onPackagesUnavailable(String[] p, UserHandle u, boolean r) { loadAppsSoon(); }
         @Override public void onPackagesSuspended(String[] p, UserHandle u) { loadAppsSoon(); }
@@ -535,7 +535,7 @@ public class MainActivity extends Activity implements Actions.Home {
         f.addAction(Intent.ACTION_BATTERY_CHANGED);
         registerReceiver(tick, f);
         media.resume();
-        String pack = Icons.loadKey(prefs); // the pack and "Category icons": either one changes what Apps.load makes
+        String pack = IconPacks.loadKey(prefs); // the pack and "Category icons": either one changes what Apps.load makes
         if (!pack.equals(prefs.getString("icon_pack_loaded", ""))) {
             prefs.edit().putString("icon_pack_loaded", pack).apply();
             loadApps();
