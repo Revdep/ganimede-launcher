@@ -235,7 +235,13 @@ drawn() { dump | grep -q "package=\"$PK\""; } # touches sent before the first fr
 # start_home: the home restarted and ready for touches. Its first frame has no apps yet (onResume builds the screen before
 # the apps load); once they load, every view is built again and a touch held on the old one is lost (run 46081674535,
 # widgets: the long-press on the clock opened no menu). So it also waits for the screen to stop changing.
+# A framework restart (run 46105280536, shard 2, folders: system_server pid 562 -> 11563, a black screen, "cmd: Can't find
+# service: activity/role") is no role problem: it says so, keeps what killed it, and waits for Android to come back.
+system_up() { A shell service check activity | grep -q ': found' && A shell service check role | grep -q ': found'; }
 start_home() {
+  system_up || { { A logcat -d -b crash; A logcat -d -b system | grep -iE "watchdog|fatal|system_server" | tail -40; } > "$OUT/system-restart.txt" 2>&1
+    ko "Android's system server is down (restarting): not a role problem, what killed it is in system-restart.txt"
+    wait_until 180 system_up || return 1; }
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" \
     || A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1 # another launcher holding HOME would start a second task
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" || { ko "Ganimede doesn't hold the HOME role"; return 1; }
@@ -318,7 +324,6 @@ seed() {
 XML
   shift; edit_prefs "$f" "$@"
   put_prefs "$f"
-  A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1
   start_home
 }
 # Crop of the wallpaper (an empty spot of the classic home) as a hash: anything drawn over the home changes it.
