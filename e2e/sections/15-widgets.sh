@@ -13,7 +13,7 @@ for app in Calendar Clock Contacts; do
   read -r ax ay <<<"$(cx "$app")"; [ -n "$ax" ] || continue
   A shell input draganddrop "$ax" "$ay" $((W * (2 * i + 1) / 6)) $((H - $(dp 90))) 1500
   i=$((i + 1)); n=$i
-  wait_until 5 test "$(docked_n)" = "$n"
+  wait_until 5 eval '[ "$(docked_n)" = "$n" ]'
 done
 [ "$(docked_n)" = 3 ] && ok "3 apps in the 3 dock slots" || ko "dock has $(docked_n) apps, expected 3"
 shot 150-dock-full
@@ -40,7 +40,7 @@ if [ -n "$x1" ]; then
   seed classic # a fresh clock: the menu on a block just resized is not reliable to hit on a 1-row clock
   longpress $(((x1 + x2) / 2)) $(((y1 + y2) / 2))
   tap "Rimuovi"
-  wait_until 5 test -z "$(pref blocks | grep -o 'id&quot;:&quot;clock')"
+  wait_until 5 pref_lacks blocks 'id&quot;:&quot;clock'
   pref_lacks blocks 'id&quot;:&quot;clock' && ok "Rimuovi: the clock block is gone" || ko "clock still in blocks (or prefs unreadable)"
   longpress $((W / 2)) 1900
   expect "Aggiungi orologio" && A shell input keyevent KEYCODE_BACK
@@ -55,13 +55,13 @@ before=$(hostviews)
 longpress $((W / 2)) 1900
 tap "Aggiungi widget"   # the in-app picker lists "App · widget"
 expect "Clock · Stopwatch" && tap "Clock · Stopwatch"
-wait_until 10 test "$(hostviews)" -gt "$before"
+wait_until 10 eval '[ "$(hostviews)" -gt "$before" ]'
 [ "$(hostviews)" -gt "$before" ] && ok "Stopwatch widget block appears on the home" || ko "no widget on the home after picking it"
 pref blocks | grep -q 'id&quot;:&quot;[0-9]' && ok "blocks pref holds the widget" || ko "no widget id in blocks: $(pref blocks)"
 shot 152-widget-added
 read -r wx1 wy1 wx2 wy2 <<<"$(bounds "desc:Stopwatch")"
 longpress $(((wx1 + wx2) / 2)) $(((wy1 + wy2) / 2))
 tap "Rimuovi"
-wait_until 5 test "$(hostviews)" -le "$before"
+wait_until 5 eval '[ "$(hostviews)" -le "$before" ]'
 [ "$(hostviews)" -le "$before" ] && ok "Rimuovi: the widget block is gone" || ko "widget still on the home"
 pref_lacks blocks 'id&quot;:&quot;[0-9]' && ok "its cells are free again (no widget in blocks)" || ko "widget still in blocks (or prefs unreadable)"

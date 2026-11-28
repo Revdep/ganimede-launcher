@@ -254,7 +254,7 @@ drawer_find() { # drawer, search $1; leaves Settings in the list
 drawer_find sett
 read -r sx sy <<<"$(cx Settings)"; hold "$sx" "$sy"
 expect "Aggiungi ai preferiti" && tap "Aggiungi ai preferiti"
-wait_until 5 test -n "$(pref fav | grep com.android.settings)"
+wait_until 5 eval '[ -n "$(pref fav | grep com.android.settings)" ]'
 pref fav | grep -q 'com.android.settings' && ok "Settings is in the favourites pref" || ko "fav = $(pref fav)"
 wait_until 5 has 'sett"' && ok "the search is still open behind the menu" || ko "the menu closed the search"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"' # the menu took the keyboard down: one Back closes the search
