@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       only: { description: 'ONLY: regex on the section names (empty: all)', default: '' }
-      shards: { description: 'how many emulators (auto: one per 450 s of measured sections, at most 18)', default: 'auto' }
+      shards: { description: 'how many emulators (auto: one per 300 s of measured sections, at most 18)', default: 'auto' }
 # a dispatch with its own `only` is a different run from the full one on the same ref: only a newer run of the same kind cancels
 concurrency: { group: "e2e-${{ github.ref }}-${{ inputs.only || 'all' }}", cancel-in-progress: true }
 permissions: { contents: read }
