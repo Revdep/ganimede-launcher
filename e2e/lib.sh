@@ -186,9 +186,9 @@ _val() { sed -n "s|.*name=\"$1\" value=\"\([^\"]*\)\".*|\1|p; s|.*name=\"$1\">\(
 pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | _val "$1"; }
 # The negative checks on the prefs: an empty or unreadable file holds nothing, so "does not hold X" would pass on it. These are false
 # unless the file was read whole (it ends with </map>). pref_lacks key regex: the value of the key doesn't match; set_lacks key regex: no item of the set does.
-prefs_read() { P=$(A exec-out run-as $PK cat shared_prefs/ganimede.xml); grep -q '</map>' <<<"$P"; }
-pref_lacks() { prefs_read && ! grep -q "$2" <<<"$(_val "$1" <<<"$P")"; }
-set_lacks() { prefs_read && ! sed -n "\\@name=\"$1\"@,\\@</set>@p" <<<"$P" | grep -q "$2"; }
+prefs_read() { PREFS_XML=$(A exec-out run-as $PK cat shared_prefs/ganimede.xml); grep -q '</map>' <<<"$PREFS_XML"; }
+pref_lacks() { prefs_read && ! grep -q "$2" <<<"$(_val "$1" <<<"$PREFS_XML")"; }
+set_lacks() { prefs_read && ! sed -n "\\@name=\"$1\"@,\\@</set>@p" <<<"$PREFS_XML" | grep -q "$2"; }
 # bounds of the first node whose text (or content-desc with "desc:") is exactly $1: "x1 y1 x2 y2", empty if none
 bounds() {
   local attr=text v="$1" r; case "$v" in desc:*) attr=content-desc; v="${v#desc:}";; esac
