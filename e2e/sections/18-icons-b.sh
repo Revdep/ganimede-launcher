@@ -205,7 +205,9 @@ if emu_only "icons: a work profile is created on the emulator"; then
       local label="$1" comp="$2" pack="$3"; shift 3
       seed classic int accent -2093040 string icon_pack "$pack" int grid_icon 64 boolean hide_labels true $(model "$@") string fav "$comp"
       capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
-      setp string fav "$comp#$serial"; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
+      # del grid: Classic keeps the grid seeded from the first fav, the own app would stay in the first cell beside the work copy
+      # and capture takes the first cell of that name (run 46109393420: own and badged work copy side by side, the own one compared)
+      setp string fav "$comp#$serial" del grid; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
       corner "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-c.png"; corner "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-c.png"
       differ "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
         && ok "badge: the work $label has a badge in its corner ($*)" || ko "badge: the work $label has no badge ($*)"
