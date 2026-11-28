@@ -63,11 +63,19 @@ final class Apps {
 
     /** The same list read off the main thread (a label each, from the system), then handed over on it while a is open. */
     static void named(Activity a, Consumer<List<Item>> then) {
+        if (!LOADING.compareAndSet(false, true)) return; // a second tap while loading would open a second dialog
         new Thread(() -> {
-            List<Item> l = named(a);
-            a.runOnUiThread(() -> { if (!a.isDestroyed()) then.accept(l); });
+            try {
+                List<Item> l = named(a);
+                a.runOnUiThread(() -> { LOADING.set(false); if (!a.isDestroyed()) then.accept(l); });
+            } catch (RuntimeException e) {
+                LOADING.set(false);
+                throw e;
+            }
         }).start();
     }
+
+    private static final java.util.concurrent.atomic.AtomicBoolean LOADING = new java.util.concurrent.atomic.AtomicBoolean();
 
     private final Context c;
     private final SharedPreferences prefs;

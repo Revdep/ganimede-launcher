@@ -49,6 +49,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Voice notes in notifications, heard privately: the audio a chat app attaches to its notification is copied into
@@ -63,6 +64,7 @@ final class VoicePlayer {
     private static final Handler WATCHDOG = watchdog(); // off the main thread: a busy screen must not delay a cut
     private static final Set<String> BUSY = ConcurrentHashMap.newKeySet(); // apps with a kept copy whose thread has not returned
     private static final int BUSY_MAX = 2;
+    private static final AtomicInteger WAITING = new AtomicInteger(); // copy tasks queued or running; deletions and holds are never counted
     private static final AudioAttributes SPEECH = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
 
@@ -108,6 +110,10 @@ final class VoicePlayer {
      * chat app did not share: those it withdraws before this app ever saw them get no row.
      */
     static void keep(Context c, StatusBarNotification... all) {
+        if (!Voice.admits(WAITING.getAndIncrement())) { // full: this arrival is not kept; the sweep and the holds still queue
+            WAITING.decrementAndGet();
+            return;
+        }
         KEEPER.execute(() -> {
             try {
                 for (StatusBarNotification s : all) for (Uri uri : notes(s)) {
@@ -118,6 +124,8 @@ final class VoicePlayer {
                 }
             } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
                 Log.w("Ganimede", "Voice note not kept: " + e.getClass().getName());
+            } finally {
+                WAITING.decrementAndGet();
             }
         });
     }
@@ -164,9 +172,9 @@ final class VoicePlayer {
     /**
      * Deletes the kept notes no longer in any of these notifications: removed, dismissed, gone from the chat, or turned
      * secret. Null (no notification access): deletes every one, halves being written too. After the copies already
-     * queued, so none lands once its note is gone.
+     * queued, so none lands once its note is gone. snapshot: when all was read; a copy made since is not swept.
      */
-    static void sweep(Context c, Iterable<StatusBarNotification> all) {
+    static void sweep(Context c, Iterable<StatusBarNotification> all, long snapshot) {
         KEEPER.execute(() -> {
             try {
                 File dir = keptDir(c);
@@ -175,17 +183,23 @@ final class VoicePlayer {
                 Set<String> wanted = all == null ? null : new HashSet<>();
                 if (all != null) for (StatusBarNotification s : all) for (Uri uri : notes(s)) wanted.add(Voice.keptName(s.getKey(), uri.toString()));
                 String[] names = new String[files.length];
-                long[] ages = new long[files.length];
+                long[] modified = new long[files.length];
                 long now = System.currentTimeMillis();
                 for (int i = 0; i < files.length; i++) {
                     names[i] = files[i].getName();
-                    ages[i] = now - files[i].lastModified();
+                    modified[i] = files[i].lastModified();
                 }
-                for (String name : Voice.drop(names, ages, wanted)) new File(dir, name).delete();
+                for (String name : Voice.drop(names, modified, wanted, snapshot, now)) new File(dir, name).delete();
             } catch (RuntimeException e) { // as in keep: never take the home's process down
                 Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
             }
         });
+    }
+
+    /** Whether any kept copy (or half) is on disk: with none, a sweep has nothing to delete. */
+    static boolean hasKept(Context c) {
+        String[] files = keptDir(c).list();
+        return files != null && files.length > 0;
     }
 
     private static Handler watchdog() {

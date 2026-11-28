@@ -194,7 +194,7 @@ public class MainActivity extends Activity implements Actions.Home {
     protected void onStart() {
         super.onStart();
         started = true;
-        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null); // access was switched off while the home wasn't running
+        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null, 0); // access was switched off while the home wasn't running
         if (notificationsStale) { notificationsStale = false; refreshNotifications(); }
         widgets.start();
     }

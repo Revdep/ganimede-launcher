@@ -104,4 +104,11 @@ public class SummaryTest {
         eq(java.util.Set.of("ok|9000000", "n|9000000"), Summary.hold(bad, "n", 9_000_000L, 9_000_000L), "and hold drops the bad ones");
         eq(java.util.Set.of("ok|9000000"), Summary.expire(bad, 9_000_000L), "expire alone clears stale and bad entries");
     }
+
+    public static void testCountsAHoldOnceNotOnEachRepost() {
+        java.util.Set<String> held = Summary.hold(java.util.Set.of(), "k", 9_000_000L, 0);
+        eq(1, Summary.counted(0, java.util.Set.of(), "k"), "first hold counts");
+        eq(1, Summary.counted(1, held, "k"), "the same key already held does not");
+        eq(2, Summary.counted(1, held, "j"), "another key does");
+    }
 }

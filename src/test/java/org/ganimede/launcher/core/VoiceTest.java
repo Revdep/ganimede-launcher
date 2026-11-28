@@ -39,11 +39,26 @@ public class VoiceTest {
 
     public static void testDropsTheCopiesOfGoneNotesAndStaleHalves() {
         String[] names = {"a", "b", "c.part", "d.part"};
-        long[] ages = {500_000, 500_000, Voice.COPY_MS - 1, Voice.COPY_MS + 1};
+        long now = 1_000_000;
+        long[] modified = {now - 500_000, now - 500_000, now - Voice.COPY_MS + 1, now - Voice.COPY_MS - 1};
         // b is no longer in any notification; c is being written now; d was left by a copy cut off or a crash.
-        eq("[b, d.part]", Voice.drop(names, ages, Set.of("a", "c", "d")).toString(), "gone, and a half older than a copy may take");
-        eq("[a, b, d.part]", Voice.drop(names, ages, Set.of()).toString(), "no notification left: all but the half being written");
-        eq("[a, b, c.part, d.part]", Voice.drop(names, ages, null).toString(), "no access: everything, a young half too");
+        eq("[b, d.part]", Voice.drop(names, modified, Set.of("a", "c", "d"), now, now).toString(), "gone, and a half older than a copy may take");
+        eq("[a, b, d.part]", Voice.drop(names, modified, Set.of(), now, now).toString(), "no notification left: all but the half being written");
+        eq("[a, b, c.part, d.part]", Voice.drop(names, modified, null, now, now).toString(), "no access: everything, a young half too");
+    }
+
+    public static void testSweepSparesACopyMadeAfterItsSnapshot() {
+        long snap = 1_000_000;
+        String[] names = {"old", "fresh"};
+        long[] modified = {snap - 10, snap + 10}; // fresh was copied after the notifications were read: not in the snapshot
+        eq("[old]", Voice.drop(names, modified, Set.of(), snap, snap + 20).toString(), "only the copy older than the snapshot goes");
+        eq("[old, fresh]", Voice.drop(names, modified, null, snap, snap + 20).toString(), "no access: still everything");
+    }
+
+    public static void testQueueOfCopiesHasARoof() {
+        yes(Voice.admits(0), "empty");
+        yes(Voice.admits(Voice.QUEUE_MAX - 1), "one place left");
+        yes(!Voice.admits(Voice.QUEUE_MAX), "full: no more copies queued");
     }
 
     public static void testKeepsANoteOnlyIfAWholeOneStillFits() {
