@@ -1,6 +1,7 @@
 package org.ganimede.launcher.core;
 
 import java.util.Arrays;
+import java.util.Set;
 
 import static org.ganimede.launcher.Expect.eq;
 import static org.ganimede.launcher.Expect.yes;
@@ -26,6 +27,29 @@ public class VoiceTest {
                 new String[]{"content://a/1", "content://a/2"})), "two notes: both, the first one first");
         eq("[]", Arrays.toString(Voice.all(new String[]{null}, new String[]{null})), "text only");
         eq("[]", Arrays.toString(Voice.all(new String[0], new String[0])), "no messages");
+    }
+
+    public static void testKeptCopiesAreNamedByHashesPerNotificationAndNote() {
+        String a = Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/1.ogg");
+        eq(a, Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/1.ogg"), "the same note: the same file");
+        yes(!a.equals(Voice.keptName("0|org.telegram|2|null|10123", "content://chat.files/v/1.ogg")), "another notification: another file");
+        yes(!a.equals(Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/2.ogg")), "another note: another file");
+        yes(a.matches("[0-9a-f]{32}-[0-9a-f]{32}"), "only hex reaches the disk, no key nor address: " + a);
+    }
+
+    public static void testDropsTheCopiesOfGoneNotesAndStaleHalves() {
+        String[] names = {"a", "b", "c.part", "d.part"};
+        long[] ages = {500_000, 500_000, Voice.COPY_MS - 1, Voice.COPY_MS + 1};
+        // b is no longer in any notification; c is being written now; d was left by a copy cut off or a crash.
+        eq("[b, d.part]", Voice.drop(names, ages, Set.of("a", "c", "d")).toString(), "gone, and a half older than a copy may take");
+        eq("[a, b, d.part]", Voice.drop(names, ages, Set.of()).toString(), "no notification left: all but the half being written");
+        eq("[a, b, c.part, d.part]", Voice.drop(names, ages, null).toString(), "no access: everything, a young half too");
+    }
+
+    public static void testKeepsANoteOnlyIfAWholeOneStillFits() {
+        yes(Voice.room(0), "empty");
+        yes(Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES), "a largest note fills it exactly");
+        yes(!Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES + 1), "one byte more: no copy, nothing written past the cap");
     }
 
     public static void testPlayerClock() {
