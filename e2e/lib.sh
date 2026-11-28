@@ -13,7 +13,10 @@ SCR="$OUT/screen.xml" # the last screen read, a file so that subshells share it
 PK=org.ganimede.launcher
 # Every adb call goes through A. One that can change the screen drops the cached screen read (see `screen`).
 A() {
-  case "$*" in "exec-out run-as $PK cat "*|"exec-out screencap "*|"exec-out uiautomator "*|"shell dumpsys "*|"shell settings get "*) ;; *) rm -f "$SCR";; esac
+  # reads that leave the screen as it was keep the cached dump (a logcat -d, a service check, a role or package query, a property)
+  case "$*" in "exec-out run-as $PK cat "*|"exec-out screencap "*|"exec-out uiautomator "*|"shell dumpsys "*|"shell settings get "*\
+    |"logcat -d "*|"shell service check "*|"shell cmd role get-role-holders "*|"shell cmd package resolve-activity "*|"shell pm path "*|"shell getprop "*\
+    |"shell wm size"|"shell wm density") ;; *) rm -f "$SCR";; esac
   "$ADB" -s "$SERIAL" "$@"
 }
 command -v magick >/dev/null && command -v compare >/dev/null || { echo "ImageMagick (magick, compare) is missing: the wallpaper and pixel checks need it." >&2; exit 2; }
