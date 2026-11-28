@@ -93,6 +93,11 @@ final class Ui {
         return prefs.getBoolean("haptics", true);
     }
 
+    /** Says something to a screen reader. The one place to change when announceForAccessibility goes (deprecated from API 36). */
+    static void announce(View v, CharSequence text) {
+        v.announceForAccessibility(text);
+    }
+
     /** Arms a long-press: the system's own tick (the view's haptic feedback) follows the "haptics" setting, not only ours. */
     void onLongPress(View v, View.OnLongClickListener l) {
         v.setHapticFeedbackEnabled(haptics());

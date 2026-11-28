@@ -113,7 +113,7 @@ final class FolderDrag {
                 // keeps TalkBack on the icon just moved instead of jumping elsewhere
                 //noinspection AccessibilityFocus: focus returns to the node the action was performed on
                 host.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
-                host.announceForAccessibility(ui.f("Position %1$d of %2$d", to + 1, order.size()));
+                Ui.announce(host, ui.f("Position %1$d of %2$d", to + 1, order.size()));
                 return true;
             }
         });

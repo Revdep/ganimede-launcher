@@ -416,7 +416,7 @@ final class ClassicHome {
             if (!b.id.equals(id)) continue;
             Blocks.Result r = Blocks.put(Blocks.edgeStep(b, edge, cells), layout.pages(), layout.cols(), layout.rows(), layout.blocks(), layout.grid());
             if (!r.changed) {
-                pager.announceForAccessibility(ui.tr("Limit reached"));
+                Ui.announce(pager, ui.tr("Limit reached"));
                 return;
             }
             save(r);
@@ -427,7 +427,7 @@ final class ClassicHome {
                 pager.findViewsWithText(found, edgeLabel(edge), View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
                 //noinspection AccessibilityFocus: the focus the user had before the handles were rebuilt, on the same edge
                 for (View h : found) h.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
-                pager.announceForAccessibility(ui.f("Width %d, height %d", saved.colSpan, saved.rowSpan));
+                Ui.announce(pager, ui.f("Width %d, height %d", saved.colSpan, saved.rowSpan));
             });
             return;
         }
