@@ -49,8 +49,7 @@ public class PagingTest {
         eq("[2]", focus(2, 3, 1), "no page after the last");
     }
 
-    // Finding c1-2: left-hand use mirrors the home, but the pages stay left to right: the focus goes right for both
-    // hands (the swipe's own direction is covered above, it takes no hand).
+    // Classic is never mirrored: the focus goes right for both hands (the swipe's own direction is covered above).
     public static void testFocusGoesRight() {
         eq("[0, 1]", focus(0, 2, 1), "right: the next page");
     }

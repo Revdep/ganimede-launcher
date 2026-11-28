@@ -84,9 +84,9 @@ final class HomeLook {
         screen.alpha.offsetDp = prefs.getInt("alpha_offset", 0);
         screen.alpha.requestLayout();
         screen.alpha.invalidate();
-        // Left-hand use: the whole screen mirrored (alphabet on the left, everything aligned right).
-        screen.root.setLayoutDirection(Ui.handDirection(prefs));
         boolean cl = layout.classic();
+        // Left-hand use (List only): the whole screen mirrored (alphabet on the left, everything aligned right).
+        screen.root.setLayoutDirection(Ui.handDirection(prefs, cl));
         View[] clockViews = {screen.clock};
         View[] lineViews = lineViews();
         widgets.applyHeight(prefs.getInt("list_widget_h", 0));

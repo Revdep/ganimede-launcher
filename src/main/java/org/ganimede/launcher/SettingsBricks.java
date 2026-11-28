@@ -264,7 +264,7 @@ final class SettingsBricks {
         if (classic) outlook(c);
         else kit.slider(c, kit.ui.tr("Bottom edge: lift everything"), "home_bottom", 4, 420, 64);
         kit.link(c, "button", kit.ui.tr("Ganimede button"), kit.ui.tr("A round button in the bottom corner with its own pop-up"), () -> kit.open(Page.BUTTON));
-        kit.toggle(c, kit.ui.tr("Left-hand use (mirrored)"), kit.ui.tr("Alphabet on the left, everything aligned to the right"), "left_handed", false, kit::render);
+        kit.toggle(c, kit.ui.tr("Left-hand use (mirrored)"), kit.ui.tr("List: alphabet on the left, everything aligned to the right"), "left_handed", false, kit::render);
         kit.toggle(c, kit.ui.tr("Hide status bar"), null, "hide_status_bar", false, kit::render);
         kit.toggle(c, kit.ui.tr("Allow home screen rotation"), null, "rotate", false, null);
         if (classic) {

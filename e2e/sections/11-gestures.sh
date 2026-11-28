@@ -207,6 +207,13 @@ wait_until 5 settled
 wait_until 5 hasnt Calendar && ok "DPAD_RIGHT towards an empty page 2: the pager is on page 2, not half way" || ko "the pager stopped between the pages (Calendar still on screen)"
 A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar
 
+step "Gestures: left-hand Classic mirrors nothing, the dock's first slot is on the left (c3 M13)"
+seed classic boolean left_handed true string dock "com.google.android.calendar/com.android.calendar.AllInOneActivity"
+wait_until 5 hasd "Calendar" # the dock icon's label is a content-desc
+read -r dx _ <<<"$(cx "desc:Calendar")"
+[ -n "$dx" ] && [ "$dx" -lt $((W / 2)) ] && ok "left-handed Classic: the first dock slot is on the left (x $dx)" || ko "left-handed Classic: the first dock slot at x ${dx:-none}, not on the left"
+setp del left_handed del dock
+
 step "Gestures: left-hand Classic keeps pages and block edges as on screen (finding c1-2)"
 # Left-hand use mirrors the home, not the classic pages: page 1 stays leftmost, a cell's column and a block's left edge
 # are the ones on screen. Mirrored, Home showed page 2, a key gave the focus to the hidden page and the left handle moved the right edge.

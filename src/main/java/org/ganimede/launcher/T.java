@@ -384,7 +384,7 @@ final class T {
         it("All icon packs", "Tutti i pacchetti di icone");
         it("Search icons", "Cerca icone");
         it("Left-hand use (mirrored)", "Uso con la mano sinistra (specchiato)");
-        it("Alphabet on the left, everything aligned to the right", "Alfabeto a sinistra, tutto allineato a destra");
+        it("List: alphabet on the left, everything aligned to the right", "Lista: alfabeto a sinistra, tutto allineato a destra");
         it("Alphabet", "Alfabeto");
         it("Letter size", "Dimensione lettere");
         it("Letter colour", "Colore lettere");

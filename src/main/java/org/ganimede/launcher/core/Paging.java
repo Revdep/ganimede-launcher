@@ -2,7 +2,7 @@ package org.ganimede.launcher.core;
 
 /**
  * Which home page a sideways swipe lands on, and which pages may hold the focus. Pages run left to right for both
- * hands (left-hand use mirrors the rest of the home, not the pages: their grid is in screen coordinates).
+ * hands (left-hand use mirrors the List home only; Classic is never mirrored).
  */
 public final class Paging {
     /** The most home pages: what a backup keeps (Backup's grid_pages) and every place that adds a page stops at. */

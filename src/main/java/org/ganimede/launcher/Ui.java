@@ -60,9 +60,9 @@ final class Ui {
         return Colors.alpha(darkText ? 0x000000 : 0xFFFFFF, Math.round(dockAlpha(p) * 2.55f));
     }
 
-    /** Left-hand use mirrors the home (and its preview): alphabet on the left, everything aligned right. */
-    static int handDirection(SharedPreferences p) {
-        return p.getBoolean("left_handed", false) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR;
+    /** Left-hand use mirrors the List home (and its preview): alphabet on the left, everything aligned right. Classic never mirrors. */
+    static int handDirection(SharedPreferences p, boolean classic) {
+        return !classic && p.getBoolean("left_handed", false) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR;
     }
 
     /** The dock shelf's opacity in percent; before it had a slider it was only on (20) or off. */

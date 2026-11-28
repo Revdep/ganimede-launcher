@@ -105,8 +105,7 @@ final class ClassicHome {
         pager.setOnScrollChangeListener((v, x, y, ox, oy) -> lightDots(currentPage())); // a swipe, a scroll by TalkBack, a page deleted
         pager.setHorizontalScrollBarEnabled(false);
         pager.setFillViewport(true);
-        // Left to right for both hands (Paging): page i at i * width, cells at their left margin, edges as on screen.
-        pager.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        // Classic is never mirrored (Ui.handDirection): page i at i * width, cells at their left margin, edges as on screen.
         pager.setFocusable(false); // out of touch mode it takes focus at start: no grey box over the page (icons stay focusable)
         pager.addView(pages, new FrameLayout.LayoutParams(-2, -1));
         // A short swipe turns the page (Paging.target). The pager only sees the touch once it starts scrolling,
@@ -146,7 +145,6 @@ final class ClassicHome {
             }
         });
         dots = new LinearLayout(ui.a);
-        dots.setLayoutDirection(View.LAYOUT_DIRECTION_LTR); // dot i is page i, which runs left to right for both hands
         dots.setGravity(Gravity.CENTER);
         dots.setContentDescription(ui.tr("Arrange pages"));
         dots.setOnClickListener(v -> arrangePages());
@@ -233,7 +231,6 @@ final class ClassicHome {
     private View block(Blocks.Item b) {
         BlockBox box = new BlockBox();
         box.setTag(b);
-        box.setLayoutDirection(Ui.handDirection(ui.prefs)); // its content follows the hand, as in the preview; its place on the page does not
         View content = b.id.equals("clock") ? clockContent : widgets.view(b.id);
         if (content == null) {
             TextView missing = ui.plain(14, false, ui.fg);
@@ -438,8 +435,7 @@ final class ClassicHome {
 
     private void addHandles(FrameLayout box, Blocks.Item original) {
         String[] edges = {"left", "right", "top", "bottom"};
-        //noinspection RtlHardcoded: the edges Blocks.edgeStep moves are the screen's, for both hands (the box follows the hand)
-        int[] gravity = {Gravity.LEFT, Gravity.RIGHT, Gravity.TOP, Gravity.BOTTOM};
+        int[] gravity = {Gravity.START, Gravity.END, Gravity.TOP, Gravity.BOTTOM};
         List<Blocks.Item> blocks = layout.blocks();
         Map<Integer, String> cells = layout.grid();
         int pageCount = layout.pages(), cols = layout.cols(), rows = layout.rows();
