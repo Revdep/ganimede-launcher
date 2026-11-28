@@ -21,6 +21,9 @@ hold_drag() {
 }
 # the app list (drawer) is open: its search field is on screen
 listed() { has "Cerca" || hasd "Cerca"; }
+# home again: a good screen read without the drawer's search field. The drawer lists the same app labels as the home
+# (Calendar...), so an app label proves nothing about which of the two is up (run 46138820260, shard 7).
+unlisted() { valid && ! listed; }
 
 step "Gestures: classic page swipe (drawer off puts apps on pages 2+)"
 seed classic; setp boolean drawer false
@@ -136,12 +139,12 @@ A shell input swipe $((W / 2)) $((H / 2)) $((W / 2)) $((H / 2 + $(dp 70))) 1500 
 wait_until 5 settled
 listed && ok "short slow drag down: the drawer springs back open" || ko "short drag down closed the drawer"
 A shell input swipe $((W / 2)) $((H / 3)) $((W / 2)) $((H * 4 / 5)) 600
-wait_until 5 has Calendar && ok "drag down closes the drawer: home again" || ko "drag down did not close the drawer"
+wait_until 5 unlisted && ok "drag down closes the drawer: home again" || ko "drag down did not close the drawer"
 wait_until 5 settled
 swipe_up $((H * 6 / 10)) $((H * 6 / 10 - $(dp 120))) 400 # short, below the flick speed: springs back to home
 wait_until 5 settled
-has Calendar && ok "short slow drag up: the drawer springs back shut" || ko "short drag up opened the drawer"
-valid && ! listed && ok "no drawer after the short drag" || ko "drawer shows after a short drag (or no screen read)"
+unlisted && ok "short slow drag up: the drawer springs back shut" || ko "short drag up opened the drawer"
+unlisted && ok "no drawer after the short drag" || { valid && ko "drawer shows after a short drag" || ko "no screen read after the short drag"; }
 
 step "Gestures: swipe down shows the shade"
 seed classic
