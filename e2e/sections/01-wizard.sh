@@ -39,9 +39,7 @@ tap "Avanti"
 expect "Stile delle icone" && shot 05-icons
 # The selected tile's "✓ Originale" and the two-line "Quadrato arrotondato" are drawn whole, not cut after the tick (issue 088)
 label_whole "✓ Originale" 80 && ok "tile “✓ Originale” shows its whole label" || ko "tile “✓ Originale” is cut"
-read -r _ ty _ _ <<<"$(bounds "✓ Originale")"
-A shell input swipe 900 $((ty + 40)) 200 $((ty + 40)) 200 # the row scrolls sideways: bring the fourth tile in
-tap "Quadrato arrotondato"
+hsee "Quadrato arrotondato" "✓ Originale" && tap "Quadrato arrotondato"
 wait_until 5 has "✓ Quadrato arrotondato" && label_whole "✓ Quadrato arrotondato" 80 70 && ok "tile “Quadrato arrotondato” shows its whole label" || ko "tile “✓ Quadrato arrotondato” is cut"
 stap "Squircle" # the Plate row, under the Style row (issue 078)
 squircle() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"icon_container\">squircle</string>"; }
