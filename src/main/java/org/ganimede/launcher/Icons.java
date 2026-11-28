@@ -306,6 +306,11 @@ final class Icons {
         }
     }
 
+    /** What {@link Apps#resolveIcon} depends on besides the picked icon: the settings, and whether the pack and the built-in set were read yet. */
+    static String resolveStamp(SharedPreferences p) {
+        return loadKey(p) + "|" + loadedPack + "|" + (builtin != null);
+    }
+
     /** What Apps.load was last run for: a change of either makes the home read its apps again. */
     static String loadKey(SharedPreferences p) {
         return p.getString("icon_pack", "") + "|" + p.getBoolean(CATEGORY_KEY, true);
