@@ -59,7 +59,6 @@ for mode in list classic; do
 done
 
 step "Il tocco sull'orologio apre le sveglie protette in Lista e Classica"
-FIX=org.ganimede.fixture
 fixture_install && ok "fixture sveglie compilata e installata" \
   || ko "fixture sveglie non compilata o installata (./gradlew -Pe2e :fixture:assembleDebug)"
 clock_fixture_cleanup() {
@@ -118,35 +117,13 @@ google_clock_front() {
   A shell dumpsys window | grep -q 'mCurrentFocus.*com.google.android.deskclock'
 }
 
-# ---- The date of the clock for a screen reader, and clicks that are not touches ----
-# The fixture's ScreenReader service stands in for TalkBack: it lists, and performs, the actions of the clock node.
-A11Y_TAG=FixtureA11y
-A11Y_SERVICES_BEFORE=$(A shell settings get secure enabled_accessibility_services | tr -d '\r')
-A11Y_ENABLED_BEFORE=$(A shell settings get secure accessibility_enabled | tr -d '\r')
-a11y_off() { # gives back the device's own accessibility settings (a test phone may run TalkBack)
-  if [ "$A11Y_SERVICES_BEFORE" = null ] || [ -z "$A11Y_SERVICES_BEFORE" ]; then A shell settings delete secure enabled_accessibility_services >/dev/null
-  else A shell settings put secure enabled_accessibility_services "$A11Y_SERVICES_BEFORE" >/dev/null; fi
-  A shell settings put secure accessibility_enabled "${A11Y_ENABLED_BEFORE/null/0}" >/dev/null
-}
-a11y_done() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed='; }
-a11y() { # a11y list|click|label [regex] [desc]: asks the service to act on the node whose description starts with desc (default the clock) and waits for its answer
-  local _ # the service binds some seconds after the setting (or after the install): no answer means not listening yet, ask again
-  for _ in 1 2 3 4; do
-    A logcat -b main -c
-    A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "'${3:-Orologio}'" --es mode "$1" --es label "'${2:-.}'" >/dev/null # desc and label quoted again for the device shell: a space splits, a | is a pipe
-    wait_until 5 a11y_done && return 0
-  done
-  return 1
-}
-a11y_performed() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed=true'; }
+# ---- The date of the clock for a screen reader, and clicks that are not touches (a11y: lib.sh) ----
 a11y_date_action() { A logcat -d -s $A11Y_TAG:I | grep -iEq 'action label=.*(data|agenda|calendario)'; }
 DATE_ACTION='data|agenda|calendario'
 
 step "Orologio con data: azione accessibile separata e click da accessibilità (Lista e Classica)"
 # the fixture and the disabled Google Clock of the alarms step stay: one install, one disable (issue 048)
-defer a11y_off
-A shell settings put secure enabled_accessibility_services $FIX/.ScreenReader >/dev/null
-A shell settings put secure accessibility_enabled 1 >/dev/null
+a11y_on
 for mode in list classic; do
   [ "$mode" = list ] && mode_it=Lista || mode_it=Classica
   A shell pm grant "$PK" android.permission.READ_CALENDAR >/dev/null
@@ -199,6 +176,16 @@ a11y label Restringi "$BOTTOM_HANDLE"
 a11y_performed && wait_until 5 test -n "$(pref blocks | grep -o 'rowSpan&quot;:1')" \
   && ok "Restringi salva il blocco più basso di una cella" || ko "Restringi non cambia la misura (blocks: $(pref blocks))"
 wait_until 5 hasd "$BOTTOM_HANDLE" && ok "il ridimensionamento resta attivo dopo l'azione" || ko "il ridimensionamento si è chiuso dopo l'azione"
+wait_until 5 a11y_said "Larghezza" && ok "dopo Restringi l'app annuncia la misura" || ko "nessun annuncio «Larghezza…» dopo Restringi"
+read -r _ y1 _ y2 <<<"$(clock_bounds)"; small=$((y2 - y1))
+a11y label Restringi "$BOTTOM_HANDLE" # already one cell high: the minimum
+wait_until 5 a11y_said "Limite raggiunto" && ok "al minimo Restringi annuncia «Limite raggiunto»" || ko "nessun annuncio «Limite raggiunto» al minimo"
+[ -n "$(pref blocks | grep -o 'rowSpan&quot;:1')" ] && ok "al minimo la misura salvata non cambia" || ko "Restringi al minimo ha cambiato la misura (blocks: $(pref blocks))"
+a11y label Allarga "$BOTTOM_HANDLE"
+a11y_performed && wait_until 5 test -z "$(pref blocks | grep -o 'rowSpan&quot;:1')" \
+  && ok "Allarga salva il blocco più alto di una cella" || ko "Allarga non cambia la misura (blocks: $(pref blocks))"
+grown() { read -r _ y1 _ y2 <<<"$(clock_bounds)"; [ $((y2 - y1)) -gt "$small" ]; }
+wait_until 5 grown && ok "Allarga: il blocco sullo schermo è più alto" || ko "Allarga: il blocco sullo schermo non è cresciuto"
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 a11y_off; clock_fixture_cleanup
 
