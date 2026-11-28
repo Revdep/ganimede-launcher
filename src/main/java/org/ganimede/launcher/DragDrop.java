@@ -176,10 +176,8 @@ final class DragDrop {
             this.view = view;
             this.id = id;
             longPress = () -> {
-                if (ui.haptics()) view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                openMenu.run();
+                longPressed(ui, view, openMenu, true);
                 armed = true;
-                view.getParent().requestDisallowInterceptTouchEvent(true);
             };
         }
 
