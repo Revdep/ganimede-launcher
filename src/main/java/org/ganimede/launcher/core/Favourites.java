@@ -30,5 +30,8 @@ public final class Favourites {
         return often.subList(0, Math.min(2, often.size()));
     }
 
+    /** Whether to say how to fill the column: nothing drawn, and the app list loaded (before that every favourite is dropped). */
+    public static boolean showHint(int drawn, boolean appsLoaded) { return drawn == 0 && appsLoaded; }
+
     private Favourites() {}
 }

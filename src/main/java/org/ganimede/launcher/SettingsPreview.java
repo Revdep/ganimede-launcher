@@ -466,7 +466,7 @@ final class SettingsPreview extends FrameLayout {
         if (p.getBoolean("suggest", false))
             faint = Favourites.suggested(visible.stream().map(ap -> ap.key).collect(java.util.stream.Collectors.toList()),
                     favourites, p.getStringSet("unsuggested", java.util.Set.of()), k -> p.getInt("use:" + k, 0));
-        if (shown.isEmpty() && faint.isEmpty()) { // as the home: say how to fill the column
+        if (Favourites.showHint(shown.size() + faint.size(), !items.isEmpty())) { // as the home: say how to fill the column
             TextView hint = new TextView(c);
             hint.setTextSize(15);
             style(hint, fg, face, false);
