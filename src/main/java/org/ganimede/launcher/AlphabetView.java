@@ -48,7 +48,7 @@ public class AlphabetView extends View {
         d = getResources().getDisplayMetrics().density;
         sp = getResources().getDisplayMetrics().scaledDensity;
         paint.setTextAlign(Paint.Align.CENTER);
-        setContentDescription("Alphabet: touch and slide to jump to apps");
+        setContentDescription(T.t(c, "Alphabet: touch and slide to jump to apps"));
         grow.setDuration(Morph.CLOSE_MS);
         grow.setInterpolator(Anim.EASE);
         grow.addUpdateListener(a -> { progress = (float) a.getAnimatedValue(); invalidate(); });

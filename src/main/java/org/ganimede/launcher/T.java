@@ -386,6 +386,7 @@ final class T {
         it("Left-hand use (mirrored)", "Uso con la mano sinistra (specchiato)");
         it("List: alphabet on the left, everything aligned to the right", "Lista: alfabeto a sinistra, tutto allineato a destra");
         it("Alphabet", "Alfabeto");
+        it("Alphabet: touch and slide to jump to apps", "Alfabeto: tocca e scorri per saltare alle app");
         it("Letter size", "Dimensione lettere");
         it("Letter colour", "Colore lettere");
         it("Same as the text", "Come il testo");
