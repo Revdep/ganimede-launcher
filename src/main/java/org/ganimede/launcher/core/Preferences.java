@@ -29,7 +29,7 @@ public final class Preferences {
 
     /** Written by the app itself, not drawn by the home: a change in these needs no rebuild. */
     private static final Set<String> NOT_DRAWN = Set.of("summary_held", "summary_last", "summary_count", "icon_pack_loaded",
-            "return_to_settings", "pending_widget", "pending_widget_for", "fab_left", "fab_y");
+            "return_to_settings", "pending_widget", "pending_widget_for");
 
     /** Whether a written setting changes what the home draws. Unknown keys do, so a forgotten one costs a rebuild, never a stale screen. */
     public static boolean rebuildsHome(String key, boolean smartSort, boolean suggest) {
