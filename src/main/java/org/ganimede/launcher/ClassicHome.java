@@ -216,7 +216,7 @@ final class ClassicHome {
             missing.setGravity(Gravity.CENTER);
             content = missing;
         }
-        if (content.getParent() instanceof ViewGroup) ((ViewGroup) content.getParent()).removeView(content);
+        if (content == clockContent && content.getParent() instanceof ViewGroup) ((ViewGroup) content.getParent()).removeView(content); // widgets detach in Widgets.view
         box.addView(content, new FrameLayout.LayoutParams(-1, -1));
         View blockContent = content;
         if (!b.id.equals("clock")) box.post(() -> widgets.size(blockContent, box.getWidth(), box.getHeight()));

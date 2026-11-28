@@ -22,6 +22,15 @@ public final class FolderOrder {
         return best;
     }
 
+    /**
+     * How far (px, negative: up) the folder scrolls for a finger at `y` while an icon is carried: nothing in the middle
+     * of the view [top, bottom], faster the deeper into the `zone` at either edge, at most `max` (also beyond the edge).
+     */
+    public static int autoscroll(float y, float top, float bottom, float zone, int max) {
+        float into = y < top + zone ? y - (top + zone) : y > bottom - zone ? y - (bottom - zone) : 0;
+        return Math.round(Math.max(-1f, Math.min(1f, into / zone)) * max);
+    }
+
     /** A copy of the list with the entry at `from` moved to place `to` (clamped into the list), the others shifting over. */
     public static <T> List<T> move(List<T> list, int from, int to) {
         List<T> out = new ArrayList<>(list);
@@ -41,10 +50,13 @@ public final class FolderOrder {
         return out;
     }
 
-    /** The entries after "Choose apps": the stored ones still checked keep their order, newly checked ones go last. */
-    public static List<String> chosen(List<String> stored, List<String> checked) {
+    /**
+     * The entries after "Choose apps": the stored ones the dialog listed and the user unchecked leave; the others (also
+     * those it did not list, such as hidden apps) keep their order; newly checked ones go last.
+     */
+    public static List<String> chosen(List<String> stored, List<String> listed, List<String> checked) {
         List<String> out = new ArrayList<>(stored);
-        out.retainAll(checked);
+        out.removeIf(k -> listed.contains(k) && !checked.contains(k));
         for (String k : checked) if (!out.contains(k)) out.add(k);
         return out;
     }

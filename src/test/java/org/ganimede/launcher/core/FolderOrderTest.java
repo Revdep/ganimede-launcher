@@ -21,6 +21,15 @@ public class FolderOrderTest {
         eq(1, FolderOrder.nearest(900, -900, XS, YS), "far above-right: the top right slot");
     }
 
+    public static void testADraggedIconNearAnEdgeScrollsTheFolderThatWay() {
+        // the visible part runs from y 100 to y 900; the edge zones are 100 tall, at most 30 px per step
+        eq(0, FolderOrder.autoscroll(500, 100, 900, 100, 30), "in the middle: no scroll");
+        eq(-15, FolderOrder.autoscroll(150, 100, 900, 100, 30), "half way into the top zone: up, half speed");
+        eq(15, FolderOrder.autoscroll(850, 100, 900, 100, 30), "half way into the bottom zone: down, half speed");
+        eq(-30, FolderOrder.autoscroll(-400, 100, 900, 100, 30), "far above the view: up, never faster than the maximum");
+        eq(30, FolderOrder.autoscroll(2000, 100, 900, 100, 30), "far below the view: down, never faster than the maximum");
+    }
+
     public static void testMovingForwardShiftsTheOthersBack() {
         eq(List.of("b", "c", "a", "d"), FolderOrder.move(List.of("a", "b", "c", "d"), 0, 2), "a goes to place 2");
     }
@@ -51,10 +60,13 @@ public class FolderOrderTest {
 
     public static void testChoosingAppsKeepsTheOrderAndCanDropAShortcut() {
         // stored: a shortcut between two apps; the dialog lists the shortcut first, then the apps alphabetically
-        List<String> stored = List.of("b", "s:pkg|id|Mail", "a");
-        eq(List.of("b", "a", "c"), FolderOrder.chosen(stored, List.of("a", "b", "c")),
+        List<String> stored = List.of("b", "s:pkg|id|Mail", "a"), listed = List.of("s:pkg|id|Mail", "a", "b", "c");
+        eq(List.of("b", "a", "c"), FolderOrder.chosen(stored, listed, List.of("a", "b", "c")),
                 "the unchecked shortcut leaves, the kept ones keep their order, a new one goes last");
-        eq(stored, FolderOrder.chosen(stored, List.of("s:pkg|id|Mail", "a", "b")), "nothing changed: the same order");
+        eq(stored, FolderOrder.chosen(stored, listed, List.of("s:pkg|id|Mail", "a", "b")), "nothing changed: the same order");
+        // "h" is stored but not listed (a hidden app): unchecking cannot reach it, so it stays
+        eq(List.of("b", "h", "a"), FolderOrder.chosen(List.of("b", "s:pkg|id|Mail", "h", "a"), listed, List.of("a", "b")),
+                "an entry the dialog did not list stays in the folder");
     }
 
     public static void testAPopUpLooksTheSameUnlessWhatItDrawsChanges() {

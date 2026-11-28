@@ -2,6 +2,7 @@
 # Local helpers (could move to lib.sh): nfold, hold, clear_text.
 nfold() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -c 'name="folder:'; }                         # stored folders
 fid() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o 'name="folder:[0-9]*' | head -1 | grep -o '[0-9]*$'; }
+APPS_JSON='"com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"'
 APPS="Calendar:com.google.android.calendar Clock:com.google.android.deskclock Contacts:com.google.android.contacts"
 
 step "Folders: made by a drop, renamed, opened"
@@ -503,3 +504,36 @@ expect "Nascondi" && tap "Nascondi"
 wait_until 5 hasnt "Contacts"
 has "Contacts" && ko "Contacts still on the grid after Hide" || ok "Hide on a grid icon removes it from the grid"
 shot 125-classic-hidden
+
+step "Folders: a folder with a widget opens, loses an app, opens again (the widget moves to the new pop-up)"
+noclock
+A shell appwidget grantbind --package $PK
+seed classic string folder:wid "{\"name\":\"ConWidget\",\"where\":\"fav\",\"apps\":[$APPS_JSON]}" string fav 'f:wid'
+read -r fx fy <<<"$(cx ConWidget)"; hold "$fx" "$fy"
+tap "Aggiungi widget"; expect "Clock · Stopwatch" && tap "Clock · Stopwatch"
+fwid() { pref folder:wid | grep -q widgets; }
+wait_until 10 fwid && ok "the widget is stored in the folder" || ko "no widget in folder:wid"
+wait_until 10 has "ConWidget"; tap "ConWidget"
+wait_until 10 has "Contacts" && ok "the pop-up opens with its apps" || ko "pop-up did not open"
+read -r ax ay <<<"$(cx Contacts)"; hold "$ax" "$ay"
+expect "Rimuovi dalla cartella" && tap "Rimuovi dalla cartella"
+wait_until 5 hasnt "Contacts" && focus && has "Clock" && ok "the pop-up came back without Contacts, widget kept" || ko "pop-up not rebuilt after removing an app (launcher died?)"
+shot 126-folder-widget
+
+step "Folders: a long pop-up reorders past its first screen (the drag scrolls it near the edge)"
+seed list
+comps=$(A shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER | tr -d '\r' \
+  | grep -E '^[A-Za-z0-9_.]+/[A-Za-z0-9_.]+$' | grep -v "^$PK/" | sort -u | head -24)
+[ "$(echo "$comps" | grep -c .)" -ge 12 ] || echo "  INFO: only $(echo "$comps" | grep -c .) launcher apps: the pop-up may not need to scroll"
+json=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
+setp string folder:long '{"name":"Lunga","where":"fav","cols":1,"apps":['"$json"']}' string fav 'f:long'
+longkeys() { pref folder:long | sed 's/&quot;/\n/g' | grep '/' | grep -v '^\[' ; }
+first=$(longkeys | head -1)
+tap Lunga; wait_until 10 has "Lunga"
+# the pop-up's own ScrollView (the last in the dump): its first row is just under the title
+read -r x1 y1 x2 y2 <<<"$(screen | grep -o 'class="android.widget.ScrollView"[^>]*bounds="[^"]*"' | tail -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   ')"
+A shell input draganddrop $(((x1 + x2) / 2)) $((y1 + $(dp 90))) $(((x1 + x2) / 2)) $((H - $(dp 24))) 8000
+last_is_first() { [ "$(longkeys | tail -1)" = "$first" ]; }
+wait_until 5 last_is_first && ok "the first entry was carried to the last place: the drag scrolled the pop-up to reach it" \
+  || ko "the first entry is not last: order ends in $(longkeys | tail -1), expected $first"
+shot 132-folder-long

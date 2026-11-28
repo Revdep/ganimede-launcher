@@ -260,7 +260,7 @@ final class Folders {
                     for (int i = 0; i < on.length; i++) if (on[i]) checked.add(listed.get(i));
                     try {
                         if (!f.has("name")) f.put("name", defaultName(id));
-                        f.put("apps", new JSONArray(FolderOrder.chosen(inside, checked)));
+                        f.put("apps", new JSONArray(FolderOrder.chosen(inside, listed, checked)));
                     } catch (Exception ignored) { return; }
                     save(id, f);
                     show(id); // show the result right away
@@ -353,8 +353,11 @@ final class Folders {
             lp.setMargins(m, m, m, m);
             sv.setLayoutParams(lp);
         }
-        popup = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
-        dlg[0] = popup;
+        Motion shown = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
+        dlg[0] = popup = shown;
+        shown.setOnDismissListener(x -> { // an older pop-up ending after its rebuild must not clear the new one
+            if (popup == shown) { popup = null; popupId = null; popupLook = null; popupDrag = null; }
+        });
         dlg[0].show();
         popupId = id;
         popupLook = looks(id);

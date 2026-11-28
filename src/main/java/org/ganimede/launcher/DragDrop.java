@@ -119,14 +119,22 @@ final class DragDrop {
         v.setAlpha(0.25f);
     }
 
+    /**
+     * What a long-press on an entry does, here and in a folder's pop-up (FolderDrag): a tick, its menu, and (when a finger
+     * is down to drag with) the pages and lists don't scroll away with it.
+     */
+    static void longPressed(Ui ui, View x, Runnable openMenu, boolean fingerDown) {
+        if (ui.haptics()) x.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        openMenu.run();
+        if (fingerDown) x.getParent().requestDisallowInterceptTouchEvent(true);
+    }
+
     /** Long-press opens the entry's menu and arms the drag. */
     private boolean[] arm(View v, Runnable openMenu) {
         boolean[] armed = new boolean[1];
         v.setOnLongClickListener(x -> {
-            if (ui.haptics()) x.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-            openMenu.run();
+            longPressed(ui, x, openMenu, true);
             armed[0] = true;
-            x.getParent().requestDisallowInterceptTouchEvent(true); // the pages and lists don't scroll away with the finger
             return true;
         });
         return armed;

@@ -115,6 +115,7 @@ final class Widgets {
             v.setAppWidget(id, info);
             views.put(stored, v);
         }
+        if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v); // shown once: moves to its new parent
         int h = Math.max(info.minHeight, ui.dp(110));
         v.setLayoutParams(new LinearLayout.LayoutParams(-1, Math.min(h, ui.dp(280))));
         return v;
