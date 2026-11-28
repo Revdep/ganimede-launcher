@@ -34,8 +34,27 @@ A11Y_TAG=FixtureA11y
 a11y_on() { # enables it; a11y_off (also run on exit) puts the device's own accessibility settings back (a test phone may run TalkBack)
   A11Y_SERVICES_BEFORE=$(A shell settings get secure enabled_accessibility_services | tr -d '\r'); A11Y_ENABLED_BEFORE=$(A shell settings get secure accessibility_enabled | tr -d '\r')
   defer a11y_off
-  A shell settings put secure enabled_accessibility_services $FIX/.ScreenReader >/dev/null
-  A shell settings put secure accessibility_enabled 1 >/dev/null
+  # Returns once the system has bound it (its "connected" line), never on the setting alone: in run 46109393420 (folders-b,
+  # 0.1 s after a fresh install, 3 min after boot) it was never bound and every a11y call went unanswered. A fresh install is
+  # first seen by the package manager; the setting is deleted before each write so that the write is a change the system
+  # acts on (also when it already held the service), and written a second time if no bind follows: the precondition, not
+  # the gesture under test.
+  wait_until 10 a11y_installed || ko "the package manager lists no ScreenReader service of the fixture"
+  local _
+  for _ in 1 2; do
+    A logcat -b main -c
+    A shell settings delete secure enabled_accessibility_services >/dev/null
+    A shell settings put secure enabled_accessibility_services $FIX/.ScreenReader >/dev/null
+    A shell settings put secure accessibility_enabled 1 >/dev/null
+    wait_until 20 a11y_connected && return 0
+  done
+  ko "the fixture's ScreenReader was not bound after two writes of the setting; $(a11y_state)"
+}
+a11y_installed() { A shell cmd package query-services --brief -a android.accessibilityservice.AccessibilityService | grep -q "$FIX/.ScreenReader"; }
+a11y_connected() { A logcat -d -s $A11Y_TAG:I | grep -q 'connected'; }
+a11y_state() { # the system's view of the accessibility services, for a ko
+  echo "the system's accessibility state: $(A shell dumpsys accessibility \
+    | grep -E 'installedServiceCount|Bound services|Enabled services|Binding services|Crashed services|UiAutomation' | cut -c1-200 | tr -s ' \r\n' ' ')"
 }
 a11y_off() {
   if [ "$A11Y_SERVICES_BEFORE" = null ] || [ -z "$A11Y_SERVICES_BEFORE" ]; then A shell settings delete secure enabled_accessibility_services >/dev/null
@@ -51,8 +70,7 @@ a11y() { # a11y list|click|label [regex] [desc]: asks the service to act on the 
     wait_until 5 a11y_done && return 0
   done
   # never answered: run 46109393420 (folders-b) showed only that no fixture process ever started; this line says why
-  ko "the fixture's ScreenReader never answered ($1 ${3:-Orologio}); the system's accessibility state: $(A shell dumpsys accessibility \
-    | grep -E 'installedServiceCount|Bound services|Enabled services|Binding services|Crashed services|UiAutomation' | cut -c1-200 | tr -s ' \r\n' ' ')"
+  ko "the fixture's ScreenReader never answered ($1 ${3:-Orologio}); $(a11y_state)"
   return 1
 }
 a11y_performed() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed=true'; }
