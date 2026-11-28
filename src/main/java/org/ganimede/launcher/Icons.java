@@ -18,12 +18,16 @@ import android.graphics.RectF;
 import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.InsetDrawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.OvalShape;
 import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
 import android.widget.ImageView;
 
 import org.ganimede.launcher.core.GlyphFit;
+import org.ganimede.launcher.core.IconCache;
 import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.IconMask;
 import org.ganimede.launcher.core.Colors;
@@ -44,11 +48,6 @@ import java.util.function.BiPredicate;
 
 /** Icon packs (the common appfilter.xml format, or the built-in set of core/IconSet) and icon shapes. */
 final class Icons {
-    /** The names of IconLook.GLYPHS, CONTAINERS, FILLS and COLORS, in their order. */
-    static final String[] GLYPH_NAMES = {"Original", "Line", "Bold", "Sharp", "Duotone", "Hollow", "Dots (minimal)"};
-    static final String[] CONTAINER_NAMES = {"No plate", "Squircle", "Circle", "Rounded square", "Teardrop"};
-    static final String[] FILL_NAMES = {"Solid", "Soft"};
-    static final String[] COLOR_NAMES = {"Theme colour", "Text colour"};
     /**
      * A number for each icon object, never reused (identity hash codes can repeat, and a freed icon's code can come
      * back for another one): the cache below can't hand out the wrong app's picture.
@@ -64,13 +63,14 @@ final class Icons {
         }
     }
 
-    /** Shaped icons are drawn once and reused: no bitmap work while scrolling. */
-    private static final android.util.LruCache<String, Bitmap> CACHE = new android.util.LruCache<String, Bitmap>(24 * 1024 * 1024) {
+    /** Shaped icons are drawn once and reused: no bitmap work while scrolling. Sized for the device on the first apply. */
+    private static final android.util.LruCache<String, Bitmap> CACHE = new android.util.LruCache<String, Bitmap>(IconCache.bytes(0)) {
         @Override
         protected int sizeOf(String k, Bitmap b) {
             return b.getByteCount();
         }
     };
+    private static boolean sized; // main thread only
     private static final String[] PACK_ACTIONS = {"org.adw.launcher.THEMES", "com.novalauncher.THEME",
             "com.gau.go.launcherex.theme", "com.anddoes.launcher.THEME"};
 
@@ -193,7 +193,7 @@ final class Icons {
                     sample = glyph(set, set.index().find("com.google.android.calendar",
                             "com.android.calendar.AllInOneActivity").orElse(0));
                 }
-                MAIN.post(() -> apply(v, sample, false, null, null, look, fg, accent, size));
+                MAIN.post(() -> { if (v.getDrawable() == placeholder) apply(v, sample, false, null, null, look, fg, accent, size); }); // the tile may show another icon by now
             } catch (IOException | RuntimeException e) {
                 // an unreadable set: the placeholder stays
             }
@@ -372,23 +372,28 @@ final class Icons {
      * profile of the app the icon is for (null: not an app's), whose badge goes on another profile's icon.
      */
     static void apply(ImageView v, Drawable icon, boolean fromPack, BuiltinIcon category, UserHandle user, IconLook look, int fg, int accent, int size) {
+        if (!sized) { // a drawer of 150 icons at 80 dp on 3.5x is 47 MB: more than a fixed cache holds
+            sized = true;
+            CACHE.resize(IconCache.bytes(v.getContext().getSystemService(android.app.ActivityManager.class).getMemoryClass()));
+        }
         int px = size <= 0 ? 96 : size;
         v.setBackground(null);
         v.setPadding(0, 0, 0, 0);
         IconLook.Colours colours = look.colours(accent, fg);
         Context c = v.getContext();
         if (look.glyph().equals("dot")) { // a dot in C, 3/10 of the icon, with its profile's badge like any icon
-            String key = "dot|" + colours.glyph() + "|" + user + "|" + px;
-            Bitmap b = CACHE.get(key);
-            if (b == null) {
-                b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
+            int pad = px * 7 / 20;
+            renderInto(v, () -> {
+                ShapeDrawable dot = new ShapeDrawable(new OvalShape());
+                dot.getPaint().setColor(colours.glyph());
+                return new InsetDrawable(dot, 0.35f);
+            }, 0xFF, user, "dot|" + colours.glyph() + "|" + user + "|" + px, () -> {
+                Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
                 Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
                 paint.setColor(colours.glyph());
-                int pad = px * 7 / 20;
                 new Canvas(b).drawOval(pad, pad, px - pad, px - pad, paint);
-                CACHE.put(key, b = badged(c, b, user));
-            }
-            v.setImageDrawable(new BitmapDrawable(null, b));
+                return b;
+            });
             return;
         }
         Drawable mono = Build.VERSION.SDK_INT >= 33 && icon instanceof AdaptiveIconDrawable ? ((AdaptiveIconDrawable) icon).getMonochrome() : null;
@@ -398,16 +403,17 @@ final class Icons {
                 : s != IconSource.MONOCHROME || mono != null);
         if (source == IconSource.ARCTICONS || source == IconSource.CATEGORY) { // built-in geometry, with the treatment's stroke (original draws as Line)
             Drawable glyph = source == IconSource.CATEGORY ? category : icon; // the app has no entry: its category's glyph
-            BuiltinIcon fresh = (BuiltinIcon) copy(glyph); // its own tint, alpha and look: the shared one stays as it is
-            renderInto(v, ((BuiltinIcon) plain(glyph, colours.glyph())).look(look), colours.alpha(), user, idOf(glyph) + "|" + user + "|" + look + "|" + colours.glyph() + "|" + colours.fill() + "|" + px, () -> {
+            renderInto(v, () -> ((BuiltinIcon) plain(glyph, colours.glyph())).look(look), colours.alpha(), user, idOf(glyph) + "|" + user + "|" + look + "|" + colours.glyph() + "|" + colours.fill() + "|" + px, () -> {
+                BuiltinIcon fresh = (BuiltinIcon) copy(glyph); // its own tint, alpha and look: the shared one stays as it is
                 Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
                 fresh.render(new Canvas(b), look, colours.glyph(), colours.fill(), px);
                 return b;
             });
         } else if (look.glyph().equals("original")) { // the app's own icon, cut to the container if there is one
-            if (!look.container().equals("none") && icon instanceof AdaptiveIconDrawable) v.setImageDrawable(clip(c, (AdaptiveIconDrawable) icon, look.container(), px, user));
+            if (!look.container().equals("none") && icon instanceof AdaptiveIconDrawable adaptive)
+                renderInto(v, () -> copy(icon), 0xFF, user, idOf(icon) + "|" + user + "|" + look.container() + "|" + px, () -> clip(adaptive, look.container(), px));
             else if (user == null || user.equals(Process.myUserHandle())) v.setImageDrawable(copy(icon));
-            else renderInto(v, copy(icon), 0xFF, user, idOf(icon) + "|" + user + "|own|" + px, () -> { // the badge once, in the cache, not at every bind
+            else renderInto(v, () -> copy(icon), 0xFF, user, idOf(icon) + "|" + user + "|own|" + px, () -> { // the badge once, in the cache, not at every bind
                 Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
                 draw(new Canvas(b), icon, px, false);
                 return b;
@@ -418,9 +424,11 @@ final class Icons {
             int tint = colours.glyph();
             boolean fit = look.plated();
             Drawable layer = source == IconSource.MONOCHROME ? mono : null;
-            Drawable placeholder = copy(layer != null ? layer : icon); // the monochrome layer already looks as it will
-            if (layer != null) placeholder.setTint(tint);
-            renderInto(v, placeholder, colours.alpha(), user, idOf(icon) + "|" + user + "|" + source + "|" + fit + "|" + tintGreys + "|" + tint + "|" + px,
+            renderInto(v, () -> {
+                Drawable placeholder = copy(layer != null ? layer : icon); // the monochrome layer already looks as it will
+                if (layer != null) placeholder.setTint(tint);
+                return placeholder;
+            }, colours.alpha(), user, idOf(icon) + "|" + user + "|" + source + "|" + fit + "|" + tintGreys + "|" + tint + "|" + px,
                     () -> styled(icon, layer, fit, tint, tintGreys, px));
         }
         if (look.plated()) v.setBackground(plate(look.container(), colours, px));
@@ -453,6 +461,13 @@ final class Icons {
         return out;
     }
 
+    /** The picture cached under the key, drawn by {@code draw} when it is not there (the one place that reads and fills the cache). */
+    private static Bitmap cached(String key, java.util.function.Supplier<Bitmap> draw) {
+        Bitmap b = CACHE.get(key);
+        if (b == null) CACHE.put(key, b = draw.get());
+        return b;
+    }
+
     /** The picture at an opacity, in a new bitmap (a badge drawn on it afterwards stays opaque). */
     private static Bitmap faded(Bitmap b, int alpha) {
         if (alpha == 0xFF) return b;
@@ -471,26 +486,25 @@ final class Icons {
     }
 
     /**
-     * An adaptive icon cut to a shape, edge to edge, with its profile's badge (an old square icon stays as it is, no
-     * white plate behind it, so nothing looks like a sticker).
+     * An adaptive icon cut to a shape, edge to edge (an old square icon stays as it is, no white plate behind it, so
+     * nothing looks like a sticker). Runs on the render thread, which adds the profile's badge.
      */
-    private static Drawable clip(Context context, AdaptiveIconDrawable icon, String shape, int size, UserHandle user) {
-        String key = idOf(icon) + "|" + user + "|" + shape + "|" + size;
-        Bitmap cached = CACHE.get(key);
-        if (cached != null) return new BitmapDrawable(null, cached);
+    private static Bitmap clip(AdaptiveIconDrawable icon, String shape, int size) {
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(b);
         c.clipPath(shapePath(shape, size));
         // Adaptive layers are 108dp with a 72dp safe zone: draw them oversized so the shape fills.
         if (icon.getBackground() != null) draw(c, icon.getBackground(), size, true);
         if (icon.getForeground() != null) draw(c, icon.getForeground(), size, true);
-        b = badged(context, b, user);
-        CACHE.put(key, b);
-        return new BitmapDrawable(null, b);
+        return b;
     }
 
     /** Renders on one background thread: a drawer of hundreds of apps must not block the UI. */
-    private static final java.util.concurrent.Executor RENDER = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private static final java.util.concurrent.Executor RENDER = java.util.concurrent.Executors.newSingleThreadExecutor(r ->
+            new Thread(() -> {
+                Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                r.run();
+            }, "icon-render"));
     /** Results go back through the main looper: View.post on a view not yet attached queues until it attaches, and can be lost. */
     private static final android.os.Handler MAIN = new android.os.Handler(android.os.Looper.getMainLooper());
 
@@ -499,7 +513,7 @@ final class Icons {
      * one as soon as it is ready (if the view still shows the placeholder). {@code alpha}: the glyph's opacity, drawn into
      * the picture under the badge, which stays opaque.
      */
-    private static void renderInto(ImageView v, Drawable placeholder, int alpha, UserHandle user, String key, java.util.function.Supplier<Bitmap> draw) {
+    private static void renderInto(ImageView v, java.util.function.Supplier<Drawable> placeholderOf, int alpha, UserHandle user, String key, java.util.function.Supplier<Bitmap> draw) {
         Context c = v.getContext();
         String k = key + "|" + alpha;
         Bitmap cached = CACHE.get(k);
@@ -507,13 +521,12 @@ final class Icons {
             v.setImageDrawable(new BitmapDrawable(null, cached));
             return;
         }
+        Drawable placeholder = placeholderOf.get(); // only now: a cached icon needs none
         placeholder.setAlpha(alpha);
         v.setImageDrawable(placeholder);
         RENDER.execute(() -> {
             try {
-                Bitmap drawn = CACHE.get(k); // the same icon queued twice before the first was drawn: once
-                if (drawn == null) CACHE.put(k, drawn = badged(c, faded(draw.get(), alpha), user)); // the badge goes into the cached picture
-                Bitmap shown = drawn;
+                Bitmap shown = cached(k, () -> badged(c, faded(draw.get(), alpha), user)); // the same icon queued twice before the first was drawn: once; the badge goes into the cached picture
                 MAIN.post(() -> { if (v.getDrawable() == placeholder) v.setImageDrawable(new BitmapDrawable(null, shown)); });
             } catch (RuntimeException e) { // a drawable that fails to draw: the placeholder stays, the home goes on
             }
@@ -585,9 +598,10 @@ final class Icons {
 
     /** The container in the plate colour, with a border 1/48 of the size inside its edge when there is one (Soft). */
     private static Drawable plate(String shape, IconLook.Colours colours, int size) {
-        String key = "plate|" + shape + "|" + colours.plate() + "|" + colours.border() + "|" + size;
-        Bitmap cached = CACHE.get(key);
-        if (cached != null) return new BitmapDrawable(null, cached);
+        return new BitmapDrawable(null, cached("plate|" + shape + "|" + colours.plate() + "|" + colours.border() + "|" + size, () -> drawPlate(shape, colours, size)));
+    }
+
+    private static Bitmap drawPlate(String shape, IconLook.Colours colours, int size) {
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(b);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -603,8 +617,7 @@ final class Icons {
             c.drawPath(shapePath(shape, size), paint);
             c.restore();
         }
-        CACHE.put(key, b);
-        return new BitmapDrawable(null, b);
+        return b;
     }
 
     private static Path shapePath(String shape, int size) {

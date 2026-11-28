@@ -26,6 +26,14 @@ public class IconLookTest {
                 List.of(r.get("icon_glyph"), r.get("icon_container"), r.get("icon_fill"), r.get("icon_color")), what);
     }
 
+    /** Fable c3 M12: the settings rows pair each value with its label by position. */
+    public static void testEveryValueHasALabel() {
+        eq(IconLook.GLYPHS.length, IconLook.GLYPH_NAMES.length, "glyph labels");
+        eq(IconLook.CONTAINERS.length, IconLook.CONTAINER_NAMES.length, "container labels");
+        eq(IconLook.FILLS.length, IconLook.FILL_NAMES.length, "fill labels");
+        eq(IconLook.COLORS.length, IconLook.COLOR_NAMES.length, "colour labels");
+    }
+
     public static void testMigratesLegacyShapes() {
         migrates("original", legacy("icon_shape", "original"), "original", "none", "solid", "accent");
         migrates("teardrop", legacy("icon_shape", "teardrop"), "original", "teardrop", "solid", "accent");

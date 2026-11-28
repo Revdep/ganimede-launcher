@@ -233,6 +233,19 @@ public class IconSetTest {
         yes(!IconSet.needed(prefs), "its key gone, nothing needs the set");
     }
 
+    /** Fable c3 P2-1: an uninstalled app's picked icons are found by its package, nothing else's (not a longer package name). */
+    public static void testPickedKeysOfPackage() {
+        java.util.Map<String, Object> prefs = new java.util.HashMap<>();
+        prefs.put(IconSet.pickedKey("com.a/com.a.Main"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.a/com.a.Other"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.ab/com.ab.Main"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("f:12"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.a/com.a.Main#10"), "builtin:arcticons|okay"); // the same app in a work profile stays
+        prefs.put("rn:com.a/com.a.Main", "x");
+        eq(java.util.Set.of("icon:com.a/com.a.Main", "icon:com.a/com.a.Other"), new java.util.HashSet<>(IconSet.pickedKeysOf(prefs, "com.a")),
+                "both of com.a's entries, not com.ab, its work-profile copy, a folder or a rename");
+    }
+
     /** Reads everything a set offers, as the launcher does: every icon and name, and an index lookup. */
     private static void readAll(IconSet set) {
         for (int i = 0; i < set.count(); i++) {
@@ -263,10 +276,6 @@ public class IconSetTest {
         flipEveryByte("src/test/resources/icons/icons-fixture.bin");
     }
 
-    public static void testFlippedByteInFormatTwoIsRefusedOrRead() throws IOException {
-        flipEveryByte("src/test/resources/icons/icons-fixture2.bin");
-    }
-
     private static void flipEveryByte(String file) throws IOException {
         byte[] whole = Files.readAllBytes(Path.of(file));
         for (int i = 0; i < whole.length; i++) {
@@ -278,26 +287,17 @@ public class IconSetTest {
         }
     }
 
-    private static IconSet withCategories() {
-        return load("src/test/resources/icons/icons-fixture2.bin");
-    }
-
     /** Issue 087: the app categories of format 2. */
     public static void testCategoryHitAndMiss() {
-        IconSet set = withCategories();
+        IconSet set = fixture();
         eq(OptionalInt.of(id(set, "arc")), set.categoryGlyph("com.example.bank"), "Finance has the glyph the packer was given");
         eq(OptionalInt.of(id(set, "square")), set.categoryGlyph("com.example.shop"), "the curated table's category");
         eq(OptionalInt.empty(), set.categoryGlyph("com.example.none"), "a package nobody knows");
         eq(OptionalInt.empty(), set.categoryGlyph("pkgA"), "an app with an Arcticons icon never gets a category");
     }
 
-    public static void testFormatOneHasNoCategories() {
-        IconSet set = fixture();
-        eq(OptionalInt.empty(), set.categoryGlyph("com.example.bank"), "no section, no category");
-    }
-
     public static void testDamagedCategorySectionRefused() throws IOException {
-        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture2.bin"));
+        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture.bin"));
         for (int field : new int[]{40, 44, 48}) { // key count, index offset, table offset
             byte[] bad = whole.clone();
             java.nio.ByteBuffer.wrap(bad).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(field, bad.length + 1);
@@ -308,11 +308,6 @@ public class IconSetTest {
                 yes(expected.getMessage().startsWith("damaged icon set"), expected.getMessage());
             }
         }
-    }
-
-    public static void testTruncatedCategorySetIsRefused() throws IOException {
-        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture2.bin"));
-        for (int n = 0; n < whole.length; n++) rejectsOrReads(Arrays.copyOf(whole, n), "cut to " + n + " bytes");
     }
 
     public static void testRealAssetCategoriesTotal() {
@@ -327,10 +322,9 @@ public class IconSetTest {
 
     /** The category of an app: the tables first (dated, but the curated one is checked), then what the app declares. */
     public static void testManifestCategoryIsTheLastResort() {
-        IconSet set = withCategories();
+        IconSet set = fixture();
         eq(OptionalInt.of(id(set, "arc")), set.categoryGlyph("com.example.bank", 5), "the table beats the manifest (NEWS)");
         eq(OptionalInt.of(id(set, "square")), set.categoryGlyph("com.example.unknown", 5), "not in the tables: its declared category");
         eq(OptionalInt.empty(), set.categoryGlyph("com.example.unknown", -1), "undefined: none");
-        eq(OptionalInt.empty(), fixture().categoryGlyph("com.example.unknown", 5), "format 1 has no glyph table");
     }
 }

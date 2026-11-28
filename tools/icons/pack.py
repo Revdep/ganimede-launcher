@@ -4,16 +4,16 @@ usage, from app/: python3 -I tools/icons/pack.py <Arcticons checkout at ARCTICON
 It reads <checkout>/icons/white/*.svg and <checkout>/app/src/main/assets/appfilter.xml.
 
 Format (little endian), all geometry on Arcticons' 48x48 grid:
-  header   'ICN1' (format 1), 20 B Arcticons commit (SHA-1), u32 iconCount, u32 indexCount, u32 namesOff, u32 indexOff
+  header   'ICN2', 20 B Arcticons commit (SHA-1), u32 iconCount, u32 indexCount, u32 namesOff, u32 indexOff
   offsets  u32[iconCount + 1], icon i is data[off[i]:off[i+1]], data starts right after this table
   icon     varint pathCount; per path: u8 style (1 stroke, 2 fill, 4 evenodd), u8 alpha * 255,
            varint opCount, then ops: u8 op (0 M, 1 L, 2 C, 3 Z, 4 OVAL x0 y0 x1 y1) followed by its points, each
            x and y a zigzag varint delta from the previous point of the icon, in 1/32 of a unit
   names    per icon, ids in name order: varint length + UTF-8
-  index    indexCount * (u48 low bits of FNV-1a 64 of the key, u16 icon id), sorted by hash; the key is the package
-           when every component of it in the appfilter draws one icon, otherwise "package/full.ClassName"
-Format 2 ('ICN2', issue 087) adds the app categories after the icon index: the header grows by u32 categoryKeys, u32 categoryIndexOff,
-u32 categoryTableOff (52 B in all). The category index has the icon index's layout (u48 hash of the package, u16 category id =
+  index    indexCount * (u48 low bits of FNV-1a 64 of the key, u16 icon id), sorted by hash; the key is
+           "package/full.ClassName" of each component the appfilter lists (an unlisted activity has no icon in the set)
+The header goes on (52 B in all) with u32 categoryKeys, u32 categoryIndexOff, u32 categoryTableOff: the app categories
+(issue 087) follow the icon index. The category index has the icon index's layout (u48 hash of the package, u16 category id =
 position in the table); the table is u16 n, n * u16 glyph icon id, in the order of core/AppCategory.
 Stroke width, caps and joins are not stored: the look (core/IconLook) decides them, whatever the SVG says.
 Arcs become cubics, dashes become subpaths (a zero-length dash is a zero-length line, drawn by its cap), transforms,
@@ -439,6 +439,8 @@ def collect(el, classes, inherited, m, alpha, out):
     if tag in ("use", "text", "image"):
         raise ValueError("<%s> is not supported: the packer would drop it silently" % tag)
     st = style_of(el, classes, inherited)
+    if st.get("clip-path") or st.get("mask") or el.get("clip-path") or el.get("mask"):
+        raise ValueError("clip-path and mask are not supported: the packer would draw the shape uncut")
     if st.get("display") == "none":
         raise ValueError("display:none is not supported: the packer would draw it")
     m = mul(m, matrix(el.get("transform")))
@@ -546,13 +548,10 @@ def components(appfilter, ids):
 
 
 def keys(comps):
-    """One key per package that draws one icon everywhere, else one per component (core/IconIndex.find)."""
+    """One key per component the appfilter lists ("package/full.Class"): an activity it does not list keeps the app's own icon."""
     out = {}
-    for pkg, cs in comps.items():
-        if len(set(cs.values())) == 1:
-            out[pkg] = next(iter(cs.values()))
-        else:
-            out.update(cs)
+    for cs in comps.values():
+        out.update(cs)
     return out
 
 
@@ -622,19 +621,21 @@ def read_dataset(path):
 
 
 def category_keys(curated, dataset, taken):
-    """{package: category}: the curated table beats the dataset; a package that already has an Arcticons icon is dropped."""
+    """{package: category}: the curated table beats the dataset; a package with an Arcticons component is dropped."""
     merged = dict(dataset)
     merged.update(curated)
-    return {p: c for p, c in merged.items() if p not in taken}
+    return {p: c for p, c in merged.items() if p not in {k.split("/")[0] for k in taken}}
 
 
 def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
-    """-> (icons.bin bytes, summary line). categories = (curated.tsv, dataset or None): format 2, else format 1."""
+    """-> (icons.bin bytes, summary line, the icon keys). categories = (curated.tsv, dataset or None), or None for a set without categories."""
     names = sorted(n[:-4] for n in os.listdir(svg_dir) if n.endswith(".svg"))
     if len(names) > 0xFFFF:
         sys.exit("%d icons: ids are u16" % len(names))
     blobs = []
     for n in names:
+        if not re.fullmatch(r"[a-z0-9_]+", n):
+            sys.exit("%s.svg: an icon name is [a-z0-9_]+ (a picked icon is stored by name, and the backup checks it)" % n)
         try:
             paths = icon_paths(os.path.join(svg_dir, n + ".svg"))
         except (ET.ParseError, ValueError) as e:
@@ -644,8 +645,8 @@ def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
         blobs.append(encode_icon(paths))
     icon_keys = keys(components(appfilter, {n: i for i, n in enumerate(names)}))
     entries = index(icon_keys)
+    glyph_ids, cat_entries = [], []
     if categories:
-        glyph_ids = []
         for c, g in glyphs.items():
             if g not in names:
                 sys.exit("category %s: glyph %r is not among the icons" % (c, g))
@@ -662,22 +663,17 @@ def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
         e = n.encode()
         varint(namesec, len(e))
         namesec += e
-    fixed = 52 if categories else 40
-    head = fixed + 4 * len(offs)
-    out = bytearray((b"ICN2" if categories else b"ICN1") + bytes.fromhex(commit))
+    head = 52 + 4 * len(offs)
+    out = bytearray(b"ICN2" + bytes.fromhex(commit))
     out += struct.pack("<IIII", len(names), len(entries), head + len(data), head + len(data) + len(namesec))
-    if categories:
-        cat_at = head + len(data) + len(namesec) + 8 * len(entries)
-        out += struct.pack("<III", len(cat_entries), cat_at, cat_at + 8 * len(cat_entries))
+    cat_at = head + len(data) + len(namesec) + 8 * len(entries)
+    out += struct.pack("<III", len(cat_entries), cat_at, cat_at + 8 * len(cat_entries))
     out += struct.pack("<%dI" % len(offs), *offs) + data + namesec
-    for h, v in entries:
+    for h, v in entries + cat_entries:
         out += struct.pack("<Q", h)[:6] + struct.pack("<H", v)
-    if categories:
-        for h, v in cat_entries:
-            out += struct.pack("<Q", h)[:6] + struct.pack("<H", v)
-        out += struct.pack("<H", len(glyph_ids)) + struct.pack("<%dH" % len(glyph_ids), *glyph_ids)
+    out += struct.pack("<H", len(glyph_ids)) + struct.pack("<%dH" % len(glyph_ids), *glyph_ids)
     return bytes(out), ("icons %d, index %d keys, %d category keys, geometry %d B, names %d B, total %d B"
-                        % (len(names), len(entries), len(cat_entries) if categories else 0, len(data), len(namesec), len(out)))
+                        % (len(names), len(entries), len(cat_entries), len(data), len(namesec), len(out))), icon_keys
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -695,8 +691,9 @@ def coverage(icon_keys, category_packages):
     """Per public list (tools/icons/categories/coverage/*.txt, one package per line): % with an icon / a category / neither."""
     for name in sorted(os.listdir(COVERAGE)):
         pkgs = [l.split()[0] for l in open(os.path.join(COVERAGE, name), encoding="utf-8") if l.strip() and not l.startswith("#")]
-        icon = sum(1 for p in pkgs if p in icon_keys)
-        cat = sum(1 for p in pkgs if p not in icon_keys and p in category_packages)
+        have = {k.split("/")[0] for k in icon_keys}
+        icon = sum(1 for p in pkgs if p in have)
+        cat = sum(1 for p in pkgs if p not in have and p in category_packages)
         print("%s: %d apps, icon %d%%, category only %d%%, neither %d%%" % (
             name, len(pkgs), 100 * icon // len(pkgs), 100 * cat // len(pkgs), 100 * (len(pkgs) - icon - cat) // len(pkgs)))
 
@@ -708,13 +705,11 @@ def main(checkout, dst, dataset_checkout=None):
     if dataset_checkout:
         checked_out(dataset_checkout, CATEGORIES_COMMIT, "Category dataset")
         dataset = os.path.join(dataset_checkout, "apps_with_category.txt")
-    data, summary = pack(os.path.join(checkout, "icons", "white"), appfilter, ARCTICONS_COMMIT, (CURATED, dataset))
+    data, summary, icon_keys = pack(os.path.join(checkout, "icons", "white"), appfilter, ARCTICONS_COMMIT, (CURATED, dataset))
     with open(dst, "wb") as f:
         f.write(data)
     print(summary)
-    names = sorted(n[:-4] for n in os.listdir(os.path.join(checkout, "icons", "white")) if n.endswith(".svg"))
-    coverage(keys(components(appfilter, {n: i for i, n in enumerate(names)})),
-             (read_dataset(dataset) if dataset else {}) | read_curated(CURATED))
+    coverage(icon_keys, (read_dataset(dataset) if dataset else {}) | read_curated(CURATED))
 
 
 if __name__ == "__main__":

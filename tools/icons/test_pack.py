@@ -20,7 +20,7 @@ CATS = (os.path.join(FIXTURE, "categories", "curated.tsv"), os.path.join(FIXTURE
 GLYPHS = dict.fromkeys(pack.GLYPHS, "square") | {"FINANCE": "arc"}  # the fixture has no emoji icons
 
 
-def fixture_bytes(categories=None, glyphs=pack.GLYPHS):
+def fixture_bytes(categories=CATS, glyphs=GLYPHS):
     return pack.pack(FIXTURE, os.path.join(FIXTURE, "appfilter.xml"), pack.ARCTICONS_COMMIT, categories, glyphs)[0]
 
 
@@ -158,10 +158,10 @@ class ShapeTest(unittest.TestCase):
 
 
 class BadSvgTest(unittest.TestCase):
-    def pack_one(self, svg):
+    def pack_one(self, svg, name="x"):
         with tempfile.TemporaryDirectory() as d:
             os.mkdir(os.path.join(d, "icons"))
-            with open(os.path.join(d, "icons", "x.svg"), "w") as f:
+            with open(os.path.join(d, "icons", name + ".svg"), "w") as f:
                 f.write(svg)
             with open(os.path.join(d, "appfilter.xml"), "w") as f:
                 f.write("<resources/>")
@@ -169,6 +169,13 @@ class BadSvgTest(unittest.TestCase):
 
     def test_a_good_icon_packs(self):
         self.pack_one('<svg xmlns="http://www.w3.org/2000/svg"><path stroke="#fff" d="M1 2 L3 4"/></svg>')
+
+    def test_icon_names_are_lowercase_words(self):
+        # Backup.fits and the picker store a picked icon by name: only [a-z0-9_] survive both
+        for name in ("Bad", "a-b", "a b", "a.b"):
+            with self.assertRaises(SystemExit, msg=name) as e:
+                self.pack_one('<svg xmlns="http://www.w3.org/2000/svg"><path stroke="#fff" d="M1 2 L3 4"/></svg>', name)
+            self.assertIn(name + ".svg", str(e.exception.code))
 
     def test_truncated_path_names_the_file(self):
         with self.assertRaises(SystemExit) as e:
@@ -187,7 +194,9 @@ class BadSvgTest(unittest.TestCase):
     def test_unsupported_svg_features_name_the_file(self):
         svg = '<svg xmlns="http://www.w3.org/2000/svg">%s<path stroke="#fff" d="M1 2 L3 4"/></svg>'
         for extra in ('<use href="#a"/>', '<text>a</text>', '<image href="a.png"/>', '<path display="none" d="M1 2 L3 4" stroke="#fff"/>',
-                      '<path style="display:none" d="M1 2 L3 4" stroke="#fff"/>', '<path transform="translate()" d="M1 2 L3 4" stroke="#fff"/>'):
+                      '<path style="display:none" d="M1 2 L3 4" stroke="#fff"/>', '<path transform="translate()" d="M1 2 L3 4" stroke="#fff"/>',
+                      '<path clip-path="url(#a)" d="M1 2 L3 4" stroke="#fff"/>', '<g mask="url(#a)"><path d="M1 2 L3 4" stroke="#fff"/></g>',
+                      '<path style="clip-path:url(#a)" d="M1 2 L3 4" stroke="#fff"/>'):
             with self.assertRaises(SystemExit, msg=extra) as e:
                 self.pack_one(svg % extra)
             self.assertIn("x.svg", str(e.exception.code), extra)
@@ -200,6 +209,12 @@ class PackTest(unittest.TestCase):
             pack.index({"pkgA": 0, "pkgB": 1}, hash48=lambda key: 42)
         self.assertIn("collision", str(e.exception.code))
 
+    def test_keys_are_listed_components_only(self):
+        # Fable c3 m6: a package-wide key would hand a glyph to an activity the appfilter never listed
+        names = sorted(n[:-4] for n in os.listdir(FIXTURE) if n.endswith(".svg"))
+        keys = pack.keys(pack.components(os.path.join(FIXTURE, "appfilter.xml"), {n: i for i, n in enumerate(names)}))
+        self.assertEqual({"pkgA/pkgA.X", "pkgA/pkgA.Y", "pkgB/pkgB.X", "pkgB/pkgB.Y"}, set(keys))
+
     def test_dash_across_the_closing_point_is_one_dash(self):
         # a closed outline's last dash runs on into its first: one subpath with a corner, not two ends at the start
         square = pack.parse_d("M4 4 L44 4 L44 44 L4 44 Z")  # 160 units, "10 10" from 5 in: 9 ranges, 8 dashes
@@ -209,7 +224,7 @@ class PackTest(unittest.TestCase):
         self.assertEqual([("M", 4, 9), ("L", 4, 4), ("L", 9, 4)], [(o[0], round(o[1], 6), round(o[2], 6)) for o in ops[:3]])
 
     def test_category_round_trip(self):
-        blob = fixture_bytes(CATS, GLYPHS)
+        blob = fixture_bytes()
         self.assertEqual(b"ICN2", blob[:4])
         self.assertEqual(("FINANCE", self.glyph("arc")), category_of(blob, "com.example.bank"))
         self.assertIsNone(category_of(blob, "com.example.nothing"), "the empty type is dropped")
@@ -218,7 +233,7 @@ class PackTest(unittest.TestCase):
         return sorted(n[:-4] for n in os.listdir(FIXTURE) if n.endswith(".svg")).index(name)
 
     def test_curated_beats_dataset(self):
-        self.assertEqual("SHOPPING", category_of(fixture_bytes(CATS, GLYPHS), "com.example.shop")[0])
+        self.assertEqual("SHOPPING", category_of(fixture_bytes(), "com.example.shop")[0])
 
     def test_every_dataset_type_has_a_category(self):
         types = ("Action|Adventure|Arcade|Art & Design|Auto & Vehicles|Beauty|Board|Board Games|Books & Reference|Brain Games|"
@@ -241,13 +256,13 @@ class PackTest(unittest.TestCase):
 
     def test_missing_glyph_fails(self):
         with self.assertRaises(SystemExit) as e:
-            fixture_bytes(CATS, GLYPHS | {"WEATHER": "no_such_svg"})
+            fixture_bytes(glyphs=GLYPHS | {"WEATHER": "no_such_svg"})
         self.assertIn("WEATHER", str(e.exception.code))
         with self.assertRaises(SystemExit):
-            fixture_bytes(CATS)  # the real glyphs are not among the fixture's SVGs
+            fixture_bytes(glyphs=pack.GLYPHS)  # the real glyphs are not among the fixture's SVGs
 
     def test_arcticons_packages_dropped(self):
-        self.assertIsNone(category_of(fixture_bytes(CATS, GLYPHS), "pkgA"), "pkgA has an Arcticons icon: the category is never read")
+        self.assertIsNone(category_of(fixture_bytes(), "pkgA"), "pkgA has an Arcticons icon: the category is never read")
 
     def test_other_dataset_commit_refused(self):
         with self.assertRaises(SystemExit) as e:
@@ -257,15 +272,11 @@ class PackTest(unittest.TestCase):
     def test_fixture_is_current(self):
         with open(os.path.join(FIXTURE, "icons-fixture.bin"), "rb") as f:
             self.assertEqual(f.read(), fixture_bytes(), "rewrite it: python3 -I tools/icons/test_pack.py write")
-        with open(os.path.join(FIXTURE, "icons-fixture2.bin"), "rb") as f:
-            self.assertEqual(f.read(), fixture_bytes(CATS, GLYPHS), "rewrite it: python3 -I tools/icons/test_pack.py write")
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["write"]:
         with open(os.path.join(FIXTURE, "icons-fixture.bin"), "wb") as f:
             f.write(fixture_bytes())
-        with open(os.path.join(FIXTURE, "icons-fixture2.bin"), "wb") as f:
-            f.write(fixture_bytes(CATS, GLYPHS))
     else:
         unittest.main()

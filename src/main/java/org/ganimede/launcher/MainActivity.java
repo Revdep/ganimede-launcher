@@ -5,6 +5,7 @@ import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.Favourites;
 import org.ganimede.launcher.core.Gestures;
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Morph;
 import org.ganimede.launcher.core.Search;
 
@@ -20,6 +21,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.view.HapticFeedbackConstants;
@@ -43,6 +45,7 @@ import java.util.Set;
 public class MainActivity extends Activity implements Actions.Home {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private SharedPreferences prefs;
+    private IconPicker icons;
     private LauncherApps launcherApps;
     private Ui ui;
     private Layout layout;
@@ -102,6 +105,7 @@ public class MainActivity extends Activity implements Actions.Home {
         }
         SharedPreferences.Editor e = ui.prefs.edit();
         for (String k : AppPrefs.of(ui.prefs.getAll().keySet(), pkg)) e.remove(k);
+        for (String k : IconSet.pickedKeysOf(ui.prefs.getAll(), pkg)) e.remove(k); // else the 4 MB set stays needed, and in the backup
         e.apply();
     }
 
@@ -156,7 +160,7 @@ public class MainActivity extends Activity implements Actions.Home {
         notices = new Notices(ui, apps, root, launcher::launch);
         entries = new Entries(ui, apps, layout, launcher, notices, id -> folders.show(id), e -> menus.forEntry(e));
         widgets = new Widgets(this, ui, layout, handler, this::refreshAll);
-        IconPicker icons = new IconPicker(ui, sheets, handler, entries::name, this::refreshAll, this::loadApps);
+        icons = new IconPicker(ui, sheets, handler, entries::name, this::refreshAll, this::loadApps);
         drag = new DragDrop(ui, sheets, layout, apps, launcher, notices, handler, e -> menus.forEntry(e),
                 (target, d) -> classic.dropOn(target, d), this::refreshAll);
         classic = new ClassicHome(ui, layout, apps, entries, widgets, drag, launcher, landing, handler, this::refreshAll,
@@ -202,6 +206,7 @@ public class MainActivity extends Activity implements Actions.Home {
     @Override
     protected void onDestroy() {
         clearAlphabetEdgeDrag();
+        icons.close();
         launcherApps.unregisterCallback(appsChanged);
         unregister(profiles);
         prefs.unregisterOnSharedPreferenceChangeListener(prefWatch);

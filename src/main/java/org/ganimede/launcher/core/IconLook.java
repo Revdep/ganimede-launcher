@@ -17,6 +17,11 @@ public record IconLook(String glyph, String container, String fill, String color
     public static final String[] CONTAINERS = {"none", "squircle", "circle", "square", "teardrop"};
     public static final String[] FILLS = {"solid", "soft"};
     public static final String[] COLORS = {"accent", "text"};
+    /** What the settings call each of the four, in the same order. */
+    public static final String[] GLYPH_NAMES = {"Original", "Line", "Bold", "Sharp", "Duotone", "Hollow", "Dots (minimal)"};
+    public static final String[] CONTAINER_NAMES = {"No plate", "Squircle", "Circle", "Rounded square", "Teardrop"};
+    public static final String[] FILL_NAMES = {"Solid", "Soft"};
+    public static final String[] COLOR_NAMES = {"Theme colour", "Text colour"};
     /** The home's settings; the drawer's own are the same with "drawer_" in front (DrawerSettings.key). */
     public static final String[] KEYS = {"icon_glyph", "icon_container", "icon_fill", "icon_color"};
     /** The settings the model replaced: a backup, a phone or a copied theme from before still carries them. */

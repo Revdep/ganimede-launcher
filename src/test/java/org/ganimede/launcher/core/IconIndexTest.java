@@ -20,7 +20,8 @@ public class IconIndexTest {
 
     public static void testPackageHit() {
         eq("square", found("pkgA", "pkgA.X"), "a listed component of a one-icon package");
-        eq("square", found("pkgA", "pkgA.Z"), "a component the appfilter never saw still gets its package's icon");
+        eq("square", found("pkgA", "pkgA.Y"), "its other listed component");
+        eq("none", found("pkgA", "pkgA.Z"), "a launcher activity the appfilter does not list keeps its own icon (Fable c3 m6)");
     }
 
     public static void testComponentOverride() {

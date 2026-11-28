@@ -8,7 +8,7 @@ import java.nio.ByteOrder;
 
 /** A damaged icon record, built byte by byte: refused without a memory peak out of proportion to its size. */
 public class IconSetRecordTest {
-    /** An ICN1 set of one icon whose one path claims {@code ops} ops, each a LINE with no points: it ends early. */
+    /** An ICN2 set (no categories) of one icon whose one path claims {@code ops} ops, each a LINE with no points: it ends early. */
     private static byte[] claimingOps(int ops) {
         ByteBuffer rec = ByteBuffer.allocate(16 + ops);
         rec.put((byte) 1).put((byte) 1).put((byte) 255); // one path: stroke, opaque
@@ -17,10 +17,11 @@ public class IconSetRecordTest {
             rec.put((byte) (v & 0x7F | 0x80));
         }
         for (int i = 0; i < ops; i++) rec.put((byte) 1);
-        int len = rec.position(), start = 48, names = start + len;
-        ByteBuffer b = ByteBuffer.allocate(names + 2).order(ByteOrder.LITTLE_ENDIAN);
-        b.putInt(0, 'I' | 'C' << 8 | 'N' << 16 | '1' << 24).putInt(24, 1).putInt(28, 0).putInt(32, names).putInt(36, names + 2);
-        b.putInt(40, 0).putInt(44, len);
+        int len = rec.position(), start = 60, names = start + len;
+        ByteBuffer b = ByteBuffer.allocate(names + 4).order(ByteOrder.LITTLE_ENDIAN);
+        b.putInt(0, 'I' | 'C' << 8 | 'N' << 16 | '2' << 24).putInt(24, 1).putInt(28, 0).putInt(32, names).putInt(36, names + 2);
+        b.putInt(40, 0).putInt(44, names + 2).putInt(48, names + 2); // no category keys, an empty glyph table after the names
+        b.putInt(52, 0).putInt(56, len);
         b.put(start, rec.array(), 0, len);
         b.put(names, (byte) 1).put(names + 1, (byte) 'a');
         return b.array();

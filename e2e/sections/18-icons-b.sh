@@ -135,3 +135,16 @@ if folder_cell "$OUT/icons-folder-app-page.png"; then
   [ "${red:-0}" -gt 20 ] && [ "${white:-0}" -eq 0 ] && ok "the folder's Calendar is red as the app page's icons ($red px), not the home's white" \
     || ko "folder on an app page: red $red, white $white px (expected red, no white)"
 else ko "no Cartella X on the app pages"; fi
+
+# Fable c3 P2-1: a pinned shortcut taken out of the favourites takes its picked icon with it, or the 4 MB set stays needed
+# (and the key stays in the backup).
+step "Remove from favourites also drops the shortcut's picked icon"
+SC="s:org.ganimede.e2e|zz1|Zz Posta"
+seed list string fav "$SC" string "icon:$SC" "$BUILTIN|okay"
+pick_stored() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -qF "name=\"icon:$SC\">$BUILTIN|okay<"; }
+pick_stored && ok "the picked icon is stored for the shortcut" || ko "the seeded pick is not stored"
+wait_until 8 has "Zz Posta" || ko "the shortcut is not in the list"
+read -r ax ay <<<"$(cx "Zz Posta")"; hold "$ax" "$ay"
+expect "Rimuovi dai preferiti" && tap "Rimuovi dai preferiti"
+wait_until 5 hasnt "Zz Posta"
+prefs_read && ! grep -qF "name=\"icon:$SC\"" <<<"$PREFS_XML" && ok "the picked icon went with the shortcut" || ko "the picked icon is still stored after Rimuovi dai preferiti, or prefs unreadable"

@@ -268,6 +268,8 @@ final class SettingsPreview extends FrameLayout {
         Context c = getContext();
         new Thread(() -> {
             Icons.load(c, want);
+            Icons.preload(c, p); // a picked built-in icon needs the set read, or the preview shows the original
+            for (Apps.Item a : items) Apps.resolveIcon(c, p, a); // the icons (a disk read each) off the main thread
             post(() -> {
                 if (!want.equals(pack)) return;
                 refresh();
@@ -500,6 +502,12 @@ final class SettingsPreview extends FrameLayout {
         return entry.startsWith("s:") ? Entries.shortcutName(entry) : layout.folder(entry.substring(2)).optString("name", T.t(getContext(), "Folder"));
     }
 
+    private Apps.Item resolved(String key) {
+        Apps.Item a = all.get(key);
+        if (a != null) Apps.resolveIcon(getContext(), p, a);
+        return a;
+    }
+
     /** A folder's or shortcut's icon: a soft tile with its mark. */
     private View tile(String entry, int icon, int fg, int accent, IconLook look) {
         Drawable picked = Icons.picked(getContext(), p, entry); // the icon chosen for it, as the home shows it
@@ -509,8 +517,9 @@ final class SettingsPreview extends FrameLayout {
             Icons.apply(iv, picked, true, null, null, look, fg, accent, icon);
             return iv;
         }
+        if (entry.startsWith("f:")) return Entries.folderTile(getContext(), layout, this::resolved, entry.substring(2), icon, look, fg, accent); // as the home draws it
         View v = new View(getContext());
-        v.setBackground(Icons.markedTile(entry.startsWith("f:") ? "folder" : "link", icon, fg));
+        v.setBackground(Icons.markedTile("link", icon, fg));
         return v;
     }
 

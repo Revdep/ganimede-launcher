@@ -28,17 +28,32 @@ final class BuiltinIcon extends Drawable {
 
     final List<IconSet.PathData> data;
     private final Path[] paths; // built once on the 48-unit grid, shared by copies, never changed
+    private final Path[] closed; // the closed subpaths of each path (Duotone's fill), built on first use, shared like paths
+    private final float[] bounds; // of every path: where the glyph sits on a container
+    // what a draw works with, kept: a drawn icon allocates nothing (a copy of its own, each thread has its copy)
+    private final Matrix matrix = new Matrix();
+    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path path = new Path(), edge = new Path(), shut = new Path();
     private IconLook look = LINE;
     private int color = Color.WHITE, alpha = 0xFF;
     private ColorFilter filter;
 
     BuiltinIcon(List<IconSet.PathData> data) {
-        this(data, data.stream().map(BuiltinIcon::path).toArray(Path[]::new));
+        this(data, data.stream().map(BuiltinIcon::path).toArray(Path[]::new), new Path[data.size()], GlyphFit.bounds(data));
     }
 
-    private BuiltinIcon(List<IconSet.PathData> data, Path[] paths) {
+    private BuiltinIcon(List<IconSet.PathData> data, Path[] paths, Path[] closed, float[] bounds) {
         this.data = data;
         this.paths = paths;
+        this.closed = closed;
+        this.bounds = bounds;
+    }
+
+    private Path closed(int i) {
+        synchronized (closed) { // copies on the render thread and the main thread share it
+            if (closed[i] == null) closed[i] = path(data.get(i), true);
+            return closed[i];
+        }
     }
 
     /** The treatment and container this drawable draws with (a placeholder matches the icon drawn for it). */
@@ -65,19 +80,24 @@ final class BuiltinIcon extends Drawable {
 
     /** {@code edges}: what each path's stroke follows (Hollow's contours, else the path itself); fills always follow the path. */
     private void paint(Canvas c, boolean plated, IconLook.Stroke s, Path[] edges, int color, int fill, int px) {
-        GlyphFit fit = plated ? GlyphFit.onContainer(GlyphFit.bounds(data), s.extent(), px) : GlyphFit.grid(px);
-        Matrix m = new Matrix();
+        GlyphFit fit = plated ? GlyphFit.onContainer(bounds, s.extent(), px) : GlyphFit.grid(px);
+        Matrix m = matrix;
         m.setScale(fit.scale(), fit.scale());
         m.postTranslate(fit.dx(), fit.dy());
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.reset();
+        paint.setAntiAlias(true);
         paint.setColorFilter(filter);
         for (int i = 0; i < paths.length; i++) {
             IconSet.PathData p = data.get(i);
-            Path path = new Path(paths[i]), edge = path;
-            path.transform(m);
+            path.reset();
+            path.setFillType(paths[i].getFillType());
+            path.addPath(paths[i], m);
+            Path stroked = path;
             if (edges[i] != paths[i]) {
-                edge = new Path(edges[i]);
-                edge.transform(m);
+                edge.reset();
+                edge.setFillType(edges[i].getFillType());
+                edge.addPath(edges[i], m);
+                stroked = edge;
             }
             float a = p.alpha() * alpha / 255f; // the path's own alpha and the drawable's, for fill and stroke alike
             paint.setColor(color);
@@ -88,12 +108,13 @@ final class BuiltinIcon extends Drawable {
             }
             if (!p.stroke()) continue;
             if (s.fillsClosed() && !p.fill()) {
-                Path closed = path(p, true);
-                closed.transform(m);
+                shut.reset();
+                shut.setFillType(closed(i).getFillType());
+                shut.addPath(closed(i), m);
                 paint.setColor(fill);
                 paint.setAlpha(Math.round(Color.alpha(fill) * a));
                 paint.setStyle(Paint.Style.FILL);
-                c.drawPath(closed, paint);
+                c.drawPath(shut, paint);
                 paint.setColor(color);
                 paint.setAlpha(Math.round(Color.alpha(color) * a));
             }
@@ -101,7 +122,7 @@ final class BuiltinIcon extends Drawable {
             paint.setStrokeWidth(s.width() * px / 48f);
             paint.setStrokeCap(Paint.Cap.valueOf(s.cap().name()));
             paint.setStrokeJoin(Paint.Join.valueOf(s.join().name()));
-            c.drawPath(edge, paint);
+            c.drawPath(stroked, paint);
             if (s.dotCap() == s.cap()) continue;
             float[] dots = GlyphFit.dots(p); // zero-length subpaths vanish under this cap: drawn as round points
             m.mapPoints(dots);
@@ -180,7 +201,7 @@ final class BuiltinIcon extends Drawable {
     @Override
     public ConstantState getConstantState() {
         return new ConstantState() {
-            @Override public Drawable newDrawable() { return new BuiltinIcon(data, paths); }
+            @Override public Drawable newDrawable() { return new BuiltinIcon(data, paths, closed, bounds); }
             @Override public int getChangingConfigurations() { return 0; }
         };
     }

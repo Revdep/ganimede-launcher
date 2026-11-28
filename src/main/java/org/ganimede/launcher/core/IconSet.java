@@ -29,7 +29,7 @@ public final class IconSet {
      */
     public record PathData(boolean stroke, boolean fill, boolean evenOdd, float alpha, Op[] ops, float[] points) {}
 
-    private static final int MAGIC1 = 'I' | 'C' << 8 | 'N' << 16 | '1' << 24, MAGIC2 = 'I' | 'C' << 8 | 'N' << 16 | '2' << 24, Q = 32;
+    private static final int MAGIC = 'I' | 'C' << 8 | 'N' << 16 | '2' << 24, HEADER = 52, Q = 32;
     private static final Op[] OPS = Op.values();
     private static final int[] POINTS = {1, 1, 3, 0, 2};
 
@@ -42,21 +42,19 @@ public final class IconSet {
     private final int count, start;
     private final int[] nameAt;
     private final IconIndex index;
-    private final int header; // 40 B in format 1, 52 B in format 2 (the category section's three numbers)
-    private final IconIndex categoryIndex; // null in format 1
+    private final IconIndex categoryIndex;
     private final List<Integer> categoryGlyphs = new ArrayList<>();
 
     /** Every count and offset is checked against the bytes here or in {@link Reader}: a damaged file is refused, not read past. */
-    private IconSet(ByteBuffer data, int header) {
+    private IconSet(ByteBuffer data) {
         this.data = data;
-        this.header = header;
         int length = data.capacity();
         count = data.getInt(24);
         int indexCount = data.getInt(28), names = data.getInt(32), indexAt = data.getInt(36);
-        if (count < 0 || count > (length - header) / 4 - 1) throw bad("icon count");
-        start = header + 4 * (count + 1);
+        if (count < 0 || count > (length - HEADER) / 4 - 1) throw bad("icon count");
+        start = HEADER + 4 * (count + 1);
         for (int i = 0, previous = 0; i <= count; i++) {
-            int off = data.getInt(header + 4 * i);
+            int off = data.getInt(HEADER + 4 * i);
             if (off < previous || off > length - start) throw bad("icon offset " + i);
             previous = off;
         }
@@ -69,10 +67,6 @@ public final class IconSet {
             r.skip(r.varint());
         }
         index = new IconIndex(data, indexAt, indexCount);
-        if (header == 40) {
-            categoryIndex = null;
-            return;
-        }
         int keys = data.getInt(40), categoryAt = data.getInt(44), tableAt = data.getInt(48);
         if (keys < 0 || categoryAt < 0 || categoryAt > length || keys > (length - categoryAt) / 8) throw bad("category index");
         if (tableAt < 0 || tableAt > length - 2) throw bad("category table");
@@ -90,12 +84,11 @@ public final class IconSet {
         return new IllegalArgumentException("damaged icon set: " + what);
     }
 
-    /** @throws IllegalArgumentException when the bytes are not a format-1 or format-2 icon set, or a damaged one */
+    /** @throws IllegalArgumentException when the bytes are not an icon set (ICN2), or a damaged one */
     public static IconSet of(byte[] bytes) {
         ByteBuffer b = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-        int header = bytes.length < 4 ? 0 : b.getInt(0) == MAGIC1 ? 40 : b.getInt(0) == MAGIC2 ? 52 : 0;
-        if (header == 0 || bytes.length < header) throw new IllegalArgumentException("not an ICN1 or ICN2 icon set");
-        return new IconSet(b, header);
+        if (bytes.length < HEADER || b.getInt(0) != MAGIC) throw new IllegalArgumentException("not an ICN2 icon set");
+        return new IconSet(b);
     }
 
     public int count() {
@@ -142,6 +135,16 @@ public final class IconSet {
         return "icon:" + entry;
     }
 
+    /**
+     * The picked-icon keys of an app's entries in the main profile ("icon:<package>/<class>", no "#<user>" of a work
+     * profile's copy): deleted when it is uninstalled (see {@link #pickedKey}).
+     */
+    public static List<String> pickedKeysOf(Map<String, ?> prefs, String pkg) {
+        List<String> out = new ArrayList<>();
+        for (String k : prefs.keySet()) if (k.startsWith(pickedKey(pkg + "/")) && k.indexOf('#') < 0) out.add(k);
+        return out;
+    }
+
     /** Whether any entry's picked icon ("icon:<entry>" = "builtin:arcticons|name") comes from this set. */
     public static boolean needed(Map<String, ?> prefs) {
         for (Map.Entry<String, ?> e : prefs.entrySet())
@@ -149,9 +152,8 @@ public final class IconSet {
         return false;
     }
 
-    /** The built-in icon (id) that stands for the Play category of an app without an icon in the set; empty when unknown or in format 1. */
+    /** The built-in icon (id) that stands for the Play category of an app without an icon in the set; empty when unknown. */
     public OptionalInt categoryGlyph(String pkg) {
-        if (categoryIndex == null) return OptionalInt.empty();
         OptionalInt category = categoryIndex.find(pkg);
         return category.isPresent() && category.getAsInt() < categoryGlyphs.size()
                 ? OptionalInt.of(categoryGlyphs.get(category.getAsInt())) : OptionalInt.empty();
@@ -171,7 +173,7 @@ public final class IconSet {
     /** @throws IllegalArgumentException when the icon's record is damaged */
     public List<PathData> icon(int id) {
         if (id < 0 || id >= count) throw bad("icon id " + id); // an id from a damaged index
-        Reader r = new Reader(start + data.getInt(header + 4 * id), start + data.getInt(header + 4 * (id + 1)));
+        Reader r = new Reader(start + data.getInt(HEADER + 4 * id), start + data.getInt(HEADER + 4 * (id + 1)));
         List<PathData> paths = new ArrayList<>();
         int x = 0, y = 0;
         for (int n = r.count(); n > 0; n--) {
