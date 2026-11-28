@@ -428,7 +428,7 @@ fresh_wizard() { # uninstall, install, open the first wizard step ("Welcome to G
   wait_until 10 has "Welcome to Ganimede"
 }
 
-# Helpers of the icon sections (18-icons-a, 18-icons-b), each of which runs alone.
+# Helpers of the icon sections (18-icons-a, -b, -c), each of which runs alone.
 # The icon model (issue 078) and the built-in Arcticons pack (077): shared names.
 RED="#E01010"
 # the Icons card tiles as TalkBack names them: "group: choice" (the rows share some names)
@@ -483,9 +483,28 @@ reach() { # reach desc [neighbour]: the tile on screen, looked for below then ab
   if [ -n "${2:-}" ] && ! hasd "$1" && xy=$(find_desc "$2"); then set -- "$1" $xy; A shell input swipe 150 "$3" 900 "$3" 1500; wait_until 5 settled; fi # slow: no fling to stop with the tap
   find_desc "$1"
 }
+htile() { # htile desc y: the tile of the sideways row at height y whole on the screen (inside the cards' 24 dp), slow swipes along the row
+  local n=0 b x1 y1 x2 y2 dir=left
+  while [ $n -lt 10 ]; do # a row of 7 tiles is under two screens wide: four swipes of 400 px each way reach either end
+    b=$(bounds "desc:$1")
+    if [ -n "$b" ]; then
+      read -r x1 y1 x2 y2 <<<"$b"; [ "$x1" -ge "$(dp 24)" ] && [ "$x2" -le $((W - $(dp 24))) ] && return 0
+      dir=left; [ "$x1" -lt "$(dp 24)" ] && dir=right
+    elif [ $n -eq 4 ]; then dir=right # not on the screen: first looked for on the right, then on the left
+    fi
+    if [ $dir = left ]; then A shell input swipe 700 "$2" 300 "$2" 1000; else A shell input swipe 300 "$2" 700 "$2" 1000; fi # slow: no fling
+    rm -f "$SCR"; n=$((n + 1))
+  done
+  return 1
+}
 tapd() { local xy; xy=$(reach "$@") && [ -n "$xy" ] && { set -- $xy; A shell input tap "$1" "$2"; }; }
 stored() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"$1\">$2</string>"; }
 BUILTIN=builtin:arcticons
+FIXTURE=$FIX # the fixture app: an old-style icon, a monochrome layer, a category, and an icon pack (18-icons-b and -c)
+icons_fixture() { # installs it for the section, uninstalled when the run ends
+  fixture_install && ok "fixture app built and installed" || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
+  defer "A uninstall $FIX"
+}
 CAL=com.google.android.calendar/com.android.calendar.AllInOneActivity
 
 # The folder pop-up's card (12-folders-a and -b)
