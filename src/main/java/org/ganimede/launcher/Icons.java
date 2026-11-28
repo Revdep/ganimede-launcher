@@ -24,6 +24,7 @@ import android.os.UserHandle;
 import android.widget.ImageView;
 
 import org.ganimede.launcher.core.GlyphFit;
+import org.ganimede.launcher.core.IconCache;
 import org.ganimede.launcher.core.IconLook;
 import org.ganimede.launcher.core.IconMask;
 import org.ganimede.launcher.core.Colors;
@@ -64,13 +65,14 @@ final class Icons {
         }
     }
 
-    /** Shaped icons are drawn once and reused: no bitmap work while scrolling. */
-    private static final android.util.LruCache<String, Bitmap> CACHE = new android.util.LruCache<String, Bitmap>(24 * 1024 * 1024) {
+    /** Shaped icons are drawn once and reused: no bitmap work while scrolling. Sized for the device on the first apply. */
+    private static final android.util.LruCache<String, Bitmap> CACHE = new android.util.LruCache<String, Bitmap>(IconCache.bytes(0)) {
         @Override
         protected int sizeOf(String k, Bitmap b) {
             return b.getByteCount();
         }
     };
+    private static boolean sized; // main thread only
     private static final String[] PACK_ACTIONS = {"org.adw.launcher.THEMES", "com.novalauncher.THEME",
             "com.gau.go.launcherex.theme", "com.anddoes.launcher.THEME"};
 
@@ -372,6 +374,10 @@ final class Icons {
      * profile of the app the icon is for (null: not an app's), whose badge goes on another profile's icon.
      */
     static void apply(ImageView v, Drawable icon, boolean fromPack, BuiltinIcon category, UserHandle user, IconLook look, int fg, int accent, int size) {
+        if (!sized) { // a drawer of 150 icons at 80 dp on 3.5x is 47 MB: more than a fixed cache holds
+            sized = true;
+            CACHE.resize(IconCache.bytes(v.getContext().getSystemService(android.app.ActivityManager.class).getMemoryClass()));
+        }
         int px = size <= 0 ? 96 : size;
         v.setBackground(null);
         v.setPadding(0, 0, 0, 0);
