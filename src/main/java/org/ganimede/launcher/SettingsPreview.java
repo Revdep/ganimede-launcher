@@ -182,7 +182,6 @@ final class SettingsPreview extends FrameLayout {
             addView(m, new FrameLayout.LayoutParams(0, 0, Gravity.TOP | Gravity.LEFT));
         }
         setPadding(0, px(4), 0, px(8));
-        loadApps(c);
         refresh();
     }
 
@@ -254,12 +253,17 @@ final class SettingsPreview extends FrameLayout {
         return Math.round(v * dp);
     }
 
-    private void loadApps(Context c) {
-        try {
-            for (Apps.Item a : Apps.named(c)) { all.put(a.key, a); items.add(a); }
-        } catch (Exception ignored) {
-            // No launcher service: the miniature shows no icons.
+    private List<Apps.Item> named;
+
+    private synchronized List<Apps.Item> named(Context c) {
+        if (named == null) {
+            try {
+                named = Apps.named(c);
+            } catch (Exception e) {
+                named = new ArrayList<>(); // No launcher service: the miniature shows no icons.
+            }
         }
+        return named;
     }
 
 
@@ -269,8 +273,10 @@ final class SettingsPreview extends FrameLayout {
         new Thread(() -> {
             IconPacks.load(c, want);
             IconPacks.preload(c, p); // a picked built-in icon needs the set read, or the preview shows the original
-            for (Apps.Item a : items) Apps.resolveIcon(c, p, a); // the icons (a disk read each) off the main thread
+            List<Apps.Item> apps = named(c); // one system call per app: off the main thread, like the icons
+            for (Apps.Item a : apps) Apps.resolveIcon(c, p, a); // the icons (a disk read each) too
             post(() -> {
+                if (items.isEmpty()) for (Apps.Item a : apps) { all.put(a.key, a); items.add(a); }
                 if (!want.equals(pack)) return;
                 refresh();
                 if (onIcons != null) onIcons.run();

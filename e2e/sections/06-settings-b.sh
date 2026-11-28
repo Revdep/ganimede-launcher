@@ -96,6 +96,7 @@ else ko "Calendar favourite missing with old apps_offset 4"; fi
 step "Settings: App arrows start from the effective offset"
 settings_home 1500
 # A tap on an app row in the preview picks the App brick (its pill may sit off screen in the strip).
+wait_until 5 has "Calendar" # the preview reads the apps off the main thread: its rows come a moment after the page
 read -r app_x app_y <<<"$(cx "Calendar")" && [ -n "$app_x" ] && A shell input tap "$app_x" "$app_y"
 if xy=$(find_desc "App: Sposta a destra") && [ -n "$xy" ]; then
   set -- $xy; A shell input tap "$1" "$2"
