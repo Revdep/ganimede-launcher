@@ -189,6 +189,21 @@ wait_until 5 grown && ok "Allarga: il blocco sullo schermo è più alto" || ko "
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 a11y_off; clock_fixture_cleanup
 
+step "Blocchi: ridimensionare con le frecce della tastiera (c3 M15)"
+BOTTOM_HANDLE="Ridimensiona bordo inferiore"
+seed classic
+wait_until 5 clock_bounds >/dev/null
+read -r x1 y1 x2 y2 <<<"$(clock_bounds)"
+A shell input swipe $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) 1300
+tap "Ridimensiona"; wait_until 5 hasd "$BOTTOM_HANDLE"
+handle_focused() { screen | grep -q "content-desc=\"$BOTTOM_HANDLE\"[^>]*focused=\"true\"\|focused=\"true\"[^>]*content-desc=\"$BOTTOM_HANDLE\""; }
+for _ in $(seq 20); do handle_focused && break; A shell input keyevent KEYCODE_TAB; rm -f "$SCR"; done
+handle_focused && ok "il Tab arriva alla maniglia inferiore" || ko "la maniglia inferiore non prende il focus con il Tab"
+A shell input keyevent KEYCODE_DPAD_UP # the bottom edge up: one row less
+wait_until 5 test -n "$(pref blocks | grep -o 'rowSpan&quot;:1')" \
+  && ok "freccia su sulla maniglia inferiore accorcia il blocco di una cella" || ko "la freccia non ha cambiato la misura (blocks: $(pref blocks))"
+A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+
 step "Data e ora dell'orologio aprono destinazioni distinte in Lista e Classica"
 for mode in list classic; do
   [ "$mode" = list ] && mode_it=Lista || mode_it=Classica

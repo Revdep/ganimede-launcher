@@ -16,6 +16,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.DragEvent;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
@@ -426,7 +427,10 @@ final class ClassicHome {
                 ArrayList<View> found = new ArrayList<>();
                 pager.findViewsWithText(found, edgeLabel(edge), View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
                 //noinspection AccessibilityFocus: the focus the user had before the handles were rebuilt, on the same edge
-                for (View h : found) h.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+                for (View h : found) {
+                    h.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+                    h.requestFocus(); // a keyboard's focus too: the handles were built again
+                }
                 Ui.announce(pager, ui.f("Width %d, height %d", saved.colSpan, saved.rowSpan));
             });
             return;
@@ -488,6 +492,15 @@ final class ClassicHome {
                     pager.post(refresh); // after this touch: rebuilding now would remove the handle mid-event
                     return true;
                 }
+                return true;
+            });
+            handle.setFocusable(true); // a keyboard moves the edge with the arrows, as the screen reader's Grow and Shrink do
+            handle.setOnKeyListener((v, code, ev) -> {
+                String arrow = code == KeyEvent.KEYCODE_DPAD_LEFT ? "left" : code == KeyEvent.KEYCODE_DPAD_RIGHT ? "right"
+                        : code == KeyEvent.KEYCODE_DPAD_UP ? "up" : code == KeyEvent.KEYCODE_DPAD_DOWN ? "down" : null;
+                int by = arrow == null ? 0 : Blocks.arrowStep(edge, arrow);
+                if (by == 0) return false;
+                if (ev.getAction() == KeyEvent.ACTION_DOWN) stepEdge(original.id, edge, by);
                 return true;
             });
             handle.setAccessibilityDelegate(new View.AccessibilityDelegate() {
