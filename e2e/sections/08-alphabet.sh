@@ -17,8 +17,7 @@ wait_until 5 has "Impostazioni Ganimede" && ok "a long-press under the favourite
 A shell input swipe $((W - 2)) $ay 640 $ay 250   # the system Back swipe from the alphabet's edge
 wait_until 5 hasnt "Impostazioni Ganimede" && ok "Back from the alphabet's edge closes the menu" || { ko "Back from the alphabet's edge didn't work"; A shell input keyevent KEYCODE_BACK; }
 
-keyboard() { A shell dumpsys input_method | grep -q 'mInputShown=true'; }
-alphabet_at_start() { has "Cerca app" && has Calendar && ! keyboard; }
+alphabet_at_start() { has "Cerca app" && has Calendar && ! kbd; }
 # The G header's bounds mark the list's position: after a scroll back, uiautomator can miss the rows above it (Calendar).
 # (Its top may differ by a few px: classic's drawer settles a little after the first dump.)
 gy() { _tb G && TB=${TB#*,} && echo "${TB%%]*}"; }

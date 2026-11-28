@@ -17,7 +17,7 @@ id=$(fid)
 read -r fx fy <<<"$(cx Cartella)"; hold "$fx" "$fy"
 tap "Rinomina"; wait_until 5 has "Salva"
 tap "Cartella" # focus the field (the grid label behind the dialog is hidden)
-clear_text; A shell input text Lavoro; tap "Salva"
+clear_text; typ Lavoro; tap "Salva"
 wait_until 5 has "Lavoro"
 has "Lavoro" && hasnt "Cartella" && ok "rename: the grid shows “Lavoro”, not “Cartella”" || ko "folder name on the grid after rename"
 pstr "folder:$id" | grep -q 'Lavoro' && ok "the new name is stored" || ko "folder:$id = $(pstr "folder:$id")"
@@ -58,7 +58,7 @@ seed classic; setp int grid_pages 2; wait_until 5 has Calendar
 A shell input swipe $((W - $(dp 40))) $((H / 2)) $(dp 40) $((H / 2)) 250; wait_until 5 hasnt Calendar; wait_until 5 settled
 hold $((W / 2)) $((H / 2))
 tap "Crea cartella pop-up"; wait_until 5 has "Nome cartella"
-A shell input text Pag2; tap "Crea"; wait_until 5 has "Più tardi" # "add apps now?": Back says no and opens nothing
+typ Pag2; tap "Crea"; wait_until 5 has "Più tardi" # "add apps now?": Back says no and opens nothing
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Più tardi"; wait_until 5 settled
 wait_until 5 has Pag2 && hasnt Calendar && ok "the folder is on page 2" || ko "no “Pag2” on page 2"
 read -r px _ <<<"$(cx Pag2)"; near "${px:-0}" $((W / 2)) $((W / 10)) && ok "in the pressed cell" || ko "Pag2 at x=$px, pressed $((W / 2))"
@@ -246,7 +246,7 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 step "App menu from the drawer (List): add to favourites"
 seed list
 drawer_find() { # drawer, search $1; leaves Settings in the list
-  A shell input swipe 540 1900 540 600 150; wait_until 5 has "Cerca app"; A shell input text "$1"; wait_until 5 has "Settings"; }
+  A shell input swipe 540 1900 540 600 150; wait_until 5 has "Cerca app"; typ "$1"; wait_until 5 has "Settings"; }
 drawer_find sett
 read -r sx sy <<<"$(cx Settings)"; hold "$sx" "$sy"
 expect "Aggiungi ai preferiti" && tap "Aggiungi ai preferiti"
@@ -265,7 +265,7 @@ expect "Rimuovi dai preferiti"; tap "Nascondi"
 wait_until 5 hasnt "Rimuovi dai preferiti"
 wait_until 5 has 'sett"' && ok "the search is still open behind the menu" || ko "the menu closed the search"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"' # the menu took the keyboard down: one Back closes the search
-drawer_find_hidden() { A shell input swipe 540 1900 540 600 150; wait_until 5 has "Cerca app"; A shell input text sett; wait_until 5 has "Nascoste"; }
+drawer_find_hidden() { A shell input swipe 540 1900 540 600 150; wait_until 5 has "Cerca app"; typ sett; wait_until 5 has "Nascoste"; }
 drawer_find_hidden
 wait_until 5 has "Nascoste" && ok "after Hide a search shows the “Nascoste” section" || ko "no Nascoste section"
 has "Settings" && ok "…and it still finds Settings" || ko "Settings not found in search once hidden"

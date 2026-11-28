@@ -63,13 +63,17 @@ has() { screen | grep -q "text=\"$1"; }
 expect() { wait_until 10 has "$1" && { ok "sees “$1”"; return 0; }; ko "doesn't see “$1”"; return 1; }
 tap() { tapn "$1" 0; }
 stap() { tapn "$1" 3; } # in a scrolling page: scrolls down up to three times to find it
+kbd() { A shell dumpsys input_method | grep -q 'mInputShown=true'; } # the keyboard is up
+# typ text: types once the keyboard is up. Keys sent while it is still coming up arrive out of order ("cal" typed as
+# "cla", run 46083578007, drawer).
+typ() { wait_until 5 kbd; A shell input text "$1"; }
 _tb() { TB=$(screen | grep -o "text=\"$1\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]'); [ -n "$TB" ]; }
 _scroll() {
   local from=2120 to=1520 ime top # 600 px a step: a third of the screen, so nothing is skipped
   ime=$(A shell settings get secure default_input_method | tr -d '\r' | cut -d/ -f1)
   top=$(screen | grep -o "package=\"$ime\"[^>]*bounds=\"\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]\"" | head -1 \
     | sed -n 's/.*bounds="\[[0-9]*,\([0-9]*\)\].*/\1/p')
-  if [ -n "$top" ] || A shell dumpsys input_method | grep -q 'mInputShown=true'; then
+  if [ -n "$top" ] || kbd; then
     [ -n "$top" ] || top=$((H / 2))
     from=$((top - 20)); to=$((from - 200)) # keep the gesture above the IME without changing its state
   fi

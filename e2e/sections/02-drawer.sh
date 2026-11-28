@@ -2,17 +2,16 @@ step "Drawer and search"
 seed classic
 A shell input swipe 540 1900 540 600 150; shot 11-drawer
 expect "Cerca app"
-A shell input text "cal"
+typ "cal"
 wait_until 5 has "Calendar" && ok "search finds Calendar" || ko "search misses Calendar"
 shot 12-search
 
 step "Back with text: the first hides the keyboard, the results stay; the second goes home (both modes)"
-kbd() { A shell dumpsys input_method | grep -q 'mInputShown=true'; }
 for m in classic list; do
   seed $m; A shell input swipe 540 1900 540 600 150; expect "Cerca app"
   A shell input keyevent KEYCODE_BACK # empty search: one back closes keyboard and search
   wait_until 5 hasnt "Cerca app" && ok "$m, empty: one back goes home" || ko "$m, empty: search still open after one back"
-  A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "cal"; wait_until 5 kbd || ko "$m: no keyboard while typing"
+  A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "cal"; wait_until 5 kbd || ko "$m: no keyboard while typing"
   A shell input keyevent KEYCODE_BACK
   wait_until 5 eval '! kbd' && has 'cal"' && has "Calendar" && ok "$m, text: first back hides the keyboard, results stay" \
     || ko "$m, text: first back left the results"
@@ -63,7 +62,7 @@ done
 A shell pm grant $PK android.permission.READ_CONTACTS
 seed classic; setp boolean contacts_search true
 A shell input swipe 540 1900 540 600 150; expect "Cerca app"
-A shell input text "Zz Prova"
+typ "Zz Prova"
 expect "Zz Prova A"
 calls() { [ "$(screen | grep -o 'text="✆"' | wc -l)" -eq "$1" ]; } # call buttons: one per contact shown with a number
 wait_until 5 calls 4 && ok "first five: the four with a number have their call button" || ko "first five: call buttons wrong"
@@ -75,10 +74,10 @@ ya=$(top "Zz Prova A"); yu=$(top "Zz Prova H")
 [ -n "$ya" ] && [ -n "$yu" ] && [ "$ya" -lt "$yu" ] && ok "contacts by name: A above H" || ko "contacts not by name (A y=$ya, H y=$yu)"
 shot 13-contacts
 for n in "${names[@]}"; do see "$n"; done
-A shell input text "o"; A shell input keyevent KEYCODE_DEL # Show all holds only for the text it was tapped for
+typ "o"; A shell input keyevent KEYCODE_DEL # Show all holds only for the text it was tapped for
 wait_until 5 has "Mostra tutti (8)" && ok "another text and back: five again, with Show all" || ko "another text and back: still all, no Show all"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"' # keyboard, then search
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "Zz Prova"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "Zz Prova"
 wait_until 5 has "Mostra tutti (8)" && ok "search reopened: five again, with Show all" || ko "search reopened: still all, no Show all"
 
 step "Search: a chat contact (WhatsApp, Telegram) that did not merge with the phone contact is not a second row"
@@ -92,7 +91,7 @@ for acct in org.ganimede.e2e org.ganimede.e2e.chat; do
   [ "$mode" = 3 ] || A shell "content insert --uri $CONTACTS/data --bind raw_contact_id:i:$id --bind mimetype:s:vnd.android.cursor.item/phone_v2 --bind data1:s:555010$id --bind data2:i:2"
 done
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"'
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; wait_until 5 kbd; A shell input text "Chat"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "Chat"
 expect "Zz Prova Chat"
 rows() { [ "$(screen | grep -o 'text="Zz Prova Chat"' | wc -l)" -eq "$1" ]; }
 wait_until 5 rows 1 && ok "the person is listed once" || ko "the person is listed $(screen | grep -o 'text="Zz Prova Chat"' | wc -l) times"

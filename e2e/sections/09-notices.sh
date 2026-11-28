@@ -36,7 +36,7 @@ swipe_opens "left-handed: swipe left from the overlapping right edge" "$edge" "$
 setp del left_handed
 # Rows that aren't favourites (search, drawer, folders, suggestions) have no swipe: they keep the preview to reach the messages
 A shell input swipe 540 1900 540 600 150; expect "Cerca app"
-A shell input text "clo"; wait_until 5 has "Clock"
+typ "clo"; wait_until 5 has "Clock"
 wait_until 5 settled && stable=1 || { stable=0; ko "search did not settle (the preview moves)"; } # coordinates are read only once it stopped moving
 [ "$(clocks)" -eq 2 ] && ok "search: the Clock row keeps its preview" || ko "search: no preview on the Clock row (“Clock” $(clocks) times)"
 read -r bx1 by1 bx2 by2 <<<"$(screen | grep -o 'text="Clock"[^>]*bounds="[^"]*"' | sed -n 2p | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr -d '[' | tr ']' ' ' | tr ',' ' ')"
