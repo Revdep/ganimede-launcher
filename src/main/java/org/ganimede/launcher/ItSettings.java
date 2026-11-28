@@ -119,11 +119,13 @@ final class ItSettings {
         it("Solid", "Pieno");
         it("Soft", "Tenue");
         it("Colour", "Colore");
-        it("Line, Bold and Sharp change the stroke only for Arcticons (built-in) icons; the others take the same colour and plate.",
-                "Linea, Marcato e Spigoloso cambiano il tratto solo per le icone di Arcticons (integrate); le altre prendono lo stesso colore e la stessa piastra.");
+        it("Line, Bold, Sharp, Duotone and Hollow change the stroke only for Arcticons (built-in) icons; the others take the same colour and plate.",
+                "Linea, Marcato, Spigoloso, Bicolore e Contorno cambiano il tratto solo per le icone di Arcticons (integrate); le altre prendono lo stesso colore e la stessa piastra.");
         it("Hide app names of favourites", "Nascondi i nomi delle app preferite");
         it("None (apps' own icons)", "Nessuno (icone delle app)");
         it("Arcticons (built-in)", "Arcticons (integrato)");
+        it("Category icons", "Icone per categoria");
+        it("A glyph for apps that have no icon in the set", "Un glifo per le app che non hanno un'icona nel set");
         it("Change wallpaper", "Cambia sfondo");
         it("Pick one that suits your theme", "Scegline uno adatto al tuo tema");
 
@@ -241,14 +243,16 @@ final class ItSettings {
         it("Turns the screen off with a double-tap", "Spegne lo schermo con un doppio tocco");
         it("Ganimede never connects to the internet: it doesn't even have permission to. No accounts, no ads, no analytics. The weather comes from Breezy Weather on your phone, and backups stay where you save them.",
                 "Ganimede non si collega mai a internet: non ha nemmeno il permesso di farlo. Niente account, niente pubblicità, niente statistiche. Il meteo arriva da Breezy Weather sul tuo telefono e i backup restano dove li salvi.");
+        it("Voice notes in notifications are played by Ganimede, not by the chat app, so no “listened” receipt is sent. A copy of each note stays on this phone, out of backups, while its notification is shown or held for the summary, then it is deleted.",
+                "Le note vocali nelle notifiche le riproduce Ganimede, non l'app di chat: nessuna conferma di ascolto viene inviata. Una copia di ogni nota resta su questo telefono, fuori dai backup, finché la sua notifica è mostrata o in attesa del riepilogo, poi viene cancellata.");
         it("Android's page for Ganimede: permissions and restricted settings", "La pagina di Android per Ganimede: permessi e impostazioni con restrizioni");
         it("Allowed", "Consentito");
         it("Allow", "Consenti");
         it("Allow it under Permissions in App info", "Consentilo in Info app → Permessi");
         it("Switch on \"Ganimede\" on the next screen. Message text never leaves your phone.",
                 "Attiva \"Ganimede\" nella prossima schermata. Il testo dei messaggi non lascia mai il tuo telefono.");
-        it("Switch on \"Ganimede Quick Lock\" under Accessibility. It only runs system actions (lock, screenshot, recent apps…) and reads nothing on screen.",
-                "Attiva \"Ganimede Quick Lock\" in Accessibilità. Esegue solo azioni di sistema (blocco, screenshot, app recenti…) e non legge niente sullo schermo.");
+        it("Switch on \"%s\" under Accessibility. It only runs system actions (lock, screenshot, recent apps…) and reads nothing on screen.",
+                "Attiva \"%s\" in Accessibilità. Esegue solo azioni di sistema (blocco, screenshot, app recenti…) e non legge niente sullo schermo.");
         it("1. Open and switch it on.\n2. If Android blocks it, press OK.\n3. App info → ⋮ (top right) → \"Allow restricted settings\".\n4. Come back and switch it on again.\nAndroid asks this of every app installed from a file instead of a store.",
                 "1. Apri e attivala.\n2. Se Android la blocca, premi OK.\n3. Info app → ⋮ (in alto a destra) → \"Consenti impostazioni con restrizioni\".\n4. Torna qui e attivala di nuovo.\nAndroid lo chiede per ogni app installata da un file invece che da uno store.");
 
@@ -264,7 +268,7 @@ final class ItSettings {
         it("Restore a backup", "Ripristina un backup");
         it("Replaces your current setup", "Sostituisce la configurazione attuale");
         it("No file picker on this phone", "Su questo telefono non c'è un selettore di file");
-        it("Wait until the backup or restore under way has finished", "Aspetta che finisca il backup o il ripristino in corso");
+        it("Wait until the file operation under way has finished", "Aspetta che finisca l'operazione sui file in corso");
         it("Backup created", "Backup creato");
         it("Could not write the backup", "Impossibile scrivere il backup");
         it("Restore backup?", "Ripristinare il backup?");

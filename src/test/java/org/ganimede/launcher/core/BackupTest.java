@@ -28,6 +28,7 @@ public class BackupTest {
             eq("s", Backup.typeOf(k), k + " travels with the backup");
             eq("s", Backup.typeOf("drawer_" + k), "drawer_" + k + " travels with the backup");
         }
+        for (String k : IconLook.LEGACY) yes(Backup.restorable(k) && !Backup.travels(k), k + " is read from an old backup, never written to a new one");
         eq("i", Backup.typeOf("drawer_label_scale"), "independent drawer label size");
         eq("i", Backup.typeOf("folder_bg"), "default folder background colour");
         eq("i", Backup.typeOf("folder_alpha"), "default folder background opacity");
@@ -201,10 +202,31 @@ public class BackupTest {
                 "a package and a drawable name, nothing else");
     }
 
+    /** Issue 081: an icon picked from the built-in set ("builtin:arcticons|name") travels in the backup like any other. */
+    public static void testBuiltinIconPickRestored() {
+        yes(Backup.fits("icon:f:12", "builtin:arcticons|okay"), "built-in set|name");
+        yes(!Backup.fits("icon:f:12", "builtin:other|okay") && !Backup.fits("icon:f:12", "builtin:arcticons|a b"),
+                "only the built-in set's own id, and a plain name");
+    }
+
     public static void testOnlyRestorableSettingsAreWritten() {
         yes(!Backup.travels("asked:android.permission.X") && !Backup.travels("pending_widget_1") && !Backup.travels("icon_pack_loaded")
                 && !Backup.travels("return_to_settings") && !Backup.travels("summary_last") && !Backup.travels("summary_count"),
                 "this phone's bookkeeping stays home");
         yes(Backup.travels("fab_y"), "settings travel");
+    }
+
+    /** Every name of the real built-in set restores as a picked icon: a name outside \w would be dropped from a backup. */
+    public static void testEveryBuiltInIconNameRestores() {
+        for (String n : IconSetTest.load("src/main/assets/icons.bin").names())
+            yes(Backup.fits("icon:f:12", "builtin:arcticons|" + n), "built-in icon name: " + n);
+    }
+
+    /** Issue 087: "Category icons" is a switch that travels with the backup. */
+    public static void testCategoryIconsSwitchTravels() {
+        eq("b", Backup.typeOf("icon_category"), "a switch");
+        yes(Backup.travels("icon_category") && Backup.fits("icon_category", false) && !Backup.fits("icon_category", "x"),
+                "false restores, a non-boolean is dropped");
+        yes(Preferences.UNDO_KEYS.contains("icon_category"), "Customize's Undo takes it back like icon_pack");
     }
 }

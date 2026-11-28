@@ -26,6 +26,14 @@ public class IconLookTest {
                 List.of(r.get("icon_glyph"), r.get("icon_container"), r.get("icon_fill"), r.get("icon_color")), what);
     }
 
+    /** Fable c3 M12: the settings rows pair each value with its label by position. */
+    public static void testEveryValueHasALabel() {
+        eq(IconLook.GLYPHS.length, IconLook.GLYPH_NAMES.length, "glyph labels");
+        eq(IconLook.CONTAINERS.length, IconLook.CONTAINER_NAMES.length, "container labels");
+        eq(IconLook.FILLS.length, IconLook.FILL_NAMES.length, "fill labels");
+        eq(IconLook.COLORS.length, IconLook.COLOR_NAMES.length, "colour labels");
+    }
+
     public static void testMigratesLegacyShapes() {
         migrates("original", legacy("icon_shape", "original"), "original", "none", "solid", "accent");
         migrates("teardrop", legacy("icon_shape", "teardrop"), "original", "teardrop", "solid", "accent");
@@ -117,6 +125,36 @@ public class IconLookTest {
         stroke("original", 1f, Cap.ROUND, Join.ROUND); // built-in glyphs have no colours of their own: drawn as Line
     }
 
+    public static void testDuotoneParams() {
+        IconLook.Stroke d = IconLook.of("duotone", "none", "solid", "accent").stroke();
+        eq(List.of(1.4f, Cap.ROUND, Join.ROUND, true), List.of(d.width(), d.cap(), d.join(), d.fillsClosed()), "duotone");
+        for (String g : new String[]{"line", "bold", "sharp", "hollow"})
+            yes(!IconLook.of(g, "none", "solid", "accent").stroke().fillsClosed(), g + " fills nothing");
+    }
+
+    private static void duotoneFill(String what, String color, String container, String fill, int expected) {
+        eq(expected, IconLook.of("duotone", container, fill, color).colours(RED, WHITE).fill(), what);
+    }
+
+    public static void testDuotoneFillColour() {
+        duotoneFill("accent, solid plate: the glyph's on-colour", "accent", "circle", "solid", 0x52FFFFFF);
+        duotoneFill("accent, soft plate", "accent", "circle", "soft", 0x52E01010);
+        duotoneFill("accent, no plate", "accent", "none", "solid", 0x52E01010);
+        duotoneFill("text, solid plate", "text", "circle", "solid", 0x521B1820);
+        duotoneFill("text, no plate", "text", "none", "solid", 0x52FFFFFF);
+        eq(0, IconLook.of("line", "circle", "solid", "accent").colours(RED, WHITE).fill(), "other treatments: no fill");
+    }
+
+    public static void testHollowFallsBackToBold() {
+        IconLook.Stroke h = IconLook.of("hollow", "circle", "solid", "accent").stroke();
+        eq(List.of(0.6f, 2.6f), List.of(h.width(), h.outline()), "hollow: outline of a 2.6 stroke, drawn 0.6");
+        yes(Math.abs(h.extent() - 3.2f) < 1e-5, "1.6 units a side");
+        IconLook.Stroke bold = IconLook.of("bold", "circle", "solid", "accent").stroke();
+        eq(bold, h.fallback(), "no outline: bold's parameters");
+        eq(2.2f, h.fallback().extent(), "bold's extent");
+        eq(bold, bold.fallback(), "the others stay as they are");
+    }
+
     public static void testUnknownValuesFallBack() {
         IconLook l = IconLook.of("cutout", "hexagon", "x", "x");
         eq(List.of("original", "none", "solid", "accent"), List.of(l.glyph(), l.container(), l.fill(), l.color()), "unknown values");
@@ -133,5 +171,12 @@ public class IconLookTest {
         yes(IconLook.allows("icon_container", "circle") && IconLook.allows("drawer_icon_glyph", "sharp"), "listed values");
         yes(!IconLook.allows("icon_glyph", "cutout") && !IconLook.allows("drawer_icon_color", "soft"), "unlisted values");
         yes(IconLook.allows("font", "anything"), "not a model key: not this rule's business");
+    }
+
+    public static void testInsideAFolderTile() {
+        // a folder tile is the plate: its icons take the page's glyph and colour with no plate of their own; Dots draws as Line
+        eq(IconLook.of("bold", "none", "soft", "text"), IconLook.of("bold", "squircle", "soft", "text").inFolder(), "the plate dropped");
+        eq(IconLook.of("line", "none", "solid", "accent"), IconLook.of("dot", "circle", "solid", "accent").inFolder(), "Dots: a Line glyph");
+        eq(IconLook.of("original", "none", "solid", "accent"), IconLook.of("original", "circle", "solid", "accent").inFolder(), "Original stays");
     }
 }

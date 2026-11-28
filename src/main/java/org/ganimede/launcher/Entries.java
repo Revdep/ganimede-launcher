@@ -4,11 +4,10 @@ import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.IconLook;
 
+import android.content.Context;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.InsetDrawable;
-import android.graphics.drawable.LayerDrawable;
 import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -23,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Everything on a home screen is an entry: an app ("component", "component#user"), a pop-up folder ("f:id") or a
@@ -86,40 +86,37 @@ final class Entries {
         boolean folder = entry.startsWith("f:");
         if (!folder && !entry.startsWith("s:")) {
             Item it = apps.find(entry);
-            return it == null ? null : ui.icon(it.icon, it.fromPack, size, look); // Apps.load already applied a picked icon
+            return it == null ? null : ui.icon(it, size, look); // Apps.load already applied a picked icon
         }
         Drawable picked = Icons.picked(ui.a, ui.prefs, entry);
         if (picked != null) return ui.icon(picked, true, size, look);
-        if (folder) return folderTile(entry.substring(2), size, look);
+        if (folder) return folderTile(ui.a, layout, apps::find, entry.substring(2), size, look, ui.fg, ui.accent);
         String[] p = entry.substring(2).split("\\|", 3);
         Drawable d = p.length > 1 ? apps.shortcutIcon(p[0], p[1]) : null;
-        return d != null ? ui.icon(d, false, size, look) : folderTile(null, size, look);
+        return d != null ? ui.icon(d, false, size, look) : folderTile(ui.a, layout, apps::find, null, size, look, ui.fg, ui.accent);
     }
 
     /** A folder's icon: a soft tile with the first four apps inside, two by two, in the look of the page it is on (or a folder mark). */
-    private View folderTile(String id, int size, IconLook look) {
-        LinearLayout g = new LinearLayout(ui.a);
+    static View folderTile(Context a, Layout layout, Function<String, Item> find, String id, int size, IconLook look, int fg, int accent) {
+        LinearLayout g = new LinearLayout(a);
         g.setOrientation(LinearLayout.VERTICAL);
         g.setGravity(Gravity.CENTER);
         int pad = size / 12, mini = (size - pad * 3) / 2;
         g.setPadding(pad, pad, pad, pad);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(size / 3f);
-        bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
-        g.setBackground(bg);
-        List<Drawable> inside = new ArrayList<>();
+        g.setBackground(Icons.softTile(size));
+        List<Item> inside = new ArrayList<>();
         for (String k : id == null ? List.<String>of() : layout.folderApps(id)) {
-            Item a = apps.find(k);
-            if (a != null) inside.add(a.icon);
+            Item it = find.apply(k);
+            if (it != null) inside.add(it);
             if (inside.size() == 4) break;
         }
-        if (inside.isEmpty()) g.setBackground(new LayerDrawable(new Drawable[]{bg,
-                new InsetDrawable(new Glyph(id == null ? "link" : "folder", ui.fg), size / 4)}));
+        if (inside.isEmpty()) g.setBackground(Icons.markedTile(id == null ? "link" : "folder", size, fg));
         for (int r = 0; r < 2 && r * 2 < inside.size(); r++) {
-            LinearLayout line = new LinearLayout(ui.a);
+            LinearLayout line = new LinearLayout(a);
             for (int k = r * 2; k < Math.min(inside.size(), r * 2 + 2); k++) {
-                ImageView iv = new ImageView(ui.a);
-                iv.setImageDrawable(Icons.thumbnail(inside.get(k), look, ui.accent, ui.fg)); // drawn in the look of the page the tile is on
+                ImageView iv = new ImageView(a);
+                Item it = inside.get(k); // drawn in the look of the page the tile is on, the tile as its plate
+                Icons.apply(iv, it.icon, it.fromPack, it.category, it.info.getUser(), look.inFolder(), fg, accent, mini);
                 LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(mini, mini);
                 if (k % 2 == 1) ml.setMarginStart(pad);
                 line.addView(iv, ml);
@@ -206,13 +203,14 @@ final class Entries {
                 v.addView(col, new LinearLayout.LayoutParams(0, -2, 1));
             }
         }
-        if (it != null && NotifService.connected) {
+        if (it != null) { // tracked even before the listener binds: onResume no longer rebuilds, the callback's refresh must reach it
             iconBox.setTag(new NotificationView(it, name, messages));
+            notificationViews.removeIf(r -> r.get() == null); // views of earlier rebuilds, collected: the list stays as long as the live ones
             notificationViews.add(new WeakReference<>(iconBox));
         }
         v.setContentDescription(described(name, count));
         v.setOnClickListener(x -> open(entry, x));
-        v.setOnLongClickListener(x -> { menu.accept(entry); return true; });
+        ui.onLongPress(v, x -> { menu.accept(entry); return true; });
         return v;
     }
 

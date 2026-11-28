@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_label">Impostazioni Ganimede</string>
+    <string name="breezy_receiver_label">Ganimede Launcher</string>
+    <string name="lock_service_label">Blocco rapido Ganimede</string>
     <string name="lock_service_description">Permette a Ganimede di spegnere lo schermo quando tocchi due volte la schermata Home, e di eseguire le azioni di sistema del pulsante Ganimede (screenshot, app recenti, menu di spegnimento, tendina delle notifiche, impostazioni rapide). Usa solo queste azioni e non legge mai ciò che è sullo schermo.</string>
 </resources>

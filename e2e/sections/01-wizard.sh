@@ -22,10 +22,14 @@ tap "Avanti"
 
 step "Wizard: style"
 expect "Scegli uno stile" && shot 03-mode
-# Each choice rebuilds both miniatures: the old ones must be freed, not kept alive by the window (GC'd view count, read on a still page).
+# Coming back to this step builds both miniatures again (a choice only marks its card, issue 062): the old ones must be freed,
+# not kept alive by the window (GC'd view count, read on a still page).
 views() { wait_until 5 settled; A shell dumpsys meminfo $PK | awk '/Views:/ {print $2; exit}'; }
 v0=$(views)
-for i in 1 2 3 4; do tap "Classica"; tap "Lista"; done
+for i in 1 2 3 4; do
+  tap "Avanti"; wait_until 10 has "Personalizza adesso" || ko "next step not shown"
+  tap "Indietro"; wait_until 10 has "Scegli uno stile" || ko "style step not shown again"
+done
 v1=$(views)
 [ $((v1 - v0)) -lt 100 ] && ok "old miniatures freed (views $v0 → $v1)" || ko "old miniatures leak (views $v0 → $v1)"
 tap "Classica"; wait_until 5 has "✓ Classica" && ok "classic chosen" || ko "classic not marked"
@@ -35,11 +39,30 @@ step "Wizard: customise now"
 expect "Personalizza adesso" && tap "Personalizza adesso"
 expect "Le tue app preferite" && shot 04-favs
 for app in Calendar Clock Contacts; do stap "$app" >/dev/null; done # not in the preview, so the list row is hit
+# A tick changes its own row, not the whole page (issue 062): the keyboard focus stays on the row and its state flips.
+A shell input keyevent KEYCODE_DPAD_DOWN; A shell input keyevent KEYCODE_DPAD_DOWN
+row_focus() { screen | grep -o 'checkable="true" checked="[a-z]*"[^>]*focused="true"[^>]*bounds="[^"]*"' | head -1 | sed 's/^checkable="true" //; s/ clickable.*bounds=/ /'; }
+f0=$(row_focus)   # checked="true|false" "[l,t][r,b]"
+flipped() { local f; f=$(row_focus); [ -n "$f" ] && [ "${f#* }" = "${f0#* }" ] && [ "${f%% *}" != "${f0%% *}" ]; }
+if [ -z "$f0" ]; then ko "no app row took the keyboard focus"
+else
+  A shell input keyevent KEYCODE_ENTER
+  wait_until 3 flipped && ok "a tick keeps the focus on its row and flips it ($f0)" || ko "a tick lost the row's focus or state (was $f0, now $(row_focus))"
+  A shell input keyevent KEYCODE_ENTER # back as it was: the three favourites above stay
+fi
 tap "Avanti"
 expect "Stile delle icone" && shot 05-icons
+# The selected tile's "✓ Originale" and the two-line "Quadrato arrotondato" are drawn whole, not cut after the tick (issue 088).
+# The node holds 6 dp of padding above the text and the font's own line spacing, so one whole 13 sp line inks ~51% of its height
+# and two lines ~65%; a wrapped label's node is as wide as its 120 dp cap, its longer line ~55% of it. A cut label inks less:
+# only the "✓" (~15% of the width), or one row of the two (~51% of the height).
+label_whole "✓ Originale" 80 40 && ok "tile “✓ Originale” shows its whole label" || ko "tile “✓ Originale” is cut"
 stap "Squircle" # the Plate row, under the Style row (issue 078)
 squircle() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"icon_container\">squircle</string>"; }
 wait_until 5 squircle && ok "the wizard saves the Squircle plate" || ko "the wizard saved no Squircle plate"
+# "Quadrato arrotondato" is a Plate tile (issue 078), so it is in the row of the selected "✓ Squircle", not in the Style row
+hsee "Quadrato arrotondato" "✓ Squircle" && tap "Quadrato arrotondato"
+wait_until 5 has "✓ Quadrato arrotondato" && label_whole "✓ Quadrato arrotondato" 45 60 && ok "tile “Quadrato arrotondato” shows its whole label" || ko "tile “✓ Quadrato arrotondato” is cut"
 tap "Avanti"
 expect "Ognuno è mostrato" && shot 06-font; tap "Avanti"
 expect "Nove stili" && shot 07-clock; tap "Avanti"

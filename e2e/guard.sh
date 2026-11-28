@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Guard over the e2e sections (run.sh calls it before touching a device; CI runs it with the syntax check). Each helper below
+# exists because the plain command lost a race, and each of those races made a run red for no reason:
+#   typ        not `input text`: keys sent before the keyboard is up, or reordered by Gboard, type "cla" for "cal" / "por pro"
+#   put_prefs  not `exec-in`: exec-in returns once stdin is sent, so a rename after it ran late or never
+#   edit_prefs not `sed -i`: it escapes & and keeps the way the app stores a set
+#   wait_until not `sleep N; hasnt ...`: a negative check after a fixed sleep passes when the screen is merely late
+#   hasnt/nod  not `has X && ko || ok`: an empty dump has no X, so the negative passes on a screen never read
+#   guard-lib.sh  runs edit_prefs, typ and differ under `set -u` on fake data: an unbound variable is caught before the suite
+# A line that really needs the plain command says so with "guard-ok: why" on the same line.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+bad=0
+check() { # check regex message
+  local hits; hits=$(grep -nE -- "$1" "$HERE"/sections/*.sh | grep -v 'guard-ok:' | sed "s|$HERE/||")
+  [ -z "$hits" ] || { echo "$hits" | sed "s|\$|  <- $2|"; bad=1; }
+}
+check 'input text' 'use typ (lib.sh)'
+check 'typ "[^"]*%s' 'typ takes plain text and writes the spaces itself'
+check 'exec-in' 'use put_prefs (lib.sh)'
+check 'sed +(-[a-zA-Z]*i|--in-place)' 'use edit_prefs (lib.sh), or comment guard-ok'
+check 'sleep[^;&|]*[;&] *(hasnt|noshows|! *has)' 'wait for a positive signal, then check the negative (wait_until)'
+check "pref[^|]*\\| *grep +-q[^;]*&& *ko|bpref [a-z_]+ *&& *ko|shared_prefs.*grep.*&& *ko" 'use pref_lacks/set_lacks (lib.sh): an empty prefs file passes a negative check'
+check '(has|hasd|shows|exact) +"[^"]*"[^;]*&& *ko' 'use hasnt/nod: a negative check on a dump that failed to load passes'
+check "wait_until +[0-9]+ +([^e ]|e[^v ])[^;&|']*\"\\$\\(" 'wrap the check in a function so each try re-reads it'
+bash "$HERE/guard-lib.sh" || bad=1 # lib.sh's helpers under set -u, on made-up data
+[ $bad = 0 ] || { echo "e2e guard: see e2e/guard.sh" >&2; exit 1; }

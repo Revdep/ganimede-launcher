@@ -1,7 +1,9 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Search;
 
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -13,12 +15,14 @@ import android.os.Handler;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** The installed apps (every profile that isn't paused), with the names, icons and launch counts the home shows. */
 final class Apps {
@@ -28,6 +32,18 @@ final class Apps {
         final String key, pkg, label, notifGroup;
         Drawable icon;
         boolean fromPack;
+        /** The icon picked for it when this Item was made ("" for none): what its icon shows, as a stable key. */
+        String picked = "";
+        /** What {@link #resolveIcon} last resolved this icon for (picked icon, pack, category setting): the same again keeps the drawable, and its cached render. */
+        private volatile String resolvedFor;
+        /**
+         * Its app's install as of this Item: the APK path, which changes with every update (an update may bring a new
+         * icon of its own), in its own profile. Android 11+ installs each update under a new random /data/app/~~…/
+         * directory; 8 to 10 alternate /data/app/<pkg>-1 and -2, which still differs from the install before.
+         */
+        final String installed;
+        /** The glyph of the app's category when it has no icon in the built-in set (issue 087), else null. */
+        BuiltinIcon category;
 
         Item(LauncherActivityInfo info, String key) {
             this.info = info;
@@ -35,18 +51,89 @@ final class Apps {
             pkg = info.getComponentName().getPackageName();
             notifGroup = NotifService.group(pkg, info.getUser());
             label = info.getLabel().toString();
+            installed = String.valueOf(info.getApplicationInfo().sourceDir);
         }
     }
 
     /** This profile's apps but Ganimede, A to Z by their own names: for the settings' lists and preview. */
     static List<Item> named(Context c) {
         List<Item> out = new ArrayList<>();
-        for (LauncherActivityInfo info : c.getSystemService(LauncherApps.class).getActivityList(null, Process.myUserHandle()))
-            if (!info.getComponentName().getPackageName().equals(c.getPackageName()))
-                out.add(new Item(info, info.getComponentName().flattenToString()));
+        for (LauncherActivityInfo info : c.getSystemService(LauncherApps.class).getActivityList(null, Process.myUserHandle())) {
+            Item it = read(c, null, null, info, null);
+            if (it != null) out.add(it);
+        }
         out.sort((a, b) -> a.label.compareToIgnoreCase(b.label));
         return out;
     }
+
+    /**
+     * One app as an Item, or null (left out until the next load): an app being updated can't take the whole list down.
+     * With prefs its icon is resolved too; with um the key names another profile's app.
+     */
+    private static Item read(Context c, SharedPreferences prefs, UserManager um, LauncherActivityInfo info, UserHandle user) {
+        if (info.getComponentName().getPackageName().equals(c.getPackageName())) return null;
+        try {
+            boolean mine = user == null || user.equals(Process.myUserHandle());
+            Item it = new Item(info, info.getComponentName().flattenToString() + (mine ? "" : "#" + um.getSerialNumberForUser(user)));
+            if (prefs != null) resolveIcon(c, prefs, it);
+            return it;
+        } catch (RuntimeException e) {
+            android.util.Log.w("Ganimede", "app left out: " + info.getComponentName(), e);
+            return null;
+        }
+    }
+
+    /**
+     * The icon an item shows, for the home and the settings preview alike: the one picked for this app, else the pack's,
+     * else its category's glyph, else its own (unbadged: Icons.apply badges what it draws).
+     */
+    static void resolveIcon(Context c, SharedPreferences prefs, Item it) {
+        String picked = prefs.getString(IconSet.pickedKey(it.key), "");
+        String stamp = picked + "|" + Icons.resolveStamp(prefs);
+        if (stamp.equals(it.resolvedFor)) return;
+        Drawable packed = Icons.picked(c, prefs, it.key);
+        it.picked = picked;
+        if (packed == null) packed = Icons.fromPack(it.info.getComponentName());
+        it.fromPack = packed != null;
+        it.category = packed == null ? Icons.category(prefs, it.info) : null;
+        it.icon = packed != null ? packed : it.info.getIcon(0);
+        it.resolvedFor = stamp; // last: the preview resolves on a thread, and a reader that sees the stamp must see the icon
+    }
+
+    /**
+     * The same list read off the main thread (a label each, from the system), then handed over on it. Only the latest
+     * ask is answered, to the activity that asked it if it is still there: a second tap while loading doesn't open a
+     * second dialog, and the page a rotation rebuilt gets the list, not the one that is gone.
+     */
+    static void named(Activity a, Consumer<List<Item>> then) {
+        waitingFor = a;
+        waiting = then;
+        if (!LOADING.compareAndSet(false, true)) return;
+        Context app = a.getApplicationContext();
+        new Thread(() -> {
+            List<Item> l;
+            try {
+                l = named(app);
+            } catch (RuntimeException e) { // a profile going away: nothing to show, not a crash of Settings
+                android.util.Log.w("Ganimede", "apps not read", e);
+                l = null;
+            }
+            List<Item> done = l;
+            new Handler(android.os.Looper.getMainLooper()).post(() -> {
+                LOADING.set(false);
+                Activity w = waitingFor;
+                Consumer<List<Item>> t = waiting;
+                waitingFor = null;
+                waiting = null;
+                if (done != null && w != null && !w.isDestroyed()) t.accept(done);
+            });
+        }).start();
+    }
+
+    private static final java.util.concurrent.atomic.AtomicBoolean LOADING = new java.util.concurrent.atomic.AtomicBoolean();
+    /** The latest named() ask and who made it: main thread only. */
+    private static Activity waitingFor;
+    private static Consumer<List<Item>> waiting;
 
     private final Context c;
     private final SharedPreferences prefs;
@@ -77,6 +164,7 @@ final class Apps {
             List<UserHandle> users;
             try { users = launcherApps.getProfiles(); } catch (RuntimeException e) { users = List.of(Process.myUserHandle()); }
             Icons.load(c, pack);
+            Icons.preload(c, prefs); // a folder's or shortcut's picked built-in icon: drawn on the main thread at refreshAll
             for (UserHandle user : users) {
                     // Paused work profiles and a locked private space stay out of the list.
                     List<LauncherActivityInfo> list;
@@ -86,18 +174,9 @@ final class Apps {
                     } catch (RuntimeException e) { // a profile going away right now
                         continue;
                     }
-                    for (LauncherActivityInfo info : list) try {
-                        if (info.getComponentName().getPackageName().equals(c.getPackageName())) continue;
-                        Item it = new Item(info, info.getComponentName().flattenToString()
-                                + (user.equals(Process.myUserHandle()) ? "" : "#" + um.getSerialNumberForUser(user)));
-                        // An icon picked for this one app wins over the pack's and the app's own.
-                        Drawable packed = Icons.picked(c, prefs, it.key);
-                        if (packed == null) packed = Icons.fromPack(info.getComponentName());
-                        it.fromPack = packed != null;
-                        it.icon = packed != null ? packed : info.getBadgedIcon(0);
-                        out.add(it);
-                    } catch (RuntimeException oneApp) { // one app being updated can't take the whole list down
-                        // left out until the next load
+                    for (LauncherActivityInfo info : list) {
+                        Item it = read(c, prefs, um, info, user);
+                        if (it != null) out.add(it);
                     }
             }
             Map<String, Item> keys = new HashMap<>(), pkgs = new HashMap<>(), groups = new HashMap<>();
@@ -109,6 +188,7 @@ final class Apps {
                 byPkg = pkgs;
                 byGroup = groups;
                 shortcutIcons.clear();
+                Log.i("Ganimede", "apps loaded " + out.size()); // the e2e suite waits on it (12-folders-b)
                 done.run();
             });
         }).start();

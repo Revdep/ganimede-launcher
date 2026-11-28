@@ -199,214 +199,24 @@
             column="13"/>
     </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view `AlphabetView` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="    public boolean onTouchEvent(MotionEvent e) {"
-        errorLine2="                   ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/org/ganimede/launcher/AlphabetView.java"
-            line="128"
-            column="20"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view `BrickOverlay` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="    public boolean onTouchEvent(MotionEvent e) {"
-        errorLine2="                   ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/org/ganimede/launcher/BrickOverlay.java"
-            line="92"
-            column="20"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``HorizontalScrollView`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="        pager.setOnTouchListener((v, e) -> {"
-        errorLine2="        ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/ClassicHome.java"
-            line="84"
-            column="9"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        pager.setOnTouchListener((v, e) -> {"
-        errorLine2="                                 ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/ClassicHome.java"
-            line="84"
-            column="34"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="            handle.setOnTouchListener((v, e) -> {"
-        errorLine2="                                      ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/ClassicHome.java"
-            line="391"
-            column="39"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view `ClockView` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="    public boolean onTouchEvent(MotionEvent e) {"
-        errorLine2="                   ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/org/ganimede/launcher/ClockView.java"
-            line="86"
-            column="20"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        c.setOnTouchListener((v, e) -> {"
-        errorLine2="                             ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/DragDrop.java"
-            line="151"
-            column="30"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        row.setOnTouchListener((v, e) -> {"
-        errorLine2="                               ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/DragDrop.java"
-            line="224"
-            column="32"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``LinearLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="        home.setOnTouchListener((v, e) -> {"
-        errorLine2="        ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/HomeScreen.java"
-            line="93"
-            column="9"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        home.setOnTouchListener((v, e) -> {"
-        errorLine2="                                ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/HomeScreen.java"
-            line="93"
-            column="33"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view `Pull` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="        public boolean onTouchEvent(MotionEvent e) {"
-        errorLine2="                       ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/org/ganimede/launcher/Motion.java"
-            line="239"
-            column="24"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``LinearLayout`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="        bubble.setOnTouchListener(swipeOpens(it.notifGroup));"
-        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/org/ganimede/launcher/Notices.java"
-            line="102"
-            column="9"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        return (v, e) -> {"
-        errorLine2="               ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/Notices.java"
-            line="118"
-            column="16"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view `SwipeCard` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="        public boolean onTouchEvent(MotionEvent e) {"
-        errorLine2="                       ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/org/ganimede/launcher/Notices.java"
-            line="486"
-            column="24"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``TextView`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="        view.setOnTouchListener((v, e) -> {"
-        errorLine2="        ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/QuickButton.java"
-            line="62"
-            column="9"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        view.setOnTouchListener((v, e) -> {"
-        errorLine2="                                ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/QuickButton.java"
-            line="62"
-            column="33"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        button.setOnTouchListener((v, ev) -> {"
-        errorLine2="                                  ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/SettingsKit.java"
-            line="79"
-            column="35"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="Custom view ``HorizontalScrollView`` has `setOnTouchListener` called on it but does not override `performClick`"
-        errorLine1="        strip.setOnTouchListener((v, e) -> {"
-        errorLine2="        ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/Widgets.java"
-            line="68"
-            column="9"/>
-    </issue>
 
-    <issue
-        id="ClickableViewAccessibility"
-        message="`onTouch` lambda should call `View#performClick` when a click is detected"
-        errorLine1="        strip.setOnTouchListener((v, e) -> {"
-        errorLine2="                                 ^">
-        <location
-            file="src/main/java/org/ganimede/launcher/Widgets.java"
-            line="68"
-            column="34"/>
-    </issue>
 
     <issue
         id="SetTextI18n"

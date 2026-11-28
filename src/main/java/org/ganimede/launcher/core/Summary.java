@@ -63,8 +63,19 @@ public final class Summary {
     /** When key was held until, or null. */
     public static Long due(java.util.Set<String> stored, String key) {
         for (String e : stored)
-            if (dueOf(e) != null && e.substring(0, e.lastIndexOf('|')).equals(key)) return dueOf(e);
+            if (dueOf(e) != null && keyOf(e).equals(key)) return dueOf(e);
         return null;
+    }
+
+    private static String keyOf(String e) {
+        return e.substring(0, e.lastIndexOf('|'));
+    }
+
+    /** The stored entries without key's (the key may contain '|': the due is after the last one). */
+    public static java.util.Set<String> release(java.util.Set<String> stored, String key) {
+        java.util.Set<String> out = new java.util.HashSet<>(stored);
+        out.removeIf(e -> e.lastIndexOf('|') >= 0 && keyOf(e).equals(key));
+        return out;
     }
 
     /** The stored entries that are well formed and came back less than an hour ago. */
@@ -79,10 +90,15 @@ public final class Summary {
 
     /** The stored set with key held until due (and the old entries gone). */
     public static java.util.Set<String> hold(java.util.Set<String> stored, String key, long due, long now) {
-        java.util.Set<String> out = expire(stored, now);
-        out.removeIf(e -> e.substring(0, e.lastIndexOf('|')).equals(key));
+        java.util.Set<String> out = release(expire(stored, now), key);
         out.add(key + "|" + due);
         return out;
+    }
+
+    /** The hold count after key is held: one more unless key was held already until the same due (a re-post inside the window). */
+    public static int counted(int count, java.util.Set<String> stored, String key, long due) {
+        Long held = due(stored, key);
+        return held != null && held == due ? count : count + 1;
     }
 
     private Summary() {}

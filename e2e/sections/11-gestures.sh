@@ -7,13 +7,16 @@ pages_ge2() { [ "$(pages_n)" -ge 2 ] 2>/dev/null; }
 # horizontal swipe in the empty middle of the grid, then wait for the pager to stop
 swipe_h() { A shell input swipe "$1" "$((H / 2))" "$2" "$((H / 2))" 250; wait_until 5 settled; }
 # a held drag by hand: long-press at x1,y1, glide to x2,y2, (drift: then straight on down by $6 px, as a real finger)
-# stay there $5 s, lift (input draganddrop cannot hold at the end)
+# stay there $5 s, lift (input draganddrop cannot hold at the end). The glide starts once the long-press menu shows (the
+# icon is armed): after a restart a loaded emulator can run the long-press late, and moves sent before it make a page
+# swipe instead of a drag (rel1/6: Calendar unmoved, no menu, page 1; lib.sh home_menu, issue 067)
 hold_drag() {
   local x1=$1 y1=$2 x2=$3 y2=$4 hold=$5 drift=${6:-0} i
-  A shell input motionevent DOWN "$x1" "$y1"; sleep 0.9
+  A shell input motionevent DOWN "$x1" "$y1"; rm -f "$SCR"
+  wait_until 5 has "Rinomina" || echo "  WARN: long press lost (hold_drag): no menu before the glide"
   for i in 1 2 3 4 5 6 7 8; do A shell input motionevent MOVE $((x1 + (x2 - x1) * i / 8)) $((y1 + (y2 - y1) * i / 8)); done
   for i in 1 2 3 4; do [ "$drift" = 0 ] || A shell input motionevent MOVE "$x2" $((y2 + drift * i / 4)); done
-  sleep "$hold"
+  sleep "$hold" # a gesture hold, not a wait: the finger stays down
   A shell input motionevent MOVE "$x2" $((y2 + drift)); A shell input motionevent UP "$x2" $((y2 + drift))
 }
 # the app list (drawer) is open: its search field is on screen
@@ -39,7 +42,7 @@ wait_until 5 has Calendar && ok "swipes right come back to page 1" || ko "no way
 step "Gestures: drawer off, swipe up opens no drawer"
 A shell input swipe $((W / 2)) $((H * 6 / 10)) $((W / 2)) $((H / 5)) 300
 wait_until 5 settled
-listed && ko "swipe up opened the drawer with it switched off" || ok "swipe up opens nothing"
+valid && ! listed && ok "swipe up opens nothing" || ko "swipe up opened the drawer with it switched off (or no screen read)"
 has Calendar && ok "home screen still in front" || ko "home screen gone after the swipe up"
 
 step "Gestures: Home on a side page goes to page 1, back from an app keeps the page"
@@ -79,6 +82,7 @@ tap "Elimina"
 wait_until 5 hasnt "Eliminare questa pagina?"
 wait_until 5 pages_is "$n" && ok "Delete page (confirmed): pages back to $n" || ko "Delete page: pages $(pages_n), expected $n"
 tap "Fatto"; wait_until 5 hasnt "Pagina 2"
+A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar || ko "Home did not bring page 1 back" # the + left the pager on the last page
 seen=0
 for _ in $(seq 1 "$n"); do has "$gone_app" && seen=1; swipe_h $((W - $(dp 40))) $(dp 40); done
 [ $seen = 0 ] && ok "“$gone_app” is gone from every page" || ko "“$gone_app” still on a page after deleting its page"
@@ -87,7 +91,7 @@ seed classic; setp int grid_pages 3
 read -r dx dy <<<"$(cx "desc:Regola pagine")"; A shell input tap "$dx" "$dy"; expect "Pagina 3"
 read -r xx xy <<<"$(cx "desc:Elimina pagina")"; A shell input tap "$xx" "$xy"
 wait_until 5 pages_is 2 && ok "an empty page is deleted without asking (3 → 2)" || ko "empty page: pages $(pages_n), expected 2"
-has "Eliminare questa pagina?" && ko "asked to delete an empty page" || ok "no confirm for an empty page"
+hasnt "Eliminare questa pagina?" && ok "no confirm for an empty page" || ko "asked to delete an empty page"
 tap "Fatto"
 
 step "Gestures: edge page-turn while dragging an icon"
@@ -114,12 +118,12 @@ hasnt Clock && has Calendar && ok "drifting at the edge: turned to page 2, Calen
 
 step "Gestures: drawer follows the finger"
 for handed in false true; do
-  seed classic; setp boolean left_handed "$handed"; wait_until 5 settled
-  [ "$handed" = true ] && edge=$((W - $(dp 29))) || edge=$(dp 29)
+  seed classic; setp boolean left_handed "$handed"
+  edge=$(dp 29) # Classic is never mirrored (c49f5d8): the alphabet stays on the right, for both hands
   A shell input swipe "$edge" $((H * 6 / 10)) "$edge" $((H / 5)) 1500 # slow enough that no fling fallback can open it
   wait_until 5 listed \
-    && ok "left-handed=$handed: a slow pull from the opposite edge opens the drawer" \
-    || ko "left-handed=$handed: the opposite edge blocked the slow drawer pull"
+    && ok "left-handed=$handed: a slow pull from the left edge opens the drawer" \
+    || ko "left-handed=$handed: the left edge blocked the slow drawer pull"
 done
 setp del left_handed
 seed classic
@@ -137,7 +141,7 @@ wait_until 5 settled
 swipe_up $((H * 6 / 10)) $((H * 6 / 10 - $(dp 120))) 400 # short, below the flick speed: springs back to home
 wait_until 5 settled
 has Calendar && ok "short slow drag up: the drawer springs back shut" || ko "short drag up opened the drawer"
-listed && ko "drawer shows after a short drag" || ok "no drawer after the short drag"
+valid && ! listed && ok "no drawer after the short drag" || ko "drawer shows after a short drag (or no screen read)"
 
 step "Gestures: swipe down shows the shade"
 seed classic
@@ -160,3 +164,116 @@ wait_until 5 settled
 has "Rinomina" && ok "short slow pull: the sheet springs back" || ko "short pull closed the sheet"
 A shell input swipe $((W / 2)) "$ry" $((W / 2)) $((ry + sheet_h * 4 / 10)) 1500 # beyond a quarter, slow
 wait_until 5 hasnt "Rinomina" && ok "pulled past a quarter: the sheet closes" || ko "the sheet stayed after a long pull"
+
+step "Gestures: a torch switched on from quick settings goes off at the first tap of the flashlight button (issue 065)"
+# Ganimede starts fresh (seed stops it) with the torch already on: the first tap must read the real state, not assume "off".
+torch_tile() { screen | grep -o '<node [^>]*content-desc="Torcia"[^>]*>' | head -1; }
+torch_on() { torch_tile | grep -q 'checked="true"'; }
+torch_off() { torch_tile | grep -q 'checked="false"'; }
+qs_torch() { read -r tx ty <<<"$(cx "desc:Torcia")"; A shell input tap "$tx" "$ty"; }
+seed classic; setp string fab_tap torch
+A shell cmd statusbar expand-settings
+if ! wait_until 5 eval '[ -n "$(torch_tile)" ]'; then
+  SKIPS=$((SKIPS + 1)); echo "  SKIP: no Torcia tile in quick settings (this device has no flashlight)"
+  A shell cmd statusbar collapse
+else
+  torch_on || qs_torch
+  torch_tile_up() { [ -n "$(torch_tile)" ]; }
+  torch_off_again() { A shell cmd statusbar expand-settings; wait_until 5 torch_tile_up; torch_on && qs_torch; A shell cmd statusbar collapse; }
+  defer torch_off_again # never leave the torch on
+  wait_until 5 torch_on && ok "quick settings turned the torch on" || ko "the Torcia tile did not turn on"
+  A shell cmd statusbar collapse; wait_until 5 focus
+  read -r fx fy <<<"$(cx "desc:Pulsante Ganimede")"; A shell input tap "$fx" "$fy"
+  A shell cmd statusbar expand-settings
+  wait_until 5 torch_off && ok "first tap of the button: the torch is off" || ko "first tap of the button left the torch on (assumed it was off)"
+  A shell cmd statusbar collapse; wait_until 5 focus
+fi
+setp del fab_tap
+
+step "Gestures: a side key past the last column turns the pager to page 2 (c2-4)"
+seed classic boolean drawer false; wait_until 10 pages_ge2; wait_until 5 has Calendar
+A shell input keyevent KEYCODE_DPAD_DOWN # a key leaves touch mode: the home hands the focus to a view
+for _ in 1 2 3 4 5 6 7 8; do A shell input keyevent KEYCODE_DPAD_RIGHT; done
+wait_until 5 settled
+# the apps overflow onto page 2 (drawer off): the pager must rest on it, Calendar (page 1) off screen. A pager stuck between two
+# pages, or never moved, still shows Calendar.
+wait_until 5 hasnt Calendar && ok "DPAD_RIGHT past the last column: the pager rests on page 2" || ko "DPAD_RIGHT did not turn the pager to page 2 (Calendar still on screen)"
+A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar
+
+step "Gestures: a side key towards an empty page turns the whole page, never half (c3 P2-2)"
+seed classic int grid_pages 2 boolean drawer true; wait_until 5 has Calendar # page 2 holds nothing to focus
+# the focus goes to Contacts, the icon in page 1's last occupied column (Calendar, Clock, Contacts share the row): Tab until the dump says so
+icon_focused() { # the focused node's bounds contain the centre of the icon named $1
+  local x y x1 y1 x2 y2; read -r x y <<<"$(cx "$1")"; [ -n "$x" ] || return 1
+  while read -r x1 y1 x2 y2; do
+    [ -n "$x2" ] && [ "$x" -ge "$x1" ] && [ "$x" -le "$x2" ] && [ "$y" -ge "$y1" ] && [ "$y" -le "$y2" ] && return 0
+  done < <(screen | grep -o '<node [^>]*focused="true"[^>]*>' | grep -o 'bounds="[^"]*"' | tr -c '0-9\n' ' ')
+  return 1
+}
+for _ in $(seq 20); do icon_focused Contacts && break; A shell input keyevent KEYCODE_TAB; rm -f "$SCR"; done
+if icon_focused Contacts; then
+  ok "precondition: Contacts, the last occupied column of page 1, has the focus"
+  for _ in 1 2 3; do A shell input keyevent KEYCODE_DPAD_RIGHT; done
+  wait_until 5 settled
+  wait_until 5 hasnt Calendar && ok "DPAD_RIGHT towards an empty page 2: the pager is on page 2, not half way" || ko "the pager did not turn to page 2 (Calendar still on screen; focus: $(screen | grep -o '<node [^>]*focused="true"[^>]*>' | head -2 | tr '\n' ' '))"
+else
+  ko "precondition: Contacts did not take the focus with Tab (focus: $(screen | grep -o '<node [^>]*focused="true"[^>]*>' | head -2 | tr '\n' ' '))"
+fi
+A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar
+
+step "Gestures: left-hand Classic mirrors nothing, the dock's first slot is on the left (c3 M13)"
+seed classic boolean left_handed true string dock "com.google.android.calendar/com.android.calendar.AllInOneActivity"
+wait_until 5 hasd "Calendar" # the dock icon's label is a content-desc
+read -r dx _ <<<"$(cx "desc:Calendar")"
+[ -n "$dx" ] && [ "$dx" -lt $((W / 2)) ] && ok "left-handed Classic: the first dock slot is on the left (x $dx)" || ko "left-handed Classic: the first dock slot at x ${dx:-none}, not on the left"
+setp del left_handed del dock
+
+step "Gestures: left-hand Classic keeps pages and block edges as on screen (finding c1-2)"
+# Left-hand use mirrors the home, not the classic pages: page 1 stays leftmost, a cell's column and a block's left edge
+# are the ones on screen. Mirrored, Home showed page 2, a key gave the focus to the hidden page and the left handle moved the right edge.
+seed classic boolean drawer false boolean left_handed true; wait_until 10 pages_ge2; wait_until 5 has Calendar
+read -r cx0 _ <<<"$(cx Calendar)"
+[ -n "$cx0" ] && [ "$cx0" -lt $((W / 2)) ] && ok "left-handed: Calendar in its left column" || ko "left-handed: Calendar at x ${cx0:-none}, not in the left column"
+# the page dots run left to right for both hands (c2-3): on page 1 the lit dot is the left one, as right-handed.
+# Two dots: the half of their strip that is brighter than the other is the lit one's (the faded one is 40% as strong).
+dots_lit() { local b; b=$(bounds "desc:Regola pagine") || return 1; set -- $b; local c=$((($1 + $3) / 2)) y=$((($2 + $4) / 2)) h=$(dp 15)
+  A exec-out screencap -p | magick png:- -crop "$((h * 2))x$(dp 8)+$((c - h))+$((y - $(dp 4)))" +repage -crop 2x1@ +repage -format '%[fx:mean]\n' info: 2>/dev/null \
+    | awk 'NR==1{l=$1} NR==2{r=$1} END{print (l>r) ? "left" : "right"}'; }
+dots_lh=$(dots_lit)
+seed classic boolean drawer false boolean left_handed false; wait_until 10 pages_ge2; wait_until 5 has Calendar
+dots_rh=$(dots_lit)
+[ -n "$dots_lh" ] && [ "$dots_lh" = "$dots_rh" ] && ok "left-handed: page 1's lit dot is on the $dots_lh as right-handed" || ko "left-handed: lit dot on the ${dots_lh:-?}, right-handed on the ${dots_rh:-?}"
+seed classic boolean drawer false boolean left_handed true; wait_until 10 pages_ge2; wait_until 5 has Calendar
+swipe_h $((W - $(dp 40))) $(dp 40)
+side_app=$(texts | grep -E 'text="[A-Za-z]' | head -1 | sed 's/ text="//; s/"$//')
+hasnt Calendar && [ -n "$side_app" ] && ok "left-handed: swipe left shows page 2 (“$side_app”)" || ko "left-handed: swipe left did not show page 2"
+A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+wait_until 5 has Calendar && ok "left-handed: Home on page 2 goes to page 1" || ko "left-handed: Home on page 2 did not show page 1"
+swipe_h $((W - $(dp 40))) $(dp 40); wait_until 5 hasnt Calendar
+A shell input keyevent KEYCODE_DPAD_DOWN # a key leaves touch mode: the home hands the focus to a view
+wait_until 5 settled
+hasnt Calendar && has "$side_app" && ok "left-handed: a key keeps the focus on page 2" || ko "left-handed: a key scrolled away from page 2"
+fixture_install && ok "fixture installed (its ScreenReader acts on the handles)" || ko "fixture not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
+defer "A uninstall $FIX >/dev/null 2>&1"
+seed classic boolean left_handed true
+wait_until 5 clock_bounds >/dev/null
+read -r x1 y1 x2 y2 <<<"$(clock_bounds)"
+A shell input swipe $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) 1300
+tap "Ridimensiona"; wait_until 5 hasd "Ridimensiona bordo sinistro"
+read -r lx _ <<<"$(cx "desc:Ridimensiona bordo sinistro")"; read -r rx _ <<<"$(cx "desc:Ridimensiona bordo destro")"
+[ -n "$lx" ] && [ -n "$rx" ] && [ "$lx" -lt "$rx" ] && ok "left-handed: the left handle is on the left" || ko "left-handed: left handle at x ${lx:-none}, right one at ${rx:-none}"
+a11y_on
+a11y label Restringi "Ridimensiona bordo destro"; rm -f "$SCR"
+# clock_bounds reads the screen again on every retry (wait_until), never the one from before the action
+narrowed() { read -r x1 _ x2 _ <<<"$(clock_bounds)"; [ -n "$x2" ] && [ "$x1" -lt $((W / 10)) ] && [ "$x2" -lt $((W - W / 10)) ]; }
+wait_until 5 narrowed && ok "left-handed: Restringi on the right edge pulls in the right edge" || ko "left-handed: Restringi on the right edge: clock at x $x1-$x2"
+a11y label Restringi "Ridimensiona bordo sinistro"; rm -f "$SCR"
+in_left() { read -r nx1 _ nx2 _ <<<"$(clock_bounds)"; [ -n "$nx1" ] && [ "$nx1" -gt $((x1 + W / 10)) ]; }
+wait_until 5 in_left && ok "left-handed: Restringi on the left edge pulls in the left edge" || ko "left-handed: Restringi on the left edge: clock at x ${nx1:-?}-${nx2:-?}"
+a11y label Allarga "Ridimensiona bordo sinistro"; rm -f "$SCR"
+grown_left() { read -r gx1 _ gx2 _ <<<"$(clock_bounds)"; [ -n "$gx1" ] && [ "$gx1" -lt "$nx1" ] && [ "$gx2" -eq "$nx2" ]; }
+wait_until 5 grown_left && ok "left-handed: Allarga on the left edge widens the left edge on screen" \
+  || ko "left-handed: Allarga on the left edge: clock at x ${gx1:-?}-${gx2:-?}, was $nx1-$nx2"
+A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+a11y_off
+setp del left_handed del drawer

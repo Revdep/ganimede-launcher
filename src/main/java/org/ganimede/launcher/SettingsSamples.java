@@ -20,6 +20,7 @@ import java.util.Map;
 /** Draws the compact theme, clock, font, colour, dim and icon samples used by settings. */
 final class SettingsSamples {
     private final SettingsKit kit;
+    private Drawable launcherIcon; // one for every tile: the render cache, keyed by the drawable, draws it once a look
 
     SettingsSamples(SettingsKit kit) {
         this.kit = kit;
@@ -128,14 +129,15 @@ final class SettingsSamples {
 
     View sampleIcon(IconLook look, float sizeDp, int fg, int acc) {
         int size = kit.ui.dp(sizeDp);
-        Drawable d = kit.activity().getDrawable(R.drawable.ic_launcher);
+        if (launcherIcon == null) launcherIcon = kit.activity().getDrawable(R.drawable.ic_launcher);
+        Drawable d = launcherIcon;
         ImageView icon = new ImageView(kit.activity());
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         // Text-coloured icons in dark text would vanish on these dark cards: show them white here.
         int sampleFg = fg == Colors.INK ? Colors.WHITE : fg;
-        // Line, Bold and Sharp differ only on built-in glyphs: their tiles show one (the asset is always there).
-        if (look.glyph().equals("original") || look.glyph().equals("dot")) Icons.apply(icon, d, false, look, sampleFg, acc, size);
-        else Icons.applySample(icon, d, look, sampleFg, acc, size);
+        // Line, Bold, Sharp, Duotone and Hollow differ only on built-in glyphs: their tiles show one (the asset is always there).
+        if (look.glyph().equals("original") || look.glyph().equals("dot")) Icons.apply(icon, Icons.copy(d), false, null, null, look, sampleFg, acc, size); // its own copy: one Drawable in two ImageViews share bounds and callbacks
+        else Icons.applySample(icon, Icons.copy(d), look, sampleFg, acc, size);
         icon.setLayoutParams(new LinearLayout.LayoutParams(size, size));
         return icon;
     }

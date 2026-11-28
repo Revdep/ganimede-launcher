@@ -6,8 +6,8 @@ import java.util.Arrays;
 import java.util.OptionalInt;
 
 /**
- * Which built-in icon an app gets. Keys are hashed with {@link #fnv48}: the package when every component of it in
- * Arcticons' appfilter draws one icon, else "package/full.ClassName" (tools/icons/pack.py builds and checks them).
+ * Which built-in icon an app gets. Keys are hashed with {@link #fnv48}: "package/full.ClassName" of each component
+ * Arcticons' appfilter lists, and no more (tools/icons/pack.py builds and checks them).
  */
 public final class IconIndex {
     private final long[] hashes;
@@ -29,10 +29,14 @@ public final class IconIndex {
         return h & 0xFFFFFFFFFFFFL;
     }
 
-    /** The icon id for an activity; {@code cls} is the full class name, as ComponentName.getClassName gives it. */
+    /** The icon id for a listed activity; {@code cls} is the full class name, as ComponentName.getClassName gives it. */
     public OptionalInt find(String pkg, String cls) {
-        int i = Arrays.binarySearch(hashes, fnv48(pkg + "/" + cls));
-        if (i < 0) i = Arrays.binarySearch(hashes, fnv48(pkg));
+        return find(pkg + "/" + cls);
+    }
+
+    /** The id stored under exactly this key (the category index's keys are plain packages). */
+    public OptionalInt find(String key) {
+        int i = Arrays.binarySearch(hashes, fnv48(key));
         return i < 0 ? OptionalInt.empty() : OptionalInt.of(ids[i]);
     }
 }

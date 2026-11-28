@@ -113,4 +113,30 @@ public class BlocksTest {
         eq(1, r.pages, "no page added while there is room");
         yes(!Blocks.evict(blocks, cells(8, "a"), 1, 4, 4).changed, "nothing under the block: unchanged");
     }
+
+    public static void testEdgeStepGrowsAndShrinksOneCell() {
+        Blocks.Item at = b("9", 0, 1, 1, 2, 2);
+        eq(b("9", 0, 1, 1, 3, 2), Blocks.edgeStep(at, "right", 1), "right grows");
+        eq(b("9", 0, 0, 1, 3, 2), Blocks.edgeStep(at, "left", 1), "left grows towards the left");
+        eq(b("9", 0, 1, 1, 2, 1), Blocks.edgeStep(at, "bottom", -1), "bottom shrinks");
+        eq(b("9", 0, 1, 2, 2, 1), Blocks.edgeStep(at, "top", -1), "top shrinks from above");
+    }
+
+    public static void testEdgeStepNeverBelowOneCell() {
+        Blocks.Item at = b("9", 0, 1, 1, 2, 1);
+        Blocks.Result r = Blocks.put(Blocks.edgeStep(at, "bottom", -1), 1, 4, 4, List.of(at), cells());
+        yes(!r.changed, "a block cannot vanish by shrinking");
+    }
+
+    // Finding c3 M15: an arrow key on a focused handle moves that edge the way the arrow points
+    public static void testArrowOnAHandleMovesItsEdgeTowardsTheArrow() {
+        eq(1, Blocks.arrowStep("left", "left"), "left edge, arrow left: grows");
+        eq(-1, Blocks.arrowStep("left", "right"), "left edge, arrow right: shrinks");
+        eq(1, Blocks.arrowStep("right", "right"), "right edge, arrow right: grows");
+        eq(-1, Blocks.arrowStep("right", "left"), "right edge, arrow left: shrinks");
+        eq(1, Blocks.arrowStep("top", "up"), "top edge, arrow up: grows");
+        eq(-1, Blocks.arrowStep("bottom", "up"), "bottom edge, arrow up: shrinks");
+        eq(1, Blocks.arrowStep("bottom", "down"), "bottom edge, arrow down: grows");
+        eq(0, Blocks.arrowStep("left", "up"), "an arrow across the edge does nothing");
+    }
 }

@@ -99,6 +99,24 @@ public final class Blocks {
         return new Item(b.id, b.page, Math.min(b.col, cols - w), Math.min(b.row, rows - h), w, h);
     }
 
+    /** The block with one edge moved by cells: positive grows it, negative shrinks it (edge: left, right, top, bottom). */
+    public static Item edgeStep(Item b, String edge, int cells) {
+        switch (edge) {
+            case "left": return new Item(b.id, b.page, b.col - cells, b.row, b.colSpan + cells, b.rowSpan);
+            case "right": return new Item(b.id, b.page, b.col, b.row, b.colSpan + cells, b.rowSpan);
+            case "top": return new Item(b.id, b.page, b.col, b.row - cells, b.colSpan, b.rowSpan + cells);
+            default: return new Item(b.id, b.page, b.col, b.row, b.colSpan, b.rowSpan + cells);
+        }
+    }
+
+    /** What an arrow key (left, right, up, down) does to the edge (left, right, top, bottom) in focus: 1 grows, -1 shrinks, 0 nothing. */
+    public static int arrowStep(String edge, String arrow) {
+        boolean sideEdge = edge.equals("left") || edge.equals("right"), sideArrow = arrow.equals("left") || arrow.equals("right");
+        if (sideEdge != sideArrow) return 0;
+        boolean outward = arrow.equals(edge) || (arrow.equals("up") && edge.equals("top")) || (arrow.equals("down") && edge.equals("bottom"));
+        return outward ? 1 : -1;
+    }
+
     public static Result put(Item at, int pages, int cols, int rows, List<Item> blocks, Map<Integer, String> cells) {
         List<Item> out = new ArrayList<>();
         Item old = null;

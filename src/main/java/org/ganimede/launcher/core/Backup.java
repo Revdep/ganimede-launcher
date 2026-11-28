@@ -16,7 +16,7 @@ public final class Backup {
     private static final Map<String, String> TYPES = new HashMap<>();
 
     static {
-        int[][] r = {{3, 8}, {2, 10}, {0, 8}, {2, 8}, {32, 80}, {60, 150}, {1, 100}, {16, 160}, {16, 160}, {8, 40}, {25, 300}, {20, 300},
+        int[][] r = {{3, 8}, {2, 10}, {0, 8}, {2, 8}, {32, 80}, {60, 150}, {1, Paging.MAX_PAGES}, {16, 160}, {16, 160}, {8, 40}, {25, 300}, {20, 300},
                 {0, 2000}, {5, 100}, {0, 95}, {0, 95}, {0, 100}, {-20, 40}, {-160, 160}, {4, 240}, {4, 240}, {4, 240}, {4, 420},
                 {4, 80}, {4, 80}, {4, 200}, {4, 200}, {0, 32}};
         String[] k = {"grid_cols", "grid_rows", "dock_count", "drawer_cols", "drawer_icon", "drawer_label_scale",
@@ -37,7 +37,7 @@ public final class Backup {
             "fav", "s", "dock", "s", "drawer", "b", "widget_below", "b", "hidden", "set", "unsuggested", "set", "custom_shortcuts", "s",
             "clock_style", "s", "clock24", "b", "font", "s", "text_color", "s", "accent", "i", "icon_shape", "s", "themed_shape", "s",
             FolderLook.BACKGROUND_KEY, "i", FolderLook.ALPHA_KEY, "i", FolderLook.COLUMNS_KEY, "i",
-            "icon_size", "i", "icon_pack", "s", "hide_labels", "b", "drawer_follow", "b", "drawer_labels", "b",
+            "icon_size", "i", "icon_pack", "s", "icon_category", "b", "hide_labels", "b", "drawer_follow", "b", "drawer_labels", "b",
             "drawer_font", "s", "drawer_icon_shape", "s", "drawer_icon", "i", "drawer_label_scale", "i",
             "icon_glyph", "s", "icon_container", "s", "icon_fill", "s", "icon_color", "s",
             "drawer_icon_glyph", "s", "drawer_icon_container", "s", "drawer_icon_fill", "s", "drawer_icon_color", "s",
@@ -82,19 +82,19 @@ public final class Backup {
         int[] r = RANGES.get(k);
         if (r != null && ((Integer) v < r[0] || (Integer) v > r[1])) return false;
         if (v instanceof Float && !(((Float) v) >= 0 && ((Float) v) <= 1)) return false; // fab_y, a fraction of the height; rejects NaN too
-        if (k.startsWith("icon:") && !((String) v).matches("[\\w.]+\\|\\w+")) return false; // "pack|drawable", as the picker saves it
+        if (k.startsWith("icon:") && !((String) v).matches("([\\w.]+|" + IconSet.PACK + ")\\|\\w+")) return false; // "pack|drawable", as the picker saves it
         if (v instanceof String && ((String) v).length() > 64 * 1024) return false; // a real setting is far smaller
         if (k.equals("mode")) return v.equals("list") || v.equals("classic");
         if (v instanceof String && !IconLook.allows(k, (String) v)) return false; // e.g. the removed "cutout"
         return !k.equals("fab_icon") || v.equals("default") || v.equals("gray") || v.equals("colour") || v.equals("custom");
     }
 
-    /** A home grid's cell keys: numbers only, inside 100 pages of the largest grid. */
+    /** A home grid's cell keys: numbers only, inside MAX_PAGES pages of the largest grid. */
     public static boolean cellsFit(Iterator<String> cells) {
         try {
             while (cells.hasNext()) {
                 int cell = Integer.parseInt(cells.next());
-                if (cell < 0 || cell >= 100 * 10 * 8) return false;
+                if (cell < 0 || cell >= Paging.MAX_PAGES * 10 * 8) return false;
             }
             return true;
         } catch (NumberFormatException e) {
@@ -126,8 +126,8 @@ public final class Backup {
         return free;
     }
 
-    /** Written to a backup file: only what a restore would read back, so this phone's bookkeeping stays home. */
-    public static boolean travels(String k) { return restorable(k); }
+    /** Written to a backup file: what a restore reads back, minus the old icon keys (read from an old file only). */
+    public static boolean travels(String k) { return restorable(k) && !List.of(IconLook.LEGACY).contains(k); }
 
     private Backup() {}
 }

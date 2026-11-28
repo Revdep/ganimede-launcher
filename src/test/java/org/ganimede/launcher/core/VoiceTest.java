@@ -1,6 +1,7 @@
 package org.ganimede.launcher.core;
 
 import java.util.Arrays;
+import java.util.Set;
 
 import static org.ganimede.launcher.Expect.eq;
 import static org.ganimede.launcher.Expect.yes;
@@ -26,6 +27,54 @@ public class VoiceTest {
                 new String[]{"content://a/1", "content://a/2"})), "two notes: both, the first one first");
         eq("[]", Arrays.toString(Voice.all(new String[]{null}, new String[]{null})), "text only");
         eq("[]", Arrays.toString(Voice.all(new String[0], new String[0])), "no messages");
+    }
+
+    public static void testKeptCopiesAreNamedByHashesPerNotificationAndNote() {
+        String a = Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/1.ogg");
+        eq(a, Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/1.ogg"), "the same note: the same file");
+        yes(!a.equals(Voice.keptName("0|org.telegram|2|null|10123", "content://chat.files/v/1.ogg")), "another notification: another file");
+        yes(!a.equals(Voice.keptName("0|org.telegram|1|null|10123", "content://chat.files/v/2.ogg")), "another note: another file");
+        yes(a.matches("[0-9a-f]{32}-[0-9a-f]{32}"), "only hex reaches the disk, no key nor address: " + a);
+    }
+
+    public static void testSweepSignatureChangesWithTheNotesOfAKeptKey() {
+        String[] keys = {"k1", "k2"};
+        String both = Voice.signature(keys, new String[][]{{"content://a/1", "content://a/2"}, {}});
+        eq(both, Voice.signature(keys, new String[][]{{"content://a/1", "content://a/2"}, {}}), "nothing changed: the same");
+        yes(!both.equals(Voice.signature(keys, new String[][]{{}, {}})), "the chat turned secret (same key, no notes): another");
+        yes(!both.equals(Voice.signature(keys, new String[][]{{"content://a/1", "content://a/3"}, {}})), "another note: another");
+        yes(!both.equals(Voice.signature(new String[]{"k1"}, new String[][]{{"content://a/1", "content://a/2"}})), "a notification less: another");
+    }
+
+    public static void testDropsTheCopiesOfGoneNotesAndStaleHalves() {
+        String[] names = {"a", "b", "c.part", "d.part"};
+        long now = 1_000_000;
+        long[] modified = {now - 500_000, now - 500_000, now - Voice.COPY_MS + 1, now - Voice.COPY_MS - 1};
+        // b is no longer in any notification; c is being written now; d was left by a copy cut off or a crash.
+        eq("[b, d.part]", Voice.drop(names, modified, Set.of("a", "c", "d"), now, now).toString(), "gone, and a half older than a copy may take");
+        eq("[a, b, d.part]", Voice.drop(names, modified, Set.of(), now, now).toString(), "no notification left: all but the half being written");
+        eq("[a, b, c.part, d.part]", Voice.drop(names, modified, null, now, now).toString(), "no access: everything, a young half too");
+    }
+
+    public static void testSweepSparesOnlyACopyStartedSinceItsSnapshot() {
+        long snap = 1_000_700;
+        String[] names = {"old", "fresh"};
+        long[] started = {snap - 10, snap}; // fresh's note was queued after the notifications were read: not in the snapshot
+        eq("[old]", Voice.drop(names, started, Set.of(), snap, snap + 20).toString(), "only the copy started before the snapshot goes");
+        eq("[old, fresh]", Voice.drop(names, started, null, snap, snap + 20).toString(), "no access: still everything");
+    }
+
+    public static void testSweepDropsASlowCopyStartedBeforeItsSnapshotEvenInTheSameSecond() {
+        long snap = 1_000_700; // started 200 ms before the read, the copy ends seconds later: its note was in the snapshot, and gone
+        eq("[slow]", Voice.drop(new String[]{"slow"}, new long[]{1_000_500}, Set.of(), snap, snap + 5_000).toString(),
+                "no later sweep comes for it: this one deletes it");
+        eq("[earlier]", Voice.drop(new String[]{"earlier"}, new long[]{0}, Set.of(), snap, snap).toString(), "copied before this process: goes");
+    }
+
+    public static void testKeepsANoteOnlyIfAWholeOneStillFits() {
+        yes(Voice.room(0), "empty");
+        yes(Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES), "a largest note fills it exactly");
+        yes(!Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES + 1), "one byte more: no copy, nothing written past the cap");
     }
 
     public static void testPlayerClock() {

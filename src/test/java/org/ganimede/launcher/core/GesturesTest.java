@@ -102,4 +102,10 @@ public class GesturesTest {
         eq(32, Gestures.effectiveAppsOffsetDp(32), "the strip boundary stays unchanged");
         eq(36, Gestures.effectiveAppsOffsetDp(36), "an offset already outside the strip stays unchanged");
     }
+
+    public static void testAfterALongPressMovingPastTheSlopPicksTheIconUpOtherwiseItsMenuStays() {
+        yes(!Gestures.pickedUp(5, 6, 8), "held in place (7.8 px of 8): the menu stays");
+        yes(Gestures.pickedUp(0, -8, 8), "8 px up, the slop itself: the menu closes, the drag starts");
+        yes(Gestures.pickedUp(6, 6, 8), "8.5 px diagonally counts, any direction");
+    }
 }

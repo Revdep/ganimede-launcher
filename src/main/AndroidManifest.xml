@@ -46,6 +46,7 @@
             android:stateNotNeeded="true"
             android:excludeFromRecents="true"
             android:resumeWhilePausing="true"
+            android:enableOnBackInvokedCallback="true"
             android:windowSoftInputMode="adjustNothing"
             android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|uiMode">
             <!-- Language, font size and display size changes recreate it: the screen is built again for them. -->
@@ -74,7 +75,7 @@
             android:name=".SettingsActivity"
             android:launchMode="singleTask"
             android:taskAffinity="org.ganimede.launcher.settings"
-            android:label="Ganimede settings"
+            android:label="@string/settings_label"
             android:exported="false"
             android:theme="@style/Settings" />
 
@@ -89,10 +90,10 @@
         </service>
 
         <!-- Breezy Weather shares its weather through the open Gadgetbridge broadcast. -->
-        <!-- Breezy sends it with no permission, so it must stay open; BreezyReceiver checks action, sender (API 34+) and size. -->
+        <!-- Breezy sends it with no permission, so it must stay open; BreezyReceiver checks action and size, and the sender only where Android reports it (API 34+, and not always): a display-only trade-off. -->
         <receiver
             android:name=".BreezyReceiver"
-            android:label="Ganimede Launcher"
+            android:label="@string/breezy_receiver_label"
             android:exported="true"
             tools:ignore="ExportedReceiver">
             <intent-filter>
@@ -104,7 +105,7 @@
              only performs global actions; never reads screen content. -->
         <service
             android:name=".LockService"
-            android:label="Ganimede Quick Lock"
+            android:label="@string/lock_service_label"
             android:exported="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>

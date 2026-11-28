@@ -4,33 +4,30 @@ emu_only "backup: uninstalls the launcher and turns the screen" || return 0
 BK=/sdcard/Download/ganimede-backup.json
 BAD=/sdcard/Download/ganimede-bad.json
 OLD=/sdcard/Download/ganimede-old-backup.json
-INDEPENDENT=/sdcard/Download/ganimede-independent-backup.json
-sval() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | cut -d'>' -f2-; } # a string pref's raw text
 backup_page() { # home screen → Settings → Backup & restore
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-  A shell input swipe 540 1900 540 1900 1500; tap "Impostazioni Ganimede" # not pg_settings: Settings may come back on a sub-page
+  home_menu; tap "Impostazioni Ganimede" # not pg_settings: Settings may come back on a sub-page
   wait_until 5 has "Personalizza"; wait_until 5 settled # a swipe sent while the page still opens is lost
   A shell input swipe 150 2120 150 600 300 # one long scroll near the end of the list, as for “App nascoste”
   tapn "Backup e ripristino" 6
   wait_until 5 has "Crea un backup"
 }
 restore_file() { # restore_file name: Settings → Restore → pick the file → confirm
-  backup_page
+  { has "Ripristina un backup" && settled; } || backup_page # already on the page (a refused file leaves it there): no second trip
   tap "Ripristina un backup"
   pick_file "$1" || return 1
   wait_until 8 has "Ripristinare il backup?" || { ko "no confirmation dialog for $1"; return 1; }
   tap "Ripristina"
 }
 state_unchanged() { # this phone's own state is still what setp put there
-  [ "$(sval stack)" = "101,102" ] && [ "$(sval wx)" = "$WX" ]
+  [ "$(pref stack)" = "101,102" ] && [ "$(pref wx)" = "$WX" ]
 }
 
 step "Backup: export writes a file to Downloads"
 WX='{}' # no & or quotes: setp pastes the value through sed into the XML
-seed list
-setp int fav_gap 12; setp string stack "101,102"; setp string wx "$WX"
-setp string folder:x '{"name":"F","where":"fav","apps":[],"widgets":[7],"bg":-2093040,"alpha":73,"cols":4}' # widget ids stay local; look travels
-state_unchanged && ok "precondition: stack and wx are on the phone" || ko "precondition: stack='$(sval stack)' wx='$(sval wx)'"
+seed list int fav_gap 12 string stack "101,102" string wx "$WX" \
+  string folder:x '{"name":"F","where":"fav","apps":[],"widgets":[7],"bg":-2093040,"alpha":73,"cols":4}' # widget ids stay local; look travels
+state_unchanged && ok "precondition: stack and wx are on the phone" || ko "precondition: stack='$(pref stack)' wx='$(pref wx)'"
 A shell rm -f "$BK" "$BAD"
 backup_page
 tap "Crea un backup"
@@ -50,19 +47,18 @@ echo "$json" | grep -q '"folder:x"' && ok "the folder is in the file" || ko "fol
 echo "$json" | grep -q 'widgets' && ko "this phone's folder widget ids leaked into the file" || ok "folder widget ids are not in the file"
 
 step "Backup: restore brings the changed setting back, keeps this phone's state"
-setp int fav_gap 20
-setp string folder:x '{"name":"Changed","where":"fav","apps":[],"bg":-7686920,"alpha":12,"cols":2}'
+setp int fav_gap 20 string folder:x '{"name":"Changed","where":"fav","apps":[],"bg":-7686920,"alpha":12,"cols":2}'
 [ "$(pref fav_gap)" = 20 ] && ok "changed fav_gap to 20" || ko "fav_gap = $(pref fav_gap)"
-changed_folder_look() { local f; f=$(sval folder:x | sed 's/&quot;/"/g'); [[ $f == *'"bg":-7686920'* && $f == *'"alpha":12'* && $f == *'"cols":2'* ]]; }
-changed_folder_look && ok "changed all three folder look values before restore" || ko "changed folder:x = $(sval folder:x)"
+changed_folder_look() { local f; f=$(pref folder:x | sed 's/&quot;/"/g'); [[ $f == *'"bg":-7686920'* && $f == *'"alpha":12'* && $f == *'"cols":2'* ]]; }
+changed_folder_look && ok "changed all three folder look values before restore" || ko "changed folder:x = $(pref folder:x)"
 restore_file ganimede-backup.json
-back() { [ "$(pref fav_gap)" = 12 ]; }
-wait_until 10 back && ok "fav_gap is 12 again" || ko "restore left fav_gap = $(pref fav_gap)"
+gap_back() { [ "$(pref fav_gap)" = 12 ]; }
+wait_until 10 gap_back && ok "fav_gap is 12 again" || ko "restore left fav_gap = $(pref fav_gap)"
 shot 41-backup-restored
-restored_folder_look() { local f; f=$(sval folder:x | sed 's/&quot;/"/g'); [[ $f == *'"bg":-2093040'* && $f == *'"alpha":73'* && $f == *'"cols":4'* ]]; }
+restored_folder_look() { local f; f=$(pref folder:x | sed 's/&quot;/"/g'); [[ $f == *'"bg":-2093040'* && $f == *'"alpha":73'* && $f == *'"cols":4'* ]]; }
 wait_until 10 restored_folder_look && ok "restore returns the folder's exact bg, alpha and cols overrides" \
-  || ko "restored folder:x = $(sval folder:x)"
-state_unchanged && ok "stack and wx survived the restore" || ko "after restore: stack='$(sval stack)' wx='$(sval wx)'"
+  || ko "restored folder:x = $(pref folder:x)"
+state_unchanged && ok "stack and wx survived the restore" || ko "after restore: stack='$(pref stack)' wx='$(pref wx)'"
 [ "$(A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -c 'name="onboarded" value="true"')" = 1 ] && ok "still onboarded" || ko "onboarded lost"
 
 step "Backup: old clock-only positions migrate to the independent line"
@@ -80,13 +76,8 @@ old_positions() { [ "$(pref clock_offset)" = 76 ] && [ "$(pref line_offset)" = 7
 wait_until 10 old_positions && ok "old backup copied both clock axes to the line" \
   || ko "old restore: clock_offset=$(pref clock_offset), line_offset=$(pref line_offset), list_clock_y=$(pref list_clock_y), list_line_y=$(pref list_line_y)"
 
-backup_with clock_offset=76 list_clock_y=-28 line_offset=120 list_line_y=44 > "$OUT/independent-backup.json"
-A push "$OUT/independent-backup.json" "$INDEPENDENT" >/dev/null
-restore_file ganimede-independent-backup.json
-independent_positions() { [ "$(pref line_offset)" = 120 ] && [ "$(pref list_line_y)" = 44 ]; }
-wait_until 10 independent_positions && ok "restore preserves independently stored line axes" \
-  || ko "independent restore: line_offset=$(pref line_offset), list_line_y=$(pref list_line_y)"
-A shell rm -f "$OLD" "$INDEPENDENT"
+# a line already stored on its own is kept: PreferencesTest.testLineMigrationNeverOverwritesItsOwnPosition (same restore path)
+A shell rm -f "$OLD"
 
 step "Backup: a file that is not a backup is refused and changes nothing"
 setp int fav_gap 20
@@ -96,13 +87,12 @@ for bad in '{broken' '{"app":"other","version":1,"values":{"fav_gap":{"t":"i","v
   # the refusal is a Toast: uiautomator does not dump toasts, so the proof is: dialog confirmed and gone, settings page back, prefs unchanged
   wait_until 8 hasnt "Ripristinare il backup?" && wait_until 5 settled && has "Backup e ripristino" && ok "confirmed and back on the settings page: $bad" || ko "restore flow did not finish for: $bad"
   [ "$(pref fav_gap)" = 20 ] && ok "fav_gap still 20" || ko "fav_gap = $(pref fav_gap) after a refused file"
-  state_unchanged && ok "stack and wx untouched" || ko "stack/wx changed: '$(sval stack)' '$(sval wx)'"
+  state_unchanged && ok "stack and wx untouched" || ko "stack/wx changed: '$(pref stack)' '$(pref wx)'"
 done
 A shell rm -f $BAD
 
 step "Backup: one malformed folder:* pref on this phone must not block a restore (suspected bug)"
-setp string folder:bad '{broken'
-setp int fav_gap 20
+setp string folder:bad '{broken' int fav_gap 20
 restore_file ganimede-backup.json
 back2() { [ "$(pref fav_gap)" = 12 ]; }
 wait_until 10 back2 && ok "restore worked despite a broken folder:bad" || ko "restore refused: fav_gap = $(pref fav_gap)"
@@ -125,8 +115,8 @@ A shell rm -f $BAD
 # Ganimede is not the home app on this install, so a restore goes on to the "home app" step; the restored prefs are already saved.
 restored_to_home_step() { # restored_to_home_step what
   expect "Rendila la tua Home" && ok "$1: lands on the home-app step, not on the home" || ko "$1: not on the home-app step"
-  wait_until 10 back && ok "$1: fav_gap is 12 from the restored backup" || ko "$1: fav_gap = $(pref fav_gap)"
-  [ -n "$(sval folder:x)" ] && ok "$1: folder:x restored" || ko "$1: folder:x missing"
+  wait_until 10 gap_back && ok "$1: fav_gap is 12 from the restored backup" || ko "$1: fav_gap = $(pref fav_gap)"
+  [ -n "$(pref folder:x)" ] && ok "$1: folder:x restored" || ko "$1: folder:x missing"
   hasnt "Indietro" && ok "$1: no Back on the home-app step (nothing behind it)" || ko "$1: Back shown on the home-app step"
   tap "Avanti"; wait_until 10 focus && ok "$1: home in front after the home-app step" || ko "$1: home not in front"
   hasnt "Avanti" && ok "$1: no wizard step on screen" || ko "$1: still in the wizard"

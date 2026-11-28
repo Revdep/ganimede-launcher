@@ -3,6 +3,8 @@ package org.ganimede.launcher;
 import static org.ganimede.launcher.Sheets.item;
 
 import org.ganimede.launcher.Apps.Item;
+import org.ganimede.launcher.core.FolderOrder;
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Safe;
 
 import android.Manifest;
@@ -60,37 +62,45 @@ final class Menus {
     }
 
     void forEntry(String entry) {
+        forEntry(entry, null);
+    }
+
+    /** An entry's long-press menu; inFolder: the folder whose pop-up it was pressed in, adding "Remove from this folder". */
+    void forEntry(String entry, String inFolder) {
         if (entry.startsWith("f:")) folders.menu(entry.substring(2));
-        else if (entry.startsWith("s:")) shortcut(entry, null);
+        else if (entry.startsWith("s:")) shortcut(entry, inFolder);
         else {
             Item it = apps.find(entry);
-            if (it != null) app(it);
+            if (it != null) app(it, inFolder);
         }
     }
 
     /** Long-press on a pinned shortcut or web app: put it in a folder, or take it away from where it is. */
-    void shortcut(String entry, String inFolder) {
+    private void shortcut(String entry, String inFolder) {
         List<Sheets.Row> rows = new ArrayList<>();
         rows.add(item("folder", ui.tr("Add to pop-up folder…"), () -> folders.choose(entry)));
         rows.add(item("image", ui.tr("Icon…"), () -> icons.choose(entry)));
-        rows.add(item("close", inFolder == null ? ui.tr("Remove from favourites") : ui.tr("Remove from this folder"), () -> {
-            if (inFolder == null) {
-                List<String> f = layout.favourites();
-                f.remove(entry);
-                if (layout.classic()) layout.removeFromHome(entry);
-                saveFavourites(f);
-            } else if (layout.editFolderApps(inFolder, a -> a.remove(entry))) {
-                refresh.run();
-            }
+        if (inFolder != null) rows.add(removeFromFolder(entry, inFolder));
+        else rows.add(item("close", ui.tr("Remove from favourites"), () -> {
+            List<String> f = layout.favourites();
+            f.remove(entry);
+            if (layout.classic()) layout.removeFromHome(entry);
+            ui.prefs.edit().remove(IconSet.pickedKey(entry)).apply(); // else the 4 MB set stays needed, and in the backup
+            saveFavourites(f);
         }));
         sheets.show(Entries.shortcutName(entry), rows);
     }
 
-    private void app(Item it) {
+    private Sheets.Row removeFromFolder(String entry, String folder) {
+        return item("close", ui.tr("Remove from this folder"), () -> folders.remove(folder, entry));
+    }
+
+    private void app(Item it, String inFolder) {
         List<String> fav = layout.favourites();
         boolean isFav = fav.contains(it.key), hidden = layout.inSet("hidden", it.key);
         List<ShortcutInfo> scs = apps.shortcuts(it);
         List<Sheets.Row> rows = new ArrayList<>();
+        if (inFolder != null) rows.add(removeFromFolder(it.key, inFolder)); // where it was pressed: first
         // Always the same seven first, in the same order.
         rows.add(item("star", isFav ? ui.tr("Remove from favourites") : ui.tr("Add to favourites"), () -> {
             if (isFav) fav.remove(it.key); else fav.add(it.key);
@@ -131,8 +141,8 @@ final class Menus {
         rows.add(item(null, ui.tr("More"), null));
         if (isFav) {
             int at = fav.indexOf(it.key);
-            if (at > 0) rows.add(item("up", ui.tr("Move up"), () -> { fav.set(at, fav.get(at - 1)); fav.set(at - 1, it.key); saveFavourites(fav); }));
-            if (at < fav.size() - 1) rows.add(item("down", ui.tr("Move down"), () -> { fav.set(at, fav.get(at + 1)); fav.set(at + 1, it.key); saveFavourites(fav); }));
+            if (at > 0) rows.add(item("up", ui.tr("Move up"), () -> saveFavourites(FolderOrder.move(fav, at, at - 1))));
+            if (at < fav.size() - 1) rows.add(item("down", ui.tr("Move down"), () -> saveFavourites(FolderOrder.move(fav, at, at + 1))));
         }
         rows.add(item("music", (layout.inSet("music_apps", it.key) ? "✓ " : "") + ui.tr("Music app (show with headphones)"), () -> toggleSet("music_apps", it.key)));
         rows.add(item("pause", (layout.inSet("breaker_apps", it.key) ? "✓ " : "") + ui.tr("Break reminder"), () -> {

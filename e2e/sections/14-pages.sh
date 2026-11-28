@@ -2,25 +2,12 @@ emu_only "pages: changes font scale and the notification listener" || return 0
 # The settings pages (each opens from its row, one control per page changes its pref) and the Ganimede button
 # (tap opens its pop-up, dragging it to the left edge saves fab_left=true).
 
-# pv key: the stored value of any pref (lib.sh `pref` only reads ints); empty when unset
-pv() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | tr -d '\r' | grep " name=\"$1\"" | sed -E 's/.*value="([^"]*)".*/\1/; s/.*">([^<]*)<.*/\1/'; }
 # pv_is "what" key expected [action…]: runs the action, then waits for the pref to hold the value.
 # With an action the pref must not hold it before: a read that beats the app's write would pass on the old value.
 pv_is() {
-  local w="$1" k="$2" e="$3"; shift 3; pv_eq() { [ "$(pv "$k")" = "$e" ]; }
+  local w="$1" k="$2" e="$3"; shift 3; pv_eq() { [ "$(pref "$k")" = "$e" ]; }
   [ $# -gt 0 ] && { pv_eq && { ko "$w: $k is already $e before the action"; return 1; }; "$@"; }
-  wait_until 5 pv_eq && ok "$w: $k = $e" || ko "$w: $k = '$(pv "$k")', expected $e"
-}
-# setset key item: like setp, for a string set holding one item
-setset() {
-  local f="$OUT/prefs.xml"
-  A shell am force-stop $PK
-  A exec-out run-as $PK cat shared_prefs/ganimede.xml > "$f"
-  sed -i "/ name=\"$1\"/d" "$f"
-  sed -i "s@</map>@    <set name=\"$1\"><string>$2</string></set>\n</map>@" "$f"
-  A exec-in "run-as $PK sh -c 'cat > shared_prefs/ganimede.xml'" < "$f"
-  start_home
-  drawn2() { dump | grep -q "package=\"$PK\""; }; wait_until 10 drawn2 # touches sent before the first frame are lost
+  wait_until 5 pv_eq && ok "$w: $k = $e" || ko "$w: $k = '$(pref "$k")', expected $e"
 }
 pg_back() { # one level up, to the settings home
   A shell input keyevent KEYCODE_BACK
@@ -36,7 +23,7 @@ pg_pick() { see "$1" && tap "$1"; }
 HIDE=com.android.chrome/com.google.android.apps.chrome.Main
 step "Settings pages: each opens from its row and one control changes its pref"
 seed classic
-setset hidden "$HIDE"
+setp set hidden "$HIDE"
 pg_settings
 
 pg_open "Personalizza" "Tutto lo schermo"
@@ -53,8 +40,8 @@ tap "Cartelle" && see "Colore dello sfondo" && see "Opacità dello sfondo (%)" &
 pg_back
 stap "Personalizza"; pill "Temi" # pg_back lands on the settings home; the strip reopens scrolled to the last pill
 tap "Temi"; wait_until 5 has "TEMI"
-folders_in_themes() { local n=0; while [ $n -lt 25 ]; do has "Colonne" && return 0; has "Colore dello sfondo" && return 0; _scroll; n=$((n + 1)); done; return 1; }
-folders_in_themes && ko "Temi still shows the folder controls (Colore dello sfondo / Colonne)" || ok "Temi no longer shows the folder controls"
+folder_controls() { has "Colonne" || has "Colore dello sfondo"; }
+scroll_find folder_controls; [ $? = 1 ] && ok "Temi no longer shows the folder controls" || ko "Temi still shows the folder controls (Colore dello sfondo / Colonne), or its end was never reached"
 pg_back
 for _ in 1 2 3 4; do A shell input swipe 540 700 540 2000 200; done # the settings home keeps the scroll of the Temi search above
 
@@ -90,6 +77,13 @@ for s in 1.15 "$fs"; do # a configuration change makes Android build the setting
   setting system font_scale "$s" || continue; sleep 2; wait_until 5 settled
   has "Aggiungi una scorciatoia" && ok "font scale $s: still on the shortcuts page" || ko "font scale $s: the shortcuts page was lost"
 done
+# The add form, and what is typed in it, outlive a rebuild of the screen (issue 063)
+tap "Aggiungi una scorciatoia"; wait_until 5 has "Nome, per esempio Casa" || ko "the add-a-shortcut form did not open"
+tap "Nome, per esempio Casa"; typ Rotta; wait_until 5 has "Rotta"
+for s in 1.15 "$fs"; do setting system font_scale "$s" || continue; wait_until 5 settled; done
+wait_until 5 has "Rotta" && ok "the shortcut form keeps its typed name across a rebuild" || ko "the shortcut form or its typed name was lost on a rebuild"
+formgone() { has "Rotta" && A shell input keyevent KEYCODE_BACK; hasnt "Rotta"; } # Back hides the keyboard, then closes the form
+wait_until 8 formgone || ko "the shortcut form did not close"
 A shell input keyevent KEYCODE_BACK
 wait_until 5 has "Scorri in su nella schermata Home per cercare" && ok "Back from the shortcuts returns to the search page" || ko "Back from the shortcuts did not return to search"
 pg_back
@@ -117,14 +111,16 @@ pg_back
 pg_open "Backup e ripristino" "Crea un backup"
 # The screen turns while the restore confirmation is open: the dialog is still there afterwards (issue 063).
 printf '%s' '{}' > "$OUT/rot.json"; A push "$OUT/rot.json" /sdcard/Download/ganimede-rot.json >/dev/null
-tap "Ripristina un backup"; pick_file ganimede-rot.json
-wait_until 8 has "Ripristinare il backup?" || ko "no restore confirmation to rotate"
-A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
-landscape() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; } # the dump's root says the display is turned
-wait_until 8 landscape || ko "the screen did not turn"
-wait_until 5 has "Ripristinare il backup?" && ok "the restore confirmation survives a rotation" || ko "the restore confirmation vanished on rotation"
-A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1
-tap "Annulla"; wait_until 5 hasnt "Ripristinare il backup?"
+tap "Ripristina un backup"
+if pick_file ganimede-rot.json; then # nothing picked: pick_file said why, nothing below can pass
+  wait_until 8 has "Ripristinare il backup?" || ko "no restore confirmation to rotate"
+  A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
+  landscape() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; } # the dump's root says the display is turned
+  wait_until 8 landscape || ko "the screen did not turn"
+  wait_until 5 has "Ripristinare il backup?" && ok "the restore confirmation survives a rotation" || ko "the restore confirmation vanished on rotation"
+  A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1
+  tap "Annulla"; wait_until 5 hasnt "Ripristinare il backup?"
+fi
 A shell rm -f /sdcard/Download/ganimede-rot.json
 pg_back
 
@@ -150,7 +146,7 @@ if [ -z "$bx" ]; then ko "no Ganimede button on the classic home"; else
   wait_until 5 has "Pulsante Ganimede" && ok "tap opens the button's pop-up" || ko "tap did not open the pop-up"
   hasnt "Pulsante rapido" && ok "an old pop-up shows no old name" || ko "the pop-up still shows its old name “Pulsante rapido”"
   A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Pulsante Ganimede"
-  [ -z "$(pv fab_left)" ] && ok "starts anchored on the right (fab_left unset)" || ko "fab_left already $(pv fab_left)"
+  [ -z "$(pref fab_left)" ] && ok "starts anchored on the right (fab_left unset)" || ko "fab_left already $(pref fab_left)"
   A shell input swipe "$bx" "$by" 60 "$by" 800
   pv_is "drag to the left edge" fab_left true
   read -r nx ny <<<"$(btn)"
@@ -166,8 +162,7 @@ hasnt "Accesso alle notifiche" && ok "no “Accesso alle notifiche” row on the
 
 # issue 064: the media player's buttons are announced by TalkBack (fixture app plays a session)
 step "Media player: its buttons have a content description"
-"$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 \
-  && A install -r "$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" >/dev/null && ok "fixture app built and installed" \
+fixture_install && ok "fixture app built and installed" \
   || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
 seed list
 A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1

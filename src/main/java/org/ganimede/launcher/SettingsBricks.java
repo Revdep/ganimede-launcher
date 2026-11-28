@@ -59,6 +59,12 @@ final class SettingsBricks {
         kit.prefs().unregisterOnSharedPreferenceChangeListener(watch);
     }
 
+    /** The undo steps, for the screen Android builds in place of this one (rotation); null while the page is closed. */
+    History<Map<String, Object>> history() { return history; }
+
+    /** Takes over the undo steps of the screen this one replaces. */
+    void adopt(History<Map<String, Object>> steps) { history = steps; }
+
     /** Undo covers what is done on this page, from the moment it opens. */
     void track(boolean open) {
         if (!open) history = null;
@@ -148,9 +154,9 @@ final class SettingsBricks {
             TextView chip = kit.text(name, 15, on ? Colors.WHITE : SettingsKit.SUB);
             chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             chip.setGravity(Gravity.CENTER);
-            chip.setMinHeight(kit.ui.dp(40));
+            chip.setMinHeight(kit.ui.dp(48));
             chip.setPadding(kit.ui.dp(16), 0, kit.ui.dp(16), 0);
-            GradientDrawable g = kit.round(on ? Colors.alpha(kit.ui.accent, 0x44) : 0x1FFFFFFF, 20);
+            GradientDrawable g = kit.round(on ? Colors.alpha(kit.ui.accent, 0x44) : 0x1FFFFFFF, 24);
             if (on) g.setStroke(kit.ui.dp(2), kit.ui.accent);
             chip.setBackground(new RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), g, null));
             SettingsKit.selectable(chip, on);
@@ -258,7 +264,7 @@ final class SettingsBricks {
         if (classic) outlook(c);
         else kit.slider(c, kit.ui.tr("Bottom edge: lift everything"), "home_bottom", 4, 420, 64);
         kit.link(c, "button", kit.ui.tr("Ganimede button"), kit.ui.tr("A round button in the bottom corner with its own pop-up"), () -> kit.open(Page.BUTTON));
-        kit.toggle(c, kit.ui.tr("Left-hand use (mirrored)"), kit.ui.tr("Alphabet on the left, everything aligned to the right"), "left_handed", false, kit::render);
+        kit.toggle(c, kit.ui.tr("Left-hand use (mirrored)"), kit.ui.tr("List: alphabet on the left, everything aligned to the right"), "left_handed", false, kit::render);
         kit.toggle(c, kit.ui.tr("Hide status bar"), null, "hide_status_bar", false, kit::render);
         kit.toggle(c, kit.ui.tr("Allow home screen rotation"), null, "rotate", false, null);
         if (classic) {

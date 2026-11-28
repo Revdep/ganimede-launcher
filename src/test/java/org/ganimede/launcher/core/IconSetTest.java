@@ -10,9 +10,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalInt;
 
-import org.ganimede.launcher.core.IconSet.Cap;
-import org.ganimede.launcher.core.IconSet.Join;
 import org.ganimede.launcher.core.IconSet.Op;
 import org.ganimede.launcher.core.IconSet.PathData;
 
@@ -70,7 +69,6 @@ public class IconSetTest {
         eq(new Op[]{Op.MOVE_CLOSED, Op.LINE, Op.LINE, Op.CLOSE}, p.ops(), "M L L Z, a closed outline");
         near(new float[]{4, 4, 44, 4, 44, 44}, p.points(), "M(4,4) L(44,4) L(44,44)");
         yes(p.stroke() && !p.fill() && !p.evenOdd(), "stroked, not filled");
-        eq(1f, p.width(), "stroke width 1");
         eq(1f, p.alpha(), "opaque");
     }
 
@@ -83,7 +81,6 @@ public class IconSetTest {
         PathData p = icon("transform").get(0);
         eq(new Op[]{Op.MOVE, Op.LINE}, p.ops(), "an open line");
         near(new float[]{4, 5, 12, 5}, p.points(), "translate(2,3) scale(2) applied to M1 1 L5 1");
-        eq(2f, p.width(), "scale(2) doubles the stroke too");
     }
 
     public static void testArcBecomesCubicsWithSameEnds() {
@@ -177,28 +174,76 @@ public class IconSetTest {
         near(new float[]{4, 4, 8, 4}, subpaths(stroke).get(0), "dashed from the outline's start");
     }
 
-    public static void testCapsAndJoinsAsDeclared() {
-        List<PathData> paths = icon("caps");
-        eq(Cap.BUTT, paths.get(0).cap(), "no stroke-linecap declared: SVG's default butt");
-        eq(Join.MITER, paths.get(0).join(), "no stroke-linejoin declared: SVG's default miter");
-        eq(Cap.ROUND, paths.get(1).cap(), "round declared");
-        eq(Join.ROUND, paths.get(1).join(), "round declared");
-        eq(Cap.SQUARE, paths.get(2).cap(), "square declared");
-        eq(Join.BEVEL, paths.get(2).join(), "bevel declared");
-        eq(Cap.ROUND, icon("dots").get(0).cap(), "the dots keep their round caps, which draw them");
-    }
-
     public static void testRealAssetDecodesAll() {
         IconSet set = load("src/main/assets/icons.bin");
         eq(15459, set.count(), "one icon per SVG in Arcticons icons/white at the pinned commit");
         int paths = 0;
-        for (int i = 0; i < set.count(); i++) paths += set.icon(i).size();
+        for (int i = 0; i < set.count(); i++) {
+            int n = set.icon(i).size();
+            yes(n > 0, "icon " + set.name(i) + " has no path: it would draw nothing");
+            paths += n;
+        }
         yes(paths > set.count(), "every icon decodes, most into several paths: " + paths);
     }
 
-    public static void testRealAssetCarriesTheArcticonsCommit() {
-        eq("da2fa5694ccfea800a9b88f556131a20908e95c1", load("src/main/assets/icons.bin").version(),
+    public static void testRealAssetCarriesTheArcticonsCommit() throws IOException {
+        byte[] bytes = Files.readAllBytes(Path.of("src/main/assets/icons.bin"));
+        StringBuilder hex = new StringBuilder();
+        for (int i = 4; i < 24; i++) hex.append(String.format("%02x", bytes[i]));
+        eq("da2fa5694ccfea800a9b88f556131a20908e95c1", hex.toString(),
                 "the asset says which Arcticons commit it was packed from (README, pack.py)");
+    }
+
+    /** Issue 081: the picker searches the names section; a key may carry its pack ("pack|name"). */
+    public static void testSearchSubstring() {
+        List<String> names = List.of("calendar_31", "calendar_google_31", "okay");
+        eq(List.of("calendar_google_31"), IconSet.search(names, "google"), "google: only the Google calendar");
+        eq(List.of("calendar_31", "calendar_google_31"), IconSet.search(names, "cal"), "cal: both calendars, best first");
+        eq(List.of(), IconSet.search(names, "zzz"), "zzz: nothing");
+        eq(names, IconSet.search(names, " "), "an empty search lists every icon, in order");
+        eq(List.of("builtin:arcticons|okay"), IconSet.search(List.of("p|calendar_31", "builtin:arcticons|okay"), "okay"),
+                "only the name after the pack is searched");
+    }
+
+    /** Issue 081: every icon of the real set is offered (no 4000 cap), found by search and by name. */
+    public static void testSearchHasNoCap() {
+        IconSet set = load("src/main/assets/icons.bin");
+        List<String> names = set.names();
+        eq(15459, names.size(), "every name the packer wrote (one per SVG), not 4000");
+        yes(IconSet.search(names, "okay").contains("okay"), "okay, far past the 4000th name, is found");
+        eq("okay", set.name(set.id("okay").getAsInt()), "a picked icon is found again by its name");
+        yes(set.id("zzz_not_an_icon").isEmpty(), "a name this version of the set lacks finds no icon");
+    }
+
+    /** Issue 081: the set is read in the background when an entry's picked icon comes from it, not on the main thread. */
+    public static void testNeededForPickedIcon() {
+        yes(IconSet.needed(java.util.Map.of("icon:f:12", "builtin:arcticons|okay", "mode", "classic")), "a folder's icon picked from the set");
+        yes(!IconSet.needed(java.util.Map.of("icon:f:12", "com.pack.icons|ic_phone", "icon_pack", "com.pack.icons")),
+                "icons from an installed pack only");
+        yes(!IconSet.needed(java.util.Map.of("rn:x", "builtin:arcticons|okay")), "only picked icons count");
+        yes(!IconSet.needed(java.util.Map.of()), "nothing picked");
+    }
+
+    /** Fable c2 P2-2: a deleted folder's picked icon key is the one the set check looks at, so removing it frees the 4 MB set. */
+    public static void testDroppedPickKeepsNothingNeeded() {
+        java.util.Map<String, Object> prefs = new java.util.HashMap<>(java.util.Map.of("mode", "classic"));
+        prefs.put(IconSet.pickedKey("f:12"), "builtin:arcticons|okay");
+        yes(IconSet.needed(prefs), "the folder's pick needs the set");
+        prefs.remove(IconSet.pickedKey("f:12"));
+        yes(!IconSet.needed(prefs), "its key gone, nothing needs the set");
+    }
+
+    /** Fable c3 P2-1: an uninstalled app's picked icons are found by its package, nothing else's (not a longer package name). */
+    public static void testPickedKeysOfPackage() {
+        java.util.Map<String, Object> prefs = new java.util.HashMap<>();
+        prefs.put(IconSet.pickedKey("com.a/com.a.Main"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.a/com.a.Other"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.ab/com.ab.Main"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("f:12"), "builtin:arcticons|okay");
+        prefs.put(IconSet.pickedKey("com.a/com.a.Main#10"), "builtin:arcticons|okay"); // the same app in a work profile stays
+        prefs.put("rn:com.a/com.a.Main", "x");
+        eq(java.util.Set.of("icon:com.a/com.a.Main", "icon:com.a/com.a.Other"), new java.util.HashSet<>(IconSet.pickedKeysOf(prefs, "com.a")),
+                "both of com.a's entries, not com.ab, its work-profile copy, a folder or a rename");
     }
 
     /** Reads everything a set offers, as the launcher does: every icon and name, and an index lookup. */
@@ -208,6 +253,7 @@ public class IconSetTest {
             set.name(i);
         }
         set.index().find("com.example", "com.example.Main");
+        set.categoryGlyph("com.example.bank", 5);
     }
 
     /** Only IllegalArgumentException may come out of a damaged set: the caller falls back to the app's own icon. */
@@ -227,7 +273,11 @@ public class IconSetTest {
     }
 
     public static void testFlippedByteIsRefusedOrRead() throws IOException {
-        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture.bin"));
+        flipEveryByte("src/test/resources/icons/icons-fixture.bin");
+    }
+
+    private static void flipEveryByte(String file) throws IOException {
+        byte[] whole = Files.readAllBytes(Path.of(file));
         for (int i = 0; i < whole.length; i++) {
             for (int flip : new int[]{0xFF, 0x80, 0x01}) {
                 byte[] bad = whole.clone();
@@ -235,5 +285,46 @@ public class IconSetTest {
                 rejectsOrReads(bad, "byte " + i + " xor " + flip);
             }
         }
+    }
+
+    /** Issue 087: the app categories of format 2. */
+    public static void testCategoryHitAndMiss() {
+        IconSet set = fixture();
+        eq(OptionalInt.of(id(set, "arc")), set.categoryGlyph("com.example.bank"), "Finance has the glyph the packer was given");
+        eq(OptionalInt.of(id(set, "square")), set.categoryGlyph("com.example.shop"), "the curated table's category");
+        eq(OptionalInt.empty(), set.categoryGlyph("com.example.none"), "a package nobody knows");
+        eq(OptionalInt.empty(), set.categoryGlyph("pkgA"), "an app with an Arcticons icon never gets a category");
+    }
+
+    public static void testDamagedCategorySectionRefused() throws IOException {
+        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture.bin"));
+        for (int field : new int[]{40, 44, 48}) { // key count, index offset, table offset
+            byte[] bad = whole.clone();
+            java.nio.ByteBuffer.wrap(bad).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(field, bad.length + 1);
+            try {
+                IconSet.of(bad);
+                throw new AssertionError("field at " + field + " past the end of the file was accepted");
+            } catch (IllegalArgumentException expected) {
+                yes(expected.getMessage().startsWith("damaged icon set"), expected.getMessage());
+            }
+        }
+    }
+
+    public static void testRealAssetCategoriesTotal() {
+        IconSet set = load("src/main/assets/icons.bin");
+        // the table is in the enum's order: what the manifest names reaches the glyph the enum names
+        for (int manifest = 0; manifest <= 8; manifest++) {
+            AppCategory c = AppCategory.fromManifest(manifest).orElseThrow();
+            eq(c.glyph(), set.name(set.categoryGlyph("com.example.unknown", manifest).orElseThrow()), c + ": the glyph the packer chose is the one Java names");
+        }
+        eq("emoji_classical_building", set.name(set.categoryGlyph("it.bnl.apps.banking").orElseThrow()), "from the curated table");
+    }
+
+    /** The category of an app: the tables first (dated, but the curated one is checked), then what the app declares. */
+    public static void testManifestCategoryIsTheLastResort() {
+        IconSet set = fixture();
+        eq(OptionalInt.of(id(set, "arc")), set.categoryGlyph("com.example.bank", 5), "the table beats the manifest (NEWS)");
+        eq(OptionalInt.of(id(set, "square")), set.categoryGlyph("com.example.unknown", 5), "not in the tables: its declared category");
+        eq(OptionalInt.empty(), set.categoryGlyph("com.example.unknown", -1), "undefined: none");
     }
 }

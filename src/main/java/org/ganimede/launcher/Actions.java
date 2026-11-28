@@ -1,5 +1,6 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.Torch;
 import org.ganimede.launcher.core.Target;
 
 import android.accessibilityservice.AccessibilityService;
@@ -12,6 +13,8 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.media.AudioManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
@@ -68,8 +71,7 @@ final class Actions {
     }
 
     /** Each flash's real state, as Android reports it (turned on from quick settings too). */
-    private static final java.util.Map<String, Boolean> torchOn = new java.util.HashMap<>();
-    private static boolean torchWatched;
+    private static final Torch torch = new Torch();
 
     static String name(Context c, String action) {
         if (action == null || action.isEmpty()) return T.t(c, "Nothing");
@@ -158,22 +160,43 @@ final class Actions {
     }
 
     /** Flashlight through Android's torch switch (needs no camera permission). */
-    private static void torch(Context c) throws Exception {
-        CameraManager cm = c.getSystemService(CameraManager.class);
-        if (!torchWatched) {
-            torchWatched = true;
-            cm.registerTorchCallback(new CameraManager.TorchCallback() {
-                @Override public void onTorchModeChanged(String id, boolean on) { torchOn.put(id, on); }
-            }, null);
-        }
+    private static void torch(Activity c) throws Exception {
+        Context app = c.getApplicationContext(); // the callback lives as long as the process
+        CameraManager cm = app.getSystemService(CameraManager.class);
         for (String id : cm.getCameraIdList()) {
             Boolean flash = cm.getCameraCharacteristics(id).get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
-            if (flash != null && flash) {
-                cm.setTorchMode(id, !torchOn.getOrDefault(id, false));
-                return;
+            if (flash == null || !flash) continue;
+            switch (torch.tap()) {
+                case WAIT -> { return; } // a tap before the first state arrived would start from "off": the first tap's answer is on its way
+                case SWITCH -> { switchTorch(app, cm, id, torch.target(id)); return; }
+                default -> { }
             }
+            // Registering delivers each flash's present state: the first tap switches from it, not from a guess (issue 065).
+            torch.registering(id);
+            Handler main = new Handler(Looper.getMainLooper());
+            try {
+                cm.registerTorchCallback(new CameraManager.TorchCallback() {
+                    @Override public void onTorchModeChanged(String flashId, boolean on) {
+                        if (torch.reported(flashId, on)) switchTorch(app, cm, flashId, !on);
+                    }
+                }, main);
+            } catch (RuntimeException e) { // not stuck waiting for a state that never comes: the next tap tries again
+                torch.registrationFailed(id);
+                throw e;
+            }
+            // No state in time (camera service slow to answer): switch as before, from the last known or "off".
+            main.postDelayed(() -> { if (torch.timedOut(id)) switchTorch(app, cm, id, torch.target(id)); }, 500);
+            return;
         }
         Ui.toast(c, T.t(c, "This phone has no flashlight"), Toast.LENGTH_SHORT);
+    }
+
+    private static void switchTorch(Context c, CameraManager cm, String id, boolean on) {
+        try {
+            cm.setTorchMode(id, on);
+        } catch (android.hardware.camera2.CameraAccessException | IllegalArgumentException busy) {
+            Ui.cantOpen(c);
+        }
     }
 
     @SuppressWarnings({"JavaReflectionMemberAccess", "WrongConstant"})

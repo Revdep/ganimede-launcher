@@ -1,10 +1,8 @@
 # Folders, the app menu and the hidden-apps round trip; in Classic the menu acts on grid and dock.
-# Local helpers (could move to lib.sh): pstr, nfold, hold, clear_text.
-pstr() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | sed 's/^[^>]*>//'; } # a string pref, XML-escaped
+# Local helpers (could move to lib.sh): nfold, hold, clear_text.
 nfold() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -c 'name="folder:'; }                         # stored folders
 fid() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o 'name="folder:[0-9]*' | head -1 | grep -o '[0-9]*$'; }
-hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu
-clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
+APPS_JSON='"com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"'
 APPS="Calendar:com.google.android.calendar Clock:com.google.android.deskclock Contacts:com.google.android.contacts"
 
 step "Folders: made by a drop, renamed, opened"
@@ -17,10 +15,10 @@ id=$(fid)
 read -r fx fy <<<"$(cx Cartella)"; hold "$fx" "$fy"
 tap "Rinomina"; wait_until 5 has "Salva"
 tap "Cartella" # focus the field (the grid label behind the dialog is hidden)
-clear_text; A shell input text Lavoro; tap "Salva"
+clear_text; typ Lavoro; tap "Salva"
 wait_until 5 has "Lavoro"
 has "Lavoro" && hasnt "Cartella" && ok "rename: the grid shows “Lavoro”, not “Cartella”" || ko "folder name on the grid after rename"
-pstr "folder:$id" | grep -q 'Lavoro' && ok "the new name is stored" || ko "folder:$id = $(pstr "folder:$id")"
+pref "folder:$id" | grep -q 'Lavoro' && ok "the new name is stored" || ko "folder:$id = $(pref "folder:$id")"
 tap "Lavoro"; expect "Clock"; expect "Contacts"; shot 120-folder-renamed
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Clock"
 
@@ -34,8 +32,8 @@ shot 121-folder-deleted
 
 step "Folders: a deleted folder's key is not revived by a drop on its empty grid spot"
 seed classic; setp int grid_cols 4
-g=$(pstr grid); g2="${g%\}},&quot;13&quot;:&quot;f:777&quot;}" # cell 13: right of Contacts (cells 10-12), a folder id that no longer exists
-setp string grid "${g2//&/\\&}"
+g=$(pref grid); g2="${g%\}},&quot;13&quot;:&quot;f:777&quot;}" # cell 13: right of Contacts (cells 10-12), a folder id that no longer exists
+setp string grid "$g2"
 read -r ax ay <<<"$(cx Calendar)"; read -r _ cy <<<"$(cx Contacts)"
 colw=$(((W - 2 * $(dp 8)) / 4)); tx=$(($(dp 8) + colw + colw / 2)) # column 2 of Contacts' row
 A shell input draganddrop "$ax" "$ay" "$tx" "$cy" 1500
@@ -44,33 +42,43 @@ wait_until 5 right && ok "Calendar sits on the empty spot" || ko "Calendar not o
 [ "$(nfold)" = 0 ] && hasnt "Cartella" && ok "no folder revived on the grid" || ko "a folder came back: stored $(nfold)"
 
 step "Folders: same for the dock"
-seed classic
-setp string dock "f:777"
+seed classic string dock "f:777"
 read -r ax ay <<<"$(cx Calendar)"
 A shell input draganddrop "$ax" "$ay" "$((W / 10))" "$((H - $(dp 90)))" 1500
 wait_until 5 hasd "Calendar" # (the grid icon's label is text, the dock icon's is a content-desc)
-docked() { read -r _ y <<<"$(cx "desc:Calendar")"; [ -n "$y" ] && [ "$y" -gt $((H - $(dp 200))) ]; }
 wait_until 5 docked && ok "Calendar is in the dock slot" || ko "Calendar not docked"
 [ "$(nfold)" = 0 ] && hasnt "Cartella" && ok "no folder revived in the dock" || ko "a folder came back: stored $(nfold)"
 
 step "Folders: one made on page 2 lands in the pressed cell of page 2"
-seed classic; setp int grid_pages 2; wait_until 5 has Calendar
-A shell input swipe $((W - $(dp 40))) $((H / 2)) $(dp 40) $((H / 2)) 250; wait_until 5 hasnt Calendar; wait_until 5 settled
-hold $((W / 2)) $((H / 2))
-tap "Crea cartella pop-up"; wait_until 5 has "Nome cartella"
-A shell input text Pag2; tap "Crea"; wait_until 5 has "Più tardi" # "add apps now?": Back says no and opens nothing
-A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Più tardi"; wait_until 5 settled
-wait_until 5 has Pag2 && hasnt Calendar && ok "the folder is on page 2" || ko "no “Pag2” on page 2"
+seed classic; setp int grid_cols 5; setp int grid_rows 6; setp int grid_pages 2; wait_until 5 has Calendar # 5x6: x = W/2 is the middle of column 3, page 2 is cells 30-59
+A shell input swipe $((W - $(dp 40))) $((H / 2)) $(dp 40) $((H / 2)) 250
+wait_until 5 hasnt Calendar && ok "the swipe shows page 2" || ko "the swipe left page 1 on screen"
+wait_until 5 settled
+# 085: a picture after each step shows (under the dim) which step turns the home back to page 1
+hold $((W / 2)) $((H / 2)); wait_until 5 has "Crea cartella pop-up"; shot 085-1-menu
+tap "Crea cartella pop-up"; wait_until 5 has "Nome cartella" && ok "the name dialog shows" || ko "no “Nome cartella” after “Crea cartella pop-up”"
+wait_until 5 kbd && echo "  INFO: soft keyboard up" || echo "  INFO: no soft keyboard"; shot 085-2-keyboard
+typ Pag2; shot 085-3-typed; tap "Crea"
+wait_until 5 has "Più tardi" && ok "“add apps now?” shows" || ko "no “Più tardi” after “Crea”"
+shot 085-4-add-apps
+id=$(fid); [ -n "$id" ] && ok "folder:$id is stored" || ko "no folder: stored"
+cell=$(pref grid | sed 's/&quot;/"/g' | grep -o "\"[0-9]*\":\"f:${id:-none}\"" | grep -o '^"[0-9]*' | tr -d '"')
+[ -n "$cell" ] && [ $((cell / 30)) -eq 1 ] && [ $((cell % 5)) -eq 2 ] && ok "grid: f:$id in cell $cell (page 2, column 3)" \
+  || ko "grid cell of f:${id:-?}: ${cell:-none} (want page 2 = cells 30-59, column 3); grid = $(pref grid | sed 's/&quot;/"/g')"
+A shell input keyevent KEYCODE_BACK # "add apps now?": Back says no and opens nothing
+wait_until 5 hasnt "Più tardi" && ok "Back closes “add apps now?”" || ko "“Più tardi” still shown after Back"
+wait_until 5 settled; shot 085-5-after-back
+hasnt Calendar && ok "after Back the home is still on page 2" || ko "after Back the home went back to page 1"
+on2=; wait_until 5 has Pag2 && hasnt Calendar && { on2=1; ok "the folder is on page 2"; } || ko "no “Pag2” on page 2"
 read -r px _ <<<"$(cx Pag2)"; near "${px:-0}" $((W / 2)) $((W / 10)) && ok "in the pressed cell" || ko "Pag2 at x=$px, pressed $((W / 2))"
-A shell input swipe $(dp 40) $((H / 2)) $((W - $(dp 40))) $((H / 2)) 250; wait_until 5 has Calendar
-hasnt Pag2 && ok "page 1 has no “Pag2”" || ko "“Pag2” went to page 1"
+A shell input swipe $(dp 40) $((H / 2)) $((W - $(dp 40))) $((H / 2)) 250
+wait_until 5 has Calendar && [ -n "$on2" ] && hasnt Pag2 && ok "page 1 has no “Pag2”" || ko "page 1 check: Calendar shown? Pag2 seen on page 2 (${on2:-no}) and absent here?"
 
 step "Folders: Settings defaults, one-folder look, then changed defaults"
-seed classic
-setp string folder:look '{"name":"Tre","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string folder:other '{"name":"Altra","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:look\&#10;f:other'
-setp del grid
+seed classic \
+  string folder:look '{"name":"Tre","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
+  string folder:other '{"name":"Altra","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
+  string fav 'f:look&#10;f:other'
 LAVENDER=-4609803 # #FFB9A8F5
 SKY=-7686920      # #FF8AB4F8
 
@@ -94,8 +102,7 @@ folder_pixel() { # folder_pixel name: RGB safely inside the card's left padding,
 }
 folder_settings() { # home → Personalizza → Cartelle (own pill), from a fresh Settings (a reopened one keeps its scroll)
   start_home; wait_until 5 settled
-  # A long-press on a home that has just restarted can be lost: press again until the home menu shows.
-  for _ in 1 2 3; do A shell input swipe 540 1900 540 1900 1500; wait_until 3 has "Impostazioni Ganimede" && break; done
+  home_menu || return 1
   tap "Impostazioni Ganimede"; tap "Personalizza"
   wait_until 5 has "Dock"
   pill "Cartelle"
@@ -112,10 +119,16 @@ press_desc() { # press_desc description [times]
   while [ "$n" -gt 0 ]; do A shell input tap "$1" "$2"; n=$((n - 1)); done
 }
 checked() { screen | grep -o "content-desc=\"$1\"[^>]*" | grep -q 'checked="true"'; }
-folder_value() { pstr "folder:$1" | sed 's/&quot;/"/g' | grep -q "\"$2\":$3"; }
+folder_value() { pref "folder:$1" | sed 's/&quot;/"/g' | grep -q "\"$2\":$3"; }
 
 # First defaults: Lavender, 93% (one step below the 94% default with light text) and three columns, all through the Settings card.
 folder_settings
+# issue 064: the settings' pills, − / + buttons and slider rows are 48 dp touch targets
+target48 "Cartelle" && ok "Personalizza's pills are 48 dp high" || ko "Personalizza's pill “Cartelle” is under 48 dp"
+find_desc "Colonne: Diminuisci" >/dev/null
+target48 "desc:Colonne: Diminuisci" && target48 "desc:Colonne: Aumenta" && ok "− and + are 48 dp targets" || ko "− / + are under 48 dp"
+b=$(bounds "desc:Colonne"); set -- ${b:-0 0 0 0}
+[ $(($4 - $2)) -ge $(($(dp 48) - 1)) ] && ok "the Colonne slider row is 48 dp high" || ko "the Colonne slider is $(($4 - $2)) px high, under 48 dp"
 if xy=$(last_desc_center "Lavanda"); then set -- $xy; A shell input tap "$1" "$2"; else ko "no folder Lavender control"; fi
 press_desc "Opacità dello sfondo (%): Diminuisci"
 press_desc "Colonne: Aumenta" 2
@@ -141,7 +154,7 @@ press_desc "Opacità dello sfondo (%): Diminuisci"
 press_desc "Colonne: Diminuisci" 2
 override_saved() { folder_value look bg "$SKY" && folder_value look alpha 92 && folder_value look cols 1; }
 wait_until 5 override_saved && ok "Tre stores Sky, 92% and one column as its own look" \
-  || ko "Tre look is $(pstr folder:look)"
+  || ko "Tre look is $(pref folder:look)"
 tap "Chiudi"; wait_until 5 has Tre
 tap Tre; wait_until 5 hasd Calendar
 wait_until 5 folder_columns 1 && ok "Tre renders its one-column override before defaults change" \
@@ -151,7 +164,7 @@ tre_override_pixel=$(folder_pixel Tre)
   || ko "Tre override background pixel is missing"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt Calendar
 
-# Change every default again through Settings. Tre must stay put; Altra must follow all three.
+# Change every default again through Settings: Altra must follow all three.
 folder_settings
 if xy=$(last_desc_center "Automatico"); then set -- $xy; A shell input tap "$1" "$2"; else ko "no folder Automatico control"; fi
 press_desc "Opacità dello sfondo (%): Aumenta" 7
@@ -161,14 +174,8 @@ wait_until 5 second_defaults && ok "Settings controls changed the defaults to Au
   || ko "changed defaults: bg=$(pref folder_bg), alpha=$(pref folder_alpha), cols=$(pref folder_cols)"
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 
-tap Tre; wait_until 5 hasd Calendar
-wait_until 5 folder_columns 1 && ok "Tre keeps its one-column override after defaults change" \
-  || ko "Tre followed the changed default columns"
-pixel=$(folder_pixel Tre)
-[ "$pixel" = "$tre_override_pixel" ] && ok "Tre keeps its Sky 92% background after defaults change" \
-  || ko "Tre background pixel changed $tre_override_pixel → ${pixel:-missing}"
-A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt Calendar
-
+# Tre keeping its own look over changed defaults is FolderLook.resolve (FolderLookTest.testFolderValuesWinAndMissingValuesUseDefaults);
+# the home already drew Tre from its own values above.
 tap Altra; wait_until 5 hasd Calendar
 wait_until 5 folder_columns 2 && ok "Altra follows the changed two-column default" \
   || ko "Altra did not follow the changed default columns"
@@ -188,24 +195,17 @@ pixel=$(folder_pixel Altra)
 A shell input keyevent KEYCODE_BACK
 
 step "Folders: an untouched one-column folder keeps its 24 dp margins and wraps its content"
-seed classic
-# Up to 40 installed (15 rows already overflow the screen) launcher activities as "package/class" (query-activities --brief may print ".Class" short names)
-comps=$(A shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
-  | tr -d '\r' | sed 's/^ *//' | grep '^[A-Za-z0-9_.]*/' | awk -F/ '{c=$2; if (c ~ /^\./) c=$1 c; print $1"/"c}' | sort -u | head -40)
+# Up to 40 installed launcher activities (15 rows already overflow the screen)
+comps=$(launcher_comps | head -40)
 n=$(echo "$comps" | grep -c .)
 [ "$n" -ge 15 ] && ok "$n launcher activities to fill a tall folder" || ko "only $n launcher activities installed: not enough for a tall folder"
 many=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
-setp string folder:big "{\"name\":\"Grande\",\"where\":\"fav\",\"apps\":[$many]}"
-setp string folder:few '{"name":"Pochi","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:big\&#10;f:few\&#10;f:two'
-setp string folder:two "{\"name\":\"Doppia\",\"where\":\"fav\",\"cols\":2,\"apps\":[$many]}" # same apps, 2 columns: still taller than the screen when n >= 30
-setp del grid
+seed classic string folder:big "{\"name\":\"Grande\",\"where\":\"fav\",\"apps\":[$many]}" \
+  string folder:few '{"name":"Pochi","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
+  string fav 'f:big&#10;f:few&#10;f:two' \
+  string folder:two "{\"name\":\"Doppia\",\"where\":\"fav\",\"cols\":2,\"apps\":[$many]}" # same apps, 2 columns: still taller than the screen when n >= 30
 inset() { # inset statusBars|navigationBars: the inset's frame "x1 y1 x2 y2" from the window dump, empty when absent
   A shell dumpsys window | grep -o "type=$1 frame=\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]" | head -1 \
-    | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr -d '[' | tr ']' ' ' | tr ',' ' '
-}
-card() { # the pop-up card: the last ScrollView of the dump (the pop-up window comes after the home), "x1 y1 x2 y2"
-  screen | grep -o 'class="android.widget.ScrollView"[^>]*bounds="[^"]*"' | tail -1 \
     | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr -d '[' | tr ']' ' ' | tr ',' ' '
 }
 card_settled() { [ -n "$(card)" ] && settled && [ -n "$(card)" ]; } # the pop-up is in the dump and its open animation is over
@@ -237,10 +237,8 @@ read -r cx1 _ cx2 _ <<<"$(card)"; shot 128-folder-short
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
 step "Folders: a 3-app, 2-column pop-up is a small centred card, not nearly full width (051)"
-seed classic
-setp string folder:duo '{"name":"Duo","where":"fav","cols":2,"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:duo'
-setp del grid
+seed classic string folder:duo '{"name":"Duo","where":"fav","cols":2,"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
+  string fav 'f:duo'
 tap Duo; wait_until 10 card_settled
 read -r cx1 _ cx2 _ <<<"$(card)"; shot 130-folder-compact
 [ -n "$cx1" ] && [ $(((cx2 - cx1) * 100)) -lt $((W * 60)) ] \
@@ -252,12 +250,12 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 step "App menu from the drawer (List): add to favourites"
 seed list
 drawer_find() { # drawer, search $1; leaves Settings in the list
-  A shell input swipe 540 1900 540 600 150; wait_until 5 has "Cerca app"; A shell input text "$1"; wait_until 5 has "Settings"; }
+  open_drawer; typ "$1"; wait_until 5 has "Settings"; }
 drawer_find sett
 read -r sx sy <<<"$(cx Settings)"; hold "$sx" "$sy"
 expect "Aggiungi ai preferiti" && tap "Aggiungi ai preferiti"
-wait_until 5 test -n "$(pstr fav | grep com.android.settings)"
-pstr fav | grep -q 'com.android.settings' && ok "Settings is in the favourites pref" || ko "fav = $(pstr fav)"
+wait_until 5 eval '[ -n "$(pref fav | grep com.android.settings)" ]'
+pref fav | grep -q 'com.android.settings' && ok "Settings is in the favourites pref" || ko "fav = $(pref fav)"
 wait_until 5 has 'sett"' && ok "the search is still open behind the menu" || ko "the menu closed the search"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"' # the menu took the keyboard down: one Back closes the search
 wait_until 5 has "Settings" && ok "Settings appears on the home screen" || ko "no Settings on home"
@@ -265,20 +263,20 @@ shot 122-fav-added
 
 step "App menu: Hide leaves the list, search finds it under Nascoste"
 drawer_find sett
-has "Nascoste" && ko "Settings listed as hidden before hiding" || ok "visible app: no “Nascoste” section"
+hasnt "Nascoste" && ok "visible app: no “Nascoste” section" || ko "Settings listed as hidden before hiding"
 read -r sx sy <<<"$(cx Settings)"; hold "$sx" "$sy"
 expect "Rimuovi dai preferiti"; tap "Nascondi"
 wait_until 5 hasnt "Rimuovi dai preferiti"
 wait_until 5 has 'sett"' && ok "the search is still open behind the menu" || ko "the menu closed the search"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"' # the menu took the keyboard down: one Back closes the search
-drawer_find_hidden() { A shell input swipe 540 1900 540 600 150; wait_until 5 has "Cerca app"; A shell input text sett; wait_until 5 has "Nascoste"; }
+drawer_find_hidden() { open_drawer; typ sett; wait_until 5 has "Nascoste"; }
 drawer_find_hidden
 wait_until 5 has "Nascoste" && ok "after Hide a search shows the “Nascoste” section" || ko "no Nascoste section"
 has "Settings" && ok "…and it still finds Settings" || ko "Settings not found in search once hidden"
-pstr fav | grep -q 'com.android.settings' && ko "hidden app stayed in the favourites" || ok "Hide also took it out of the favourites"
+pref_lacks fav 'com.android.settings' && ok "Hide also took it out of the favourites" || ko "hidden app stayed in the favourites (or prefs unreadable)"
 shot 123-hidden
-A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"' # keyboard, then search
-has "Settings" && ko "hidden app still on the home screen" || ok "Settings left the home screen"
+close_search; wait_until 5 hasnt 'sett"' # keyboard, then search
+hasnt "Settings" && ok "Settings left the home screen" || ko "hidden app still on the home screen"
 
 step "App menu: Unhide from Settings"
 A shell input swipe 540 1500 540 1500 1500; tap "Impostazioni Ganimede"
@@ -286,19 +284,19 @@ wait_until 5 has "Personalizza"; A shell input swipe 150 2120 150 600 300; tap "
 expect "Settings"; shot 124-hidden-page
 tap "Mostra di nuovo"
 wait_until 5 hasnt "Mostra di nuovo"
-A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -A3 'name="hidden"' | grep -q 'settings' && ko "hidden set still holds Settings" || ok "the hidden set is empty again"
+set_lacks hidden settings && ok "the hidden set is empty again" || ko "hidden set still holds Settings (or prefs unreadable)"
 start_home; drawer_find sett
-has "Nascoste" && ko "still under Nascoste after Unhide" || ok "after Unhide a search lists it normally"
-A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK
+hasnt "Nascoste" && ok "after Unhide a search lists it normally" || ko "still under Nascoste after Unhide"
+close_search
 
 step "Classic: Remove from favourites takes the icon off the grid"
 seed classic
 read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
 expect "Rimuovi dai preferiti" && tap "Rimuovi dai preferiti"
 wait_until 5 hasnt "Calendar"
-has "Calendar" && ko "Calendar icon still on the grid" || ok "the grid icon is gone"
-pstr fav | grep -q 'calendar' && ko "still a favourite" || ok "no longer a favourite"
-pstr grid | grep -q 'calendar' && ko "grid pref still holds Calendar" || ok "grid pref lost it too"
+hasnt "Calendar" && ok "the grid icon is gone" || ko "Calendar icon still on the grid"
+pref_lacks fav calendar && ok "no longer a favourite" || ko "still a favourite (or prefs unreadable)"
+pref_lacks grid calendar && ok "grid pref lost it too" || ko "grid pref still holds Calendar (or prefs unreadable)"
 has "Clock" && has "Contacts" && ok "the other icons stay" || ko "other icons disappeared"
 
 step "Classic: Hide removes the app from the grid and the dock"
@@ -310,11 +308,61 @@ hasd "Clock" && ok "Clock is in the dock" || ko "Clock not in the dock"
 read -r dx dy <<<"$(cx "desc:Clock")"; hold "$dx" "$dy"
 expect "Nascondi" && tap "Nascondi"
 wait_until 5 nod Clock
-hasd "Clock" || has "Clock" && ko "Clock still on the home screen (dock or grid)" || ok "Hide: gone from dock and grid"
-pstr dock | grep -q 'deskclock' && ko "dock pref still holds it" || ok "dock pref cleared"
-pstr grid | grep -q 'deskclock' && ko "grid pref still holds it" || ok "grid pref cleared"
+nod "Clock" && hasnt "Clock" && ok "Hide: gone from dock and grid" || ko "Clock still on the home screen (dock or grid)"
+pref_lacks dock deskclock && ok "dock pref cleared" || ko "dock pref still holds it (or prefs unreadable)"
+pref_lacks grid deskclock && ok "grid pref cleared" || ko "grid pref still holds it (or prefs unreadable)"
 read -r ax ay <<<"$(cx Contacts)"; hold "$ax" "$ay"
 expect "Nascondi" && tap "Nascondi"
 wait_until 5 hasnt "Contacts"
-has "Contacts" && ko "Contacts still on the grid after Hide" || ok "Hide on a grid icon removes it from the grid"
+hasnt "Contacts" && ok "Hide on a grid icon removes it from the grid" || ko "Contacts still on the grid after Hide"
 shot 125-classic-hidden
+
+step "Folders: a folder with a widget opens, loses an app, opens again (the widget moves to the new pop-up)"
+noclock
+A shell appwidget grantbind --package $PK
+seed classic string folder:wid "{\"name\":\"ConWidget\",\"where\":\"fav\",\"apps\":[$APPS_JSON]}" string fav 'f:wid'
+read -r fx fy <<<"$(cx ConWidget)"; hold "$fx" "$fy"
+tap "Aggiungi widget"; expect "Clock · Stopwatch" && tap "Clock · Stopwatch"
+fwid() { pref folder:wid | grep -q widgets; }
+wait_until 10 fwid && ok "the widget is stored in the folder" || ko "no widget in folder:wid"
+wait_until 10 has "ConWidget"; tap "ConWidget"
+wait_until 10 has "Contacts" && ok "the pop-up opens with its apps" || ko "pop-up did not open"
+# drawn, not just there: the Stopwatch's dial fills much of its host view; an unsized widget left it the card's flat colour
+widget_drawn() { label_whole "desc:Stopwatch" 30 30; }
+wait_until 10 widget_drawn && ok "the widget is drawn in the pop-up" || ko "the widget's area in the pop-up is blank"
+read -r ax ay <<<"$(cx Contacts)"; hold "$ax" "$ay"
+expect "Rimuovi dalla cartella" && tap "Rimuovi dalla cartella"
+wait_until 5 hasnt "Contacts" && A shell pidof $PK >/dev/null && has "Clock" && ok "the pop-up came back without Contacts, widget kept" || ko "pop-up not rebuilt after removing an app (launcher died?)"
+wait_until 10 widget_drawn && ok "the widget is drawn in the rebuilt pop-up" || ko "the widget's area in the rebuilt pop-up is blank"
+shot 126-folder-widget
+
+step "Folders: a long pop-up reorders past its first screen (the drag scrolls it near the edge)"
+seed list
+comps=$(launcher_comps | grep -v "^$PK/" | head -24)
+n=$(echo "$comps" | grep -c .)
+[ "$n" -ge 12 ] && ok "$n launcher activities: enough for a pop-up longer than the screen" || ko "only $n launcher activities: the pop-up would not need to scroll"
+json=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
+setp string folder:long '{"name":"Lunga","where":"fav","cols":1,"apps":['"$json"']}' string fav 'f:long'
+# the entries as stored: written by setp with plain quotes, by the app with &quot; and JSON's escaped "\/"
+longkeys() { pref folder:long | sed 's/&quot;/"/g; s|\\/|/|g' | tr '"' '\n' | grep / ; }
+first=$(echo "$comps" | head -1)
+tap Lunga; wait_until 10 card_settled # (has "Lunga" is true at once: the home's own folder label)
+read -r x1 y1 x2 y2 <<<"$(card)" # the pop-up's own ScrollView: its first row is just under the title
+# the first row's label: the next text after the pop-up's title (the last "Lunga"), skipping the rows' text-less nodes
+lab=$(screen | grep -o 'text="[^"]*"' | grep -vx 'text=""' | grep -A1 -x 'text="Lunga"' | tail -1 | sed 's/^text="//; s/"$//')
+# picked up, carried below the pop-up's bottom edge and held there, as a user would, until the autoscroll reaches the end: a
+# draganddrop lets go as soon as it arrives, after ~1 s at the edge, and dropped Camera mid-list (run 46114401591, 20 apps)
+mx=$(((x1 + x2) / 2)); ey=$((H - $(dp 24)))
+A shell input motionevent DOWN $mx $((y1 + $(dp 90))); sleep 1.5 # long-press: the icon's menu
+A shell "input motionevent MOVE $mx $((y1 + $(dp 130))); input motionevent MOVE $mx $ey" # past the slop: picked up; then to the edge
+was_read= # the pop-up as read last time: the same twice in a row, it stopped scrolling
+scroll_stopped() { local s; s=$(screen | grep -o 'text="[^"]*"[^>]*bounds="[^"]*"'); [ -n "$s" ] && [ "$s" = "$was_read" ] && return 0; was_read=$s; return 1; }
+wait_until 20 scroll_stopped || ko "the pop-up still scrolls after 20 s held at its edge"
+A shell input motionevent UP $mx $ey
+last_is_first() { [ "$(longkeys | tail -1)" = "$first" ]; }
+wait_until 5 last_is_first && ok "the first entry was carried to the last place: the drag scrolled the pop-up to reach it" \
+  || ko "the first entry is not last: order ends in $(longkeys | tail -1), expected $first"
+# the icon must really sit in the last row, in the lower half of the scrolled pop-up, not just be stored last
+in_last_row() { read -r _ ly <<<"$(cx "$lab")"; [ -n "$ly" ] && [ "$ly" -gt $(((y1 + y2) / 2)) ]; }
+[ -n "$lab" ] && wait_until 5 in_last_row && ok "“$lab” is drawn in the last row of the scrolled pop-up" || ko "“${lab:-?}” is not in the pop-up's last row"
+shot 132-folder-long

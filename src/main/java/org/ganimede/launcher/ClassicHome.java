@@ -12,13 +12,16 @@ import android.appwidget.AppWidgetProviderInfo;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Bundle;
 import android.os.Handler;
 import android.view.DragEvent;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -71,16 +74,46 @@ final class ClassicHome {
         this.refresh = refresh;
         this.homeMenu = homeMenu;
         this.blockMenu = blockMenu;
-        pages = new LinearLayout(ui.a);
-        pager = new HorizontalScrollView(ui.a);
+        pages = new LinearLayout(ui.a) {
+            // Focus stays on the page shown (Paging.focusPages): a key or typed text otherwise scrolled back to page 1.
+            @Override public void addFocusables(ArrayList<View> views, int direction, int mode) {
+                int side = direction == View.FOCUS_LEFT ? -1 : direction == View.FOCUS_RIGHT ? 1 : 0;
+                for (int pg : Paging.focusPages(currentPage(), getChildCount(), side))
+                    getChildAt(pg).addFocusables(views, direction, mode);
+            }
+        };
+        pager = new HorizontalScrollView(ui.a) {
+            // A side key can move the focus to the next page's first column: the scroll that brings it into view may stop
+            // between pages, so the pager settles on that page like a swipe does.
+            @Override public void requestChildFocus(View child, View focused) {
+                super.requestChildFocus(child, focused);
+                View page = focused;
+                while (page != null && page.getParent() != pages) page = page.getParent() instanceof View ? (View) page.getParent() : null;
+                if (page != null) snapPage(pages.indexOfChild(page));
+            }
+
+            // A side key with no icon to go to (an empty page, icons only on the other side) scrolls half a page and
+            // leaves the focus where it was: the pager then turns a whole page.
+            @Override public boolean arrowScroll(int direction) {
+                View before = findFocus();
+                int from = currentPage();
+                boolean scrolled = super.arrowScroll(direction);
+                if (scrolled && findFocus() == before && (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT))
+                    snapPage(Paging.turn(from, layout.pages(), direction == View.FOCUS_RIGHT ? 1 : -1));
+                return scrolled;
+            }
+        };
+        pager.setOnScrollChangeListener((v, x, y, ox, oy) -> lightDots(currentPage())); // a swipe, a scroll by TalkBack, a page deleted
         pager.setHorizontalScrollBarEnabled(false);
         pager.setFillViewport(true);
+        // Classic is never mirrored (Ui.handDirection): page i at i * width, cells at their left margin, edges as on screen.
         pager.setFocusable(false); // out of touch mode it takes focus at start: no grey box over the page (icons stay focusable)
         pager.addView(pages, new FrameLayout.LayoutParams(-2, -1));
         // A short swipe turns the page (Paging.target). The pager only sees the touch once it starts scrolling,
         // after its children had the press, so the swipe is measured from the first event it gets.
         float[] pageDown = new float[1];
         int[] pageFrom = new int[1];
+        //noinspection ClickableViewAccessibility: it only watches the swipe and consumes nothing; taps reach the icons
         pager.setOnTouchListener((v, e) -> {
             if (speed[0] == null) {
                 speed[0] = VelocityTracker.obtain();
@@ -95,7 +128,7 @@ final class ClassicHome {
             if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
                 speed[0].computeCurrentVelocity(1000);
                 int to = a == MotionEvent.ACTION_CANCEL ? pageFrom[0] : Paging.target(pageFrom[0], layout.pages(), e.getRawX() - pageDown[0],
-                        speed[0].getXVelocity(), pager.getWidth(), ui.dp(400), pager.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL);
+                        speed[0].getXVelocity(), pager.getWidth(), ui.dp(400));
                 speed[0].recycle();
                 speed[0] = null;
                 snapPage(to);
@@ -168,11 +201,11 @@ final class ClassicHome {
         dots.setVisibility(View.VISIBLE);
         for (int i = 0; i < count; i++) {
             View dot = new View(ui.a);
-            dot.setBackground(dot(i == currentPage()));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ui.dp(7), ui.dp(7));
             lp.setMargins(ui.dp(4), 0, ui.dp(4), 0);
             dots.addView(dot, lp);
         }
+        lightDots(currentPage());
         dock.removeAllViews();
         String[] slots = layout.dockSlots();
         dock.setVisibility(slots.length == 0 ? View.GONE : View.VISIBLE);
@@ -206,10 +239,8 @@ final class ClassicHome {
             missing.setGravity(Gravity.CENTER);
             content = missing;
         }
-        if (content.getParent() instanceof ViewGroup) ((ViewGroup) content.getParent()).removeView(content);
+        if (content == clockContent && content.getParent() instanceof ViewGroup) ((ViewGroup) content.getParent()).removeView(content); // widgets detach in Widgets.view
         box.addView(content, new FrameLayout.LayoutParams(-1, -1));
-        View blockContent = content;
-        if (!b.id.equals("clock")) box.post(() -> widgets.size(blockContent, box.getWidth(), box.getHeight()));
         box.gesture = drag.block(box, b.id, () -> blockMenu.accept(b.id));
         if (b.id.equals(resizing)) addHandles(box, b);
         return box;
@@ -277,8 +308,14 @@ final class ClassicHome {
         int w = Math.max(1, pager.getWidth());
         handler.post(() -> {
             if (Anim.on()) pager.smoothScrollTo(page * w, 0); else pager.scrollTo(page * w, 0);
-            for (int i = 0; i < dots.getChildCount(); i++) dots.getChildAt(i).setBackground(dot(i == page));
+            lightDots(page);
         });
+    }
+
+    /** The dot of this page is lit; one past the last (a page just deleted, the scroll not yet pulled back) lights the last. */
+    private void lightDots(int page) {
+        int on = Math.min(page, dots.getChildCount() - 1);
+        for (int i = 0; i < dots.getChildCount(); i++) dots.getChildAt(i).setBackground(dot(i == on));
     }
 
     /**
@@ -323,7 +360,7 @@ final class ClassicHome {
         if (hasBlock("clock")) return;
         Blocks.Result r = Blocks.add("clock", layout.cols(), Math.min(2, layout.rows()), currentPage(),
                 layout.pages(), layout.cols(), layout.rows(), layout.blocks(), layout.grid());
-        if (r.pages > 100) { ui.toast(ui.tr("The home screen is full")); return; }
+        if (r.pages > Paging.MAX_PAGES) { ui.toast(ui.tr("The home screen is full")); return; }
         save(r);
     }
 
@@ -332,7 +369,7 @@ final class ClassicHome {
         int cols = Math.max(1, Math.min(layout.cols(), (Math.max(1, info.minWidth) + cw - 1) / cw));
         int rows = Math.max(1, Math.min(layout.rows(), (Math.max(1, info.minHeight) + ch - 1) / ch));
         Blocks.Result r = layout.placeBlock(String.valueOf(id), cols, rows, page);
-        if (r.pages > 100) { widgets.delete(String.valueOf(id)); ui.toast(ui.tr("The home screen is full")); return; }
+        if (r.pages > Paging.MAX_PAGES) { widgets.delete(String.valueOf(id)); ui.toast(ui.tr("The home screen is full")); return; }
         save(r);
     }
 
@@ -372,6 +409,42 @@ final class ClassicHome {
         pager.post(() -> snapPage(added.page));
     }
 
+    /** One cell on one edge for a screen reader, by the same rules as the drag; resizing stays on so it can repeat. */
+    private void stepEdge(String id, String edge, int cells) {
+        for (Blocks.Item b : layout.blocks()) {
+            if (!b.id.equals(id)) continue;
+            Blocks.Result r = Blocks.put(Blocks.edgeStep(b, edge, cells), layout.pages(), layout.cols(), layout.rows(), layout.blocks(), layout.grid());
+            if (!r.changed) {
+                Ui.announce(pager, ui.tr("Limit reached"));
+                return;
+            }
+            save(r);
+            Blocks.Item saved = r.blocks.stream().filter(x -> x.id.equals(id)).findFirst().orElse(b);
+            // the refresh built the handles again and TalkBack lost its focus: it goes back to the same edge
+            pager.post(() -> {
+                ArrayList<View> found = new ArrayList<>();
+                pager.findViewsWithText(found, edgeLabel(edge), View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+                //noinspection AccessibilityFocus: the focus the user had before the handles were rebuilt, on the same edge
+                for (View h : found) {
+                    h.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+                    h.requestFocus(); // a keyboard's focus too: the handles were built again
+                }
+                Ui.announce(pager, ui.f("Width %d, height %d", saved.colSpan, saved.rowSpan));
+            });
+            return;
+        }
+    }
+
+    /** A handle's name for a screen reader; literal texts, so the translation check finds them. */
+    private String edgeLabel(String edge) {
+        switch (edge) {
+            case "left": return ui.tr("Resize left edge");
+            case "right": return ui.tr("Resize right edge");
+            case "top": return ui.tr("Resize top edge");
+            default: return ui.tr("Resize bottom edge");
+        }
+    }
+
     private void addHandles(FrameLayout box, Blocks.Item original) {
         String[] edges = {"left", "right", "top", "bottom"};
         int[] gravity = {Gravity.START, Gravity.END, Gravity.TOP, Gravity.BOTTOM};
@@ -382,12 +455,13 @@ final class ClassicHome {
             String edge = edges[i];
             View handle = new View(ui.a);
             handle.setBackground(drag.outline(true));
-            handle.setContentDescription(ui.tr("Resize " + edge + " edge"));
+            handle.setContentDescription(edgeLabel(edge));
             FrameLayout.LayoutParams lp = edge.equals("left") || edge.equals("right")
                     ? new FrameLayout.LayoutParams(ui.dp(18), -1, gravity[i])
                     : new FrameLayout.LayoutParams(-1, ui.dp(18), gravity[i]);
             Blocks.Item[] latest = {original};
             float[] down = new float[2];
+            //noinspection ClickableViewAccessibility: a drag-only handle, there is no tap to report
             handle.setOnTouchListener((v, e) -> {
                 int action = e.getActionMasked();
                 if (action == MotionEvent.ACTION_DOWN) {
@@ -398,11 +472,9 @@ final class ClassicHome {
                 if (action == MotionEvent.ACTION_MOVE) {
                     int dc = Math.round((e.getRawX() - down[0]) * layout.cols() / Math.max(1f, pager.getWidth()));
                     int dr = Math.round((e.getRawY() - down[1]) * layout.rows() / Math.max(1f, pager.getHeight()));
-                    Blocks.Item b = original;
-                    if (edge.equals("left")) b = new Blocks.Item(b.id, b.page, b.col + dc, b.row, b.colSpan - dc, b.rowSpan);
-                    if (edge.equals("right")) b = new Blocks.Item(b.id, b.page, b.col, b.row, b.colSpan + dc, b.rowSpan);
-                    if (edge.equals("top")) b = new Blocks.Item(b.id, b.page, b.col, b.row + dr, b.colSpan, b.rowSpan - dr);
-                    if (edge.equals("bottom")) b = new Blocks.Item(b.id, b.page, b.col, b.row, b.colSpan, b.rowSpan + dr);
+                    boolean start = edge.equals("left") || edge.equals("top");
+                    int d = edge.equals("left") || edge.equals("right") ? dc : dr;
+                    Blocks.Item b = Blocks.edgeStep(original, edge, start ? -d : d);
                     Blocks.Result test = Blocks.put(b, pageCount, cols, rows, blocks, cells);
                     if (b.equals(original) || test.changed) {
                         latest[0] = b;
@@ -419,6 +491,29 @@ final class ClassicHome {
                     return true;
                 }
                 return true;
+            });
+            handle.setFocusable(true); // a keyboard moves the edge with the arrows, as the screen reader's Grow and Shrink do
+            handle.setOnKeyListener((v, code, ev) -> {
+                String arrow = code == KeyEvent.KEYCODE_DPAD_LEFT ? "left" : code == KeyEvent.KEYCODE_DPAD_RIGHT ? "right"
+                        : code == KeyEvent.KEYCODE_DPAD_UP ? "up" : code == KeyEvent.KEYCODE_DPAD_DOWN ? "down" : null;
+                int by = arrow == null ? 0 : Blocks.arrowStep(edge, arrow);
+                if (by == 0) return false;
+                if (ev.getAction() == KeyEvent.ACTION_DOWN) stepEdge(original.id, edge, by);
+                return true;
+            });
+            handle.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+                @Override public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                    super.onInitializeAccessibilityNodeInfo(host, info);
+                    info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.action_grow, ui.tr("Grow")));
+                    info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.action_shrink, ui.tr("Shrink")));
+                }
+
+                @Override public boolean performAccessibilityAction(View host, int action, Bundle args) {
+                    if (action != R.id.action_grow && action != R.id.action_shrink)
+                        return super.performAccessibilityAction(host, action, args);
+                    stepEdge(original.id, edge, action == R.id.action_grow ? 1 : -1);
+                    return true;
+                }
             });
             box.addView(handle, lp);
         }
@@ -449,7 +544,7 @@ final class ClassicHome {
     // ---- pages
 
     void createPage() {
-        layout.setPages(Math.min(100, layout.pages() + 1)); // the backup keeps up to 100
+        layout.setPages(Math.min(Paging.MAX_PAGES, layout.pages() + 1));
         refresh.run();
         pager.post(() -> snapPage(layout.pages() - 1));
     }
@@ -562,8 +657,7 @@ final class ClassicHome {
                     snapPage(pg);
                 });
                 if (pg > 0) card.setOnLongClickListener(v -> {
-                    v.startDragAndDrop(null, new View.DragShadowBuilder(v), pg, 0);
-                    v.setAlpha(0.3f);
+                    if (v.startDragAndDrop(null, new View.DragShadowBuilder(v), pg, 0)) v.setAlpha(0.3f);
                     return true;
                 });
                 if (pg > 0) card.setOnDragListener((v, ev) -> {
@@ -581,13 +675,14 @@ final class ClassicHome {
             add.setImageDrawable(new Glyph("plus", Colors.WHITE));
             add.setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10));
             add.setContentDescription(ui.tr("New page"));
-            add.setOnClickListener(v -> { layout.setPages(Math.min(100, layout.pages() + 1)); refresh.run(); add.post(fill[0]); });
+            add.setOnClickListener(v -> { createPage(); add.post(fill[0]); });
             LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(ui.dp(52), ui.dp(52));
             alp.setMargins(ui.dp(8), 0, ui.dp(8), 0);
             row.addView(add, alp);
         };
         fill[0].run();
         dlg[0] = Motion.pop(ui, box, null);
+        dlg[0].setTitle(ui.tr("Arrange pages")); // what TalkBack announces when the window opens
         dlg[0].show();
     }
 
@@ -605,7 +700,7 @@ final class ClassicHome {
             drag.cell(c, entry, where);
         } else {
             // An empty spot: long-press opens the home menu, as on any empty part of the home screen.
-            s.setOnLongClickListener(v -> { homeMenu.accept(v); return true; });
+            ui.onLongPress(s, v -> { homeMenu.accept(v); return true; });
         }
         s.setOnDragListener(this::onSlotDrag);
         return s;

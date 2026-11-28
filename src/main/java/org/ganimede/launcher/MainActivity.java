@@ -1,9 +1,11 @@
 package org.ganimede.launcher;
 
+import org.ganimede.launcher.core.AppPrefs;
 import org.ganimede.launcher.Apps.Item;
 import org.ganimede.launcher.core.Colors;
 import org.ganimede.launcher.core.Favourites;
 import org.ganimede.launcher.core.Gestures;
+import org.ganimede.launcher.core.IconSet;
 import org.ganimede.launcher.core.Morph;
 import org.ganimede.launcher.core.Search;
 
@@ -19,12 +21,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.window.OnBackInvokedDispatcher;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -41,6 +45,7 @@ import java.util.Set;
 public class MainActivity extends Activity implements Actions.Home {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private SharedPreferences prefs;
+    private IconPicker icons;
     private LauncherApps launcherApps;
     private Ui ui;
     private Layout layout;
@@ -73,12 +78,15 @@ public class MainActivity extends Activity implements Actions.Home {
             updateClock();
         }
     };
+    /** Settings written so far, and how many (and which dark/light mode) the screen was last built for: onResume rebuilds only if they differ. */
+    private int prefChanges, builtAtChanges = -1, builtAtUiMode = -1;
     private final SharedPreferences.OnSharedPreferenceChangeListener prefWatch = (p, key) -> {
+        prefChanges++;
         if (WeatherStore.KEY.equals(key)) handler.post(this::updateWeather);
         else if ("fab_icon".equals(key)) handler.post(() -> fab.style(!listMode)); // a late import, restore or fallback
     };
     private final LauncherApps.Callback appsChanged = new LauncherApps.Callback() {
-        @Override public void onPackageRemoved(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
+        @Override public void onPackageRemoved(String p, UserHandle u) { Icons.forget(p); forgetApp(p, u); loadAppsSoon(); }
         @Override public void onPackageAdded(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
         @Override public void onPackageChanged(String p, UserHandle u) { Icons.forget(p); loadAppsSoon(); }
         @Override public void onPackagesAvailable(String[] p, UserHandle u, boolean r) { loadAppsSoon(); }
@@ -86,6 +94,21 @@ public class MainActivity extends Activity implements Actions.Home {
         @Override public void onPackagesSuspended(String[] p, UserHandle u) { loadAppsSoon(); }
         @Override public void onPackagesUnsuspended(String[] p, UserHandle u) { loadAppsSoon(); }
     };
+    /** An app gone for good: its use count and name are not kept (an update, which also reports a removal, leaves the package installed). */
+    private void forgetApp(String pkg, UserHandle u) {
+        if (!u.equals(android.os.Process.myUserHandle())) return;
+        try {
+            getPackageManager().getPackageInfo(pkg, 0);
+            return;
+        } catch (android.content.pm.PackageManager.NameNotFoundException gone) {
+            // uninstalled
+        }
+        SharedPreferences.Editor e = ui.prefs.edit();
+        for (String k : AppPrefs.of(ui.prefs.getAll().keySet(), pkg)) e.remove(k);
+        for (String k : IconSet.pickedKeysOf(ui.prefs.getAll(), pkg)) e.remove(k); // else the 4 MB set stays needed, and in the backup
+        e.apply();
+    }
+
     /** A work profile paused, resumed or unlocked: its apps leave or come back. */
     private final BroadcastReceiver profiles = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) { loadAppsSoon(); }
@@ -120,6 +143,8 @@ public class MainActivity extends Activity implements Actions.Home {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = Prefs.of(this);
+        if (Build.VERSION.SDK_INT >= 33)
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::back);
         launcherApps = getSystemService(LauncherApps.class);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
@@ -135,14 +160,14 @@ public class MainActivity extends Activity implements Actions.Home {
         notices = new Notices(ui, apps, root, launcher::launch);
         entries = new Entries(ui, apps, layout, launcher, notices, id -> folders.show(id), e -> menus.forEntry(e));
         widgets = new Widgets(this, ui, layout, handler, this::refreshAll);
-        IconPicker icons = new IconPicker(ui, sheets, handler, entries::name, this::refreshAll, this::loadApps);
+        icons = new IconPicker(ui, sheets, handler, entries::name, this::refreshAll, this::loadApps);
         drag = new DragDrop(ui, sheets, layout, apps, launcher, notices, handler, e -> menus.forEntry(e),
                 (target, d) -> classic.dropOn(target, d), this::refreshAll);
         classic = new ClassicHome(ui, layout, apps, entries, widgets, drag, launcher, landing, handler, this::refreshAll,
                 v -> menus.home((String) v.getTag()), id -> menus.block(id));
         widgets.setClassic(classic);
-        folders = new Folders(ui, sheets, layout, apps, entries, launcher, widgets, icons, classic, this::refreshAll,
-                (entry, folder) -> menus.shortcut(entry, folder));
+        folders = new Folders(ui, sheets, layout, apps, entries, widgets, icons, classic, this::refreshAll,
+                (entry, folder) -> menus.forEntry(entry, folder));
         menus = new Menus(ui, sheets, layout, apps, launcher, launcherApps, folders, icons, classic, widgets, notices, this::refreshAll);
         media = new MediaRows(ui, apps, launcher, handler);
         list = new AppList(ui, apps, layout, entries, launcher, handler, () -> listMode);
@@ -181,6 +206,7 @@ public class MainActivity extends Activity implements Actions.Home {
     @Override
     protected void onDestroy() {
         clearAlphabetEdgeDrag();
+        icons.close();
         launcherApps.unregisterCallback(appsChanged);
         unregister(profiles);
         prefs.unregisterOnSharedPreferenceChangeListener(prefWatch);
@@ -191,9 +217,16 @@ public class MainActivity extends Activity implements Actions.Home {
     }
 
     @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        Icons.trim(level, prefs);
+    }
+
+    @Override
     protected void onStart() {
         super.onStart();
         started = true;
+        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null, 0); // access was switched off while the home wasn't running
         if (notificationsStale) { notificationsStale = false; refreshNotifications(); }
         widgets.start();
     }
@@ -274,8 +307,11 @@ public class MainActivity extends Activity implements Actions.Home {
 
     private void refreshAll() {
         if (isDestroyed()) return; // a background job finishing after the screen closed
+        builtAtChanges = prefChanges;
+        builtAtUiMode = getResources().getConfiguration().uiMode;
         applyLook();
         list.clearCache(); // labels, icons or notifications may have changed
+        folders.reshowIfChanged();
         landing.clear();
         boolean cl = layout.classic();
         if (cl) classic.build();
@@ -310,11 +346,16 @@ public class MainActivity extends Activity implements Actions.Home {
         }
         screen.alpha.setLetters(Search.sections(visible.stream().map(apps::label).collect(java.util.stream.Collectors.toList())));
         widgets.rebuild();
+        refreshLive();
+        list.rebuild();
+    }
+
+    /** What changes with time alone: the player, the next event, the clock and date. */
+    private void refreshLive() {
         media.updateMedia();
         media.updateMusic();
         screen.outlook.updateEvent();
         updateClock();
-        list.rebuild();
     }
 
     private void refreshNotifications() {
@@ -420,12 +461,18 @@ public class MainActivity extends Activity implements Actions.Home {
             classic.stopResizing();
             classic.firstPage();
         }
+        if (i.hasCategory(Intent.CATEGORY_HOME)) Motion.dismissAll(); // Home closes the pop-ups, menus and "Arrange pages"
         showHome();
         landing.answer(i);
     }
 
+    /** Back before Android 13 (from 13 the callback below gets it, with the system's predictive back). */
     @Override
     public void onBackPressed() {
+        back();
+    }
+
+    private void back() {
         if (classic.stopResizing()) return;
         if (listMode) closeList();
     }
@@ -488,13 +535,16 @@ public class MainActivity extends Activity implements Actions.Home {
         f.addAction(Intent.ACTION_BATTERY_CHANGED);
         registerReceiver(tick, f);
         media.resume();
-        String pack = prefs.getString("icon_pack", "");
+        String pack = Icons.loadKey(prefs); // the pack and "Category icons": either one changes what Apps.load makes
         if (!pack.equals(prefs.getString("icon_pack_loaded", ""))) {
             prefs.edit().putString("icon_pack_loaded", pack).apply();
             loadApps();
         }
         updateWeather();
-        refreshAll();
+        // Back from an app: rebuilding everything is for a setting, the system's dark mode or the apps having changed
+        // (Apps.load calls refreshAll itself); otherwise only what moves with time.
+        if (builtAtChanges == prefChanges && builtAtUiMode == getResources().getConfiguration().uiMode) refreshLive();
+        else refreshAll();
         isResumed = true;
         enterAnim();
     }

@@ -7,7 +7,6 @@ perm_settings() {
   nonotif; seed classic
   pg_settings; tapn "$1" 8
 }
-bpref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "name=\"$1\" value=\"true\""; }
 NP="Anteprima delle notifiche sotto i preferiti"
 
 step "Notification preview: asking for access explains the restricted setting first"
@@ -18,9 +17,18 @@ wait_until 5 shows "Consenti impostazioni con restrizioni" && ok "the explanatio
 step "Notification preview: the explanation gives numbered steps ending in App info"
 shows "1\." "Info app" && ok "the explanation lists steps (“1.” … “Info app”)" || ko "the explanation has no numbered steps (“1.” … “Info app”)"
 
+step "Notification preview: a rotation with the explanation open keeps the switch on and the explanation (issue 063)"
+A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
+wait_until 8 turned || ko "the screen did not turn"
+wait_until 5 shows "Consenti impostazioni con restrizioni" && ok "the explanation is back after the rotation" || ko "the explanation vanished on rotation"
+bpref notif_preview && ok "the rotation left notif_preview on" || ko "the rotation turned notif_preview off"
+A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1
+upright() { screen | grep -q '<hierarchy[^>]*rotation="0"'; }; wait_until 8 upright
+wait_until 5 shows "Consenti impostazioni con restrizioni" || ko "the explanation vanished on turning back"
+
 step "Notification preview: Cancel leaves the switch off and the pref false"
 tap "Annulla"; wait_until 5 noshows "Consenti impostazioni con restrizioni"
-bpref notif_preview && ko "Cancel left notif_preview = true" || ok "Cancel: notif_preview is not true"
+pref_lacks notif_preview '^true$' && ok "Cancel: notif_preview is not true" || ko "Cancel left notif_preview = true (or prefs unreadable)"
 unchecked() { # the Switch on the preview row (same height as its label) is off; other switches on the page do not count
   local y; read -r _ y <<<"$(cx "Anteprima delle notifiche sotto i preferiti")" || return 1
   screen | grep -o 'class="android.widget.Switch"[^>]*' | while read -r n; do
@@ -46,8 +54,12 @@ step "Quick Lock: Cancel in the explanation leaves quick_lock false"
 perm_settings "Gesti"
 see "Blocco rapido" && tap "Blocco rapido"
 wait_until 5 shows "Consenti impostazioni con restrizioni" && ok "Quick Lock explains the restricted setting" || ko "Quick Lock gave no explanation"
+# issue 064: it names the switch as Android's Accessibility screen does, in the system language (not Ganimede's)
+loc=$(A shell getprop persist.sys.locale | tr -d '\r'); [ -n "$loc" ] || loc=$(A shell getprop ro.product.locale | tr -d '\r')
+case "$loc" in it*) label="Blocco rapido Ganimede";; *) label="Ganimede Quick Lock";; esac
+shows "Attiva" "$label" && ok "the explanation names “$label”" || ko "the explanation does not name “$label”"
 tap "Annulla"; wait_until 5 noshows "Consenti impostazioni con restrizioni"
-bpref quick_lock && ko "Cancel left quick_lock = true" || ok "Cancel: quick_lock is not true"
+pref_lacks quick_lock '^true$' && ok "Cancel: quick_lock is not true" || ko "Cancel left quick_lock = true (or prefs unreadable)"
 
 step "Menu: Cancel in the summary's explanation leaves summary and summary_apps untouched"
 nonotif; seed list
@@ -55,9 +67,9 @@ read -r mx my <<<"$(cx Calendar)"; A shell input draganddrop "$mx" "$my" "$mx" "
 expect "Rimuovi dai preferiti"; stap "Riepilogo notifiche"
 wait_until 5 shows "Consenti impostazioni con restrizioni"
 tap "Annulla"; wait_until 5 noshows "Consenti impostazioni con restrizioni"
-bpref summary && ko "Cancel left summary = true" || ok "Cancel: summary is not true"
-A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -A3 'name="summary_apps"' | grep -q "com.google.android.calendar" \
-  && ko "Cancel left Calendar in summary_apps" || ok "Cancel: Calendar is not in summary_apps"
+pref_lacks summary '^true$' && ok "Cancel: summary is not true" || ko "Cancel left summary = true (or prefs unreadable)"
+set_lacks summary_apps com.google.android.calendar \
+  && ok "Cancel: Calendar is not in summary_apps" || ko "Cancel left Calendar in summary_apps (or prefs unreadable)"
 
 step "Permission: closing the system dialog with Back is not a refusal, so the next tap asks again (no App info)"
 A shell pm revoke $PK android.permission.READ_CONTACTS; A shell pm clear-permission-flags $PK android.permission.READ_CONTACTS user-set user-fixed

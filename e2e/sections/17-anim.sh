@@ -53,7 +53,7 @@ A exec-out screencap -p > "$OUT/anim-wave-rest.png"
 A shell input motionevent DOWN $ax $ay; sleep 0.3; A shell input motionevent MOVE $ax $((ay + 40)); sleep 0.6   # held: the wave is full
 A exec-out screencap -p > "$OUT/anim-wave-held.png"
 A shell input motionevent UP $ax $((ay + 40))
-d=$(compare -metric AE -fuzz 10% "$OUT/anim-wave-rest.png[$crop]" "$OUT/anim-wave-held.png[$crop]" null: 2>&1 | grep -oE '^[0-9]+' | head -1)
+d=$(FUZZ=10% fdiff "$OUT/anim-wave-rest.png" "$OUT/anim-wave-held.png" "$crop")
 [ "${d:-0}" -gt 2000 ] && ok "held letters: the wave is there ($d px changed)" || ko "no wave while holding ($d px changed)"
 A shell input keyevent KEYCODE_HOME
 wait_until 5 focus; wait_until 3 settled
@@ -66,12 +66,12 @@ if [ "${ANIM:-0}" = 1 ]; then
   A exec-out screencap -p > "$OUT/anim-enter-rest.png"
   A shell "input keyevent KEYCODE_HOME; screencap -p /data/local/tmp/enter.png"   # on the device: a pull from here would come after the 250 ms
   A pull /data/local/tmp/enter.png "$OUT/anim-enter-start.png" >/dev/null
-  d=$(compare -metric AE -fuzz 5% "$OUT/anim-enter-start.png[$c]" "$OUT/anim-enter-rest.png[$c]" null: 2>&1 | grep -oE '^[0-9]+' | head -1)
+  d=$(FUZZ=5% fdiff "$OUT/anim-enter-start.png" "$OUT/anim-enter-rest.png" "$c")
   [ "${d:-0}" -gt 300 ] && ok "icons are mid-enter right after Home ($d px differ from rest)" || ko "no enter animation after Home ($d px differ)"
   # the enter animation is 250 ms + stagger: within 1 s the icons must be at rest again
   differs() { # differs <reference png> <new png>: sets d, succeeds when the favourites are as in the reference
     A exec-out screencap -p > "$2"
-    d=$(compare -metric AE -fuzz 5% "$1[$c]" "$2[$c]" null: 2>&1 | grep -oE '^[0-9]+' | head -1); [ "${d:-1}" -lt 300 ]
+    d=$(FUZZ=5% fdiff "$1" "$2" "$c"); [ "${d:-999999}" -lt 300 ]
   }
   wait_until 1 differs "$OUT/anim-enter-rest.png" "$OUT/anim-enter-1s.png" && ok "icons at rest within 1 s after home ($d px differ from the settled screen)" || ko "icons still moving/faded 1 s after home ($d px differ)"
 

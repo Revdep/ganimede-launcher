@@ -5,7 +5,7 @@
 # Exit: the worst run.sh exit (0 all passed). Each shard's whole log: e2e/out/<serial>/run.log
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
-lock() { [ "$1" = emulator-5554 ] && echo /tmp/ganimede-emu.lock || echo "/tmp/ganimede-emu-${1#emulator-}.lock"; }
+lock() { echo "/tmp/ganimede-e2e-$1.lock"; } # the file lib.sh locks (fd 9) for the whole run: one lock per device
 free=()
 while [ ${#free[@]} -eq 0 ]; do
   for s in emulator-5554 emulator-5556; do
@@ -20,8 +20,8 @@ trap 'trap - INT TERM; kill 0' INT TERM # every shard's run.sh puts its device b
 start=$SECONDS; pids=()
 for i in "${!plan[@]}"; do
   s=${free[i]}; mkdir -p "$HERE/out/$s"; echo "[$s] ONLY=${plan[i]}"
-  # flock waits if another run took the emulator since the check above: the shard runs late, never not at all
-  ( set -o pipefail; ONLY="${plan[i]}" flock "$(lock "$s")" bash "$HERE/run.sh" "$s" 2>&1 | tee "$HERE/out/$s/run.log" | sed -u "s/^/[$s] /" ) &
+  # run.sh's lib.sh waits for the lock if another run took the emulator since the check above: the shard runs late, never not at all
+  ( set -o pipefail; ONLY="${plan[i]}" bash "$HERE/run.sh" "$s" 2>&1 | tee "$HERE/out/$s/run.log" | sed -u "s/^/[$s] /" ) &
   pids+=($!)
 done
 rc=0; pass=0; fail=0

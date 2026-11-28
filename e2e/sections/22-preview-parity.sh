@@ -1,9 +1,8 @@
 # The Settings preview draws what the home draws: same favourites (folders included), same places, and a block that is on but
 # empty (next event, media player) is a marked dashed outline that takes no room. Fictional data only.
-# (setp feeds sed: a literal & is written \&)
 # nx / ny: a point as thousandths of its own frame (the whole screen for the home, the miniature's phone for the preview).
-FAV="com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;com.google.android.deskclock/com.android.deskclock.DeskClock\&#10;f:alpha"
-FOLDER='{\&quot;name\&quot;:\&quot;Folder Alpha\&quot;,\&quot;where\&quot;:\&quot;fav\&quot;,\&quot;apps\&quot;:[\&quot;com.google.android.contacts/com.android.contacts.activities.PeopleActivity\&quot;]}'
+FAV="com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;com.google.android.deskclock/com.android.deskclock.DeskClock&#10;f:alpha"
+FOLDER='{&quot;name&quot;:&quot;Folder Alpha&quot;,&quot;where&quot;:&quot;fav&quot;,&quot;apps&quot;:[&quot;com.google.android.contacts/com.android.contacts.activities.PeopleActivity&quot;]}'
 nx() { echo $((($1 - FX) * 1000 / FW)); }
 ny() { echo $((($1 - FY) * 1000 / FH)); }
 # parity "what" home-value preview-value: within 15 thousandths (1.5 %) of the frame
@@ -23,9 +22,7 @@ left_of() { local b; b=$(bounds "$1"); [ -n "$b" ] && { set -- $b; nx "$1"; }; }
 
 for mode in list classic; do
   step "Preview parity ($mode): the miniature matches the home"
-  seed $mode
-  setp string fav "$FAV"; setp string "folder:alpha" "$FOLDER"
-  setp boolean event_preview true; setp boolean media_player true
+  seed $mode string fav "$FAV" string "folder:alpha" "$FOLDER" boolean event_preview true boolean media_player true
   wait_until 10 has "Folder Alpha" && ok "the home shows the folder" || ko "no Folder Alpha on the home"
   hasnt "Prossimo evento" && hasnt "Lettore musicale" && ok "the empty blocks are not on the home" || ko "an empty block shows on the home"
   home_frame
@@ -47,14 +44,14 @@ for mode in list classic; do
     parity "favourites start" "$h_apps_left" "$p_apps_left"
     parity "clock top" "$h_clock_top" "$p_clock_top"
     hasd "Segnaposto: Prossimo evento" && hasd "Segnaposto: Lettore musicale" && ok "empty blocks are marked placeholders in the preview" || ko "placeholders not marked"
-    hasd "Segnaposto: App musicali" && ko "music apps placeholder with no apps chosen" || ok "no music placeholder without chosen apps"
+    nod "Segnaposto: App musicali" && ok "no music placeholder without chosen apps" || ko "music apps placeholder with no apps chosen"
   else
     p_apps_top=$(top_of "desc:Anteprima: griglia"); p_apps_left=$(left_of "desc:Anteprima: griglia")
     parity "grid top" "$h_apps_top" "$p_apps_top"
     parity "grid start" "$h_apps_left" "$p_apps_left"
-    hasd "Segnaposto: Prossimo evento" && ko "placeholder in Classic" || ok "no placeholders in Classic"
+    nod "Segnaposto: Prossimo evento" && ok "no placeholders in Classic" || ko "placeholder in Classic"
   fi
   shot "22-preview-$mode"
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
-  setp del fav; setp del "folder:alpha"
+  setp del fav del "folder:alpha"
 done

@@ -114,9 +114,8 @@ final class Sunflower {
     }
 
     /** My links containing %s ("search shortcuts"): what was typed goes in place of %s. */
-    static List<Hit> searches(Context c, String q) {
+    static List<Hit> searches(Context c, JSONArray a, String q) {
         List<Hit> out = new ArrayList<>();
-        JSONArray a = links(c);
         for (int i = 0; i < a.length(); i++) {
             JSONObject o = a.optJSONObject(i);
             String name = o == null ? "" : o.optString("name"), uri = o == null ? "" : o.optString("uri");
@@ -160,13 +159,12 @@ final class Sunflower {
                 CharSequence l = s.getLongLabel() != null ? s.getLongLabel() : s.getShortLabel();
                 if (l == null || !s.isEnabled()) continue;
                 String app = appName.apply(s.getPackage());
-                if (Search.score(l.toString(), q) > 0 || (app != null && Search.score(app, q) >= 16 * q.length()))
+                if (Search.score(l.toString(), q) > 0 || (app != null && Search.startsWith(app, q)))
                     out.add(new Hit(l.toString(), app, s, null));
-                if (out.size() >= 8) break;
             }
         }
-        Search.sortByScore(out, h -> h.label, q);
-        return out;
+        Search.sortByScore(out, h -> h.label, q); // the best eight, not the first eight found
+        return out.size() > 8 ? new ArrayList<>(out.subList(0, 8)) : out;
     }
 
     static List<Hit> settings(Context c, String q) {
@@ -181,9 +179,8 @@ final class Sunflower {
         return out;
     }
 
-    static List<Hit> custom(Context c, String q) {
+    static List<Hit> custom(JSONArray a, String q) {
         List<Hit> out = new ArrayList<>();
-        JSONArray a = links(c);
         for (int i = 0; i < a.length(); i++) {
             JSONObject o = a.optJSONObject(i);
             String name = o == null ? "" : o.optString("name"), uri = o == null ? "" : o.optString("uri");

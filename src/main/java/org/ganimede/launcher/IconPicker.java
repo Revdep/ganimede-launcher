@@ -17,14 +17,21 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.IconSet;
+
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
- * "Icon…" for any entry (app, folder, shortcut): every icon of every installed icon pack in one searchable grid
+ * "Icon…" for any entry (app, folder, shortcut): every icon of the built-in set and of every installed icon pack in one searchable grid
  * (loaded in the background so it opens at once), each pack on its own, or back to the original icon.
  */
 final class IconPicker {
@@ -33,6 +40,7 @@ final class IconPicker {
     private final Handler handler;
     private final Function<String, String> entryName;
     private final Runnable refresh, reloadApps;
+    private Dialog open; // the grid, so a dying screen can close it
 
     IconPicker(Ui ui, Sheets sheets, Handler handler, Function<String, String> entryName, Runnable refresh, Runnable reloadApps) {
         this.ui = ui;
@@ -43,13 +51,19 @@ final class IconPicker {
         this.reloadApps = reloadApps;
     }
 
+    /** The screen is going: the grid goes with it, or the picker count stays up and a trim never frees the 4 MB set. */
+    void close() {
+        if (open != null) open.dismiss();
+    }
+
     void choose(String entry) {
-        Map<String, String> packs = Icons.packs(ui.a);
+        Map<String, String> packs = new LinkedHashMap<>(); // the built-in set first: it is always there (issue 081)
+        packs.put(IconSet.PACK, ui.tr("Arcticons (built-in)"));
+        packs.putAll(Icons.packs(ui.a));
         List<Sheets.Row> rows = new ArrayList<>();
-        boolean picked = ui.prefs.contains("icon:" + entry);
+        boolean picked = ui.prefs.contains(IconSet.pickedKey(entry));
         rows.add(item(picked ? "reset" : "check", ui.tr("Original icon"), () -> apply(entry, null)));
-        if (packs.isEmpty()) rows.add(item("info", ui.tr("No icon packs installed. Install one (for example from F-Droid) and it shows up here."), () -> {}));
-        else rows.add(item("search", ui.tr("All icon packs"), () -> grid(entry, new ArrayList<>(packs.keySet()), ui.tr("All icon packs"))));
+        rows.add(item("search", ui.tr("All icon packs"), () -> grid(entry, new ArrayList<>(packs.keySet()), ui.tr("All icon packs"))));
         for (Map.Entry<String, String> e : packs.entrySet())
             rows.add(item("image", e.getValue(), () -> grid(entry, List.of(e.getKey()), e.getValue())));
         sheets.show(ui.f("Icon for %s", entryName.apply(entry)), rows);
@@ -57,8 +71,8 @@ final class IconPicker {
 
     /** Saves the picked icon ("pack|drawable", or null for the original) and shows it everywhere at once. */
     private void apply(String entry, String pick) {
-        if (pick == null) ui.prefs.edit().remove("icon:" + entry).apply();
-        else ui.prefs.edit().putString("icon:" + entry, pick).apply();
+        if (pick == null) ui.prefs.edit().remove(IconSet.pickedKey(entry)).apply();
+        else ui.prefs.edit().putString(IconSet.pickedKey(entry), pick).apply();
         if (entry.startsWith("f:") || entry.startsWith("s:")) refresh.run(); else reloadApps.run(); // apps cache their icon
     }
 
@@ -75,7 +89,7 @@ final class IconPicker {
         grid.setNumColumns(5);
         grid.setVerticalSpacing(ui.dp(12));
         grid.setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12));
-        box.addView(grid, new LinearLayout.LayoutParams(-1, ui.dp(420)));
+        box.addView(grid, new LinearLayout.LayoutParams(-1, Math.min(ui.dp(420), ui.a.getResources().getDisplayMetrics().heightPixels / 2))); // half the screen at most: landscape or split screen keep the search and Cancel in view
         List<String> all = new ArrayList<>(), shown = new ArrayList<>(); // "pack|drawable"
         LruCache<String, Drawable> loaded = new LruCache<>(240);
         BaseAdapter ad = new BaseAdapter() {
@@ -83,14 +97,19 @@ final class IconPicker {
             public Object getItem(int i) { return shown.get(i); }
             public long getItemId(int i) { return i; }
             public View getView(int i, View old, ViewGroup parent) {
-                ImageView iv = old instanceof ImageView ? (ImageView) old : new ImageView(ui.a);
-                iv.setLayoutParams(new AbsListView.LayoutParams(-1, ui.dp(52)));
-                iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                ImageView iv = old instanceof ImageView ? (ImageView) old : null;
+                if (iv == null) {
+                    iv = new ImageView(ui.a);
+                    // Only on a new cell: new params on a reused one drop GridView's own flags, and the cell GridView
+                    // measured first is then attached without a window, unseen by accessibility (TalkBack, uiautomator).
+                    iv.setLayoutParams(new AbsListView.LayoutParams(-1, ui.dp(52)));
+                    iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                }
                 String k = shown.get(i);
                 Drawable d = loaded.get(k);
                 if (d == null) {
                     d = Icons.named(ui.a, k);
-                    if (d != null) loaded.put(k, d);
+                    if (d != null) loaded.put(k, d = Icons.plain(d, Colors.lineIcon(ui.accent, Colors.WHITE))); // built-in ones on the dark dialog
                 }
                 iv.setImageDrawable(d);
                 iv.setContentDescription(k.substring(k.indexOf('|') + 1).replace('_', ' '));
@@ -98,11 +117,24 @@ final class IconPicker {
             }
         };
         grid.setAdapter(ad);
+        // Tens of thousands of names ranked on every key: off the main thread, one at a time, a newer key makes the older ones give up.
+        AtomicInteger searches = new AtomicInteger();
+        ExecutorService searcher = Executors.newSingleThreadExecutor();
         Runnable filter = () -> {
-            String q = find.getText().toString().trim().toLowerCase(Locale.ROOT).replace(' ', '_');
-            shown.clear();
-            for (String k : all) if (q.isEmpty() || k.substring(k.indexOf('|') + 1).toLowerCase(Locale.ROOT).contains(q)) shown.add(k);
-            ad.notifyDataSetChanged();
+            if (searcher.isShutdown()) return; // closed before the packs were read
+            int mine = searches.incrementAndGet();
+            String query = find.getText().toString();
+            List<String> keys = new ArrayList<>(all);
+            searcher.execute(() -> {
+                if (mine != searches.get()) return;
+                List<String> found = IconSet.search(keys, query);
+                handler.post(() -> {
+                    if (mine != searches.get()) return;
+                    shown.clear();
+                    shown.addAll(found);
+                    ad.notifyDataSetChanged();
+                });
+            });
         };
         find.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
@@ -115,6 +147,9 @@ final class IconPicker {
             apply(entry, shown.get(i));
             dlg.dismiss();
         });
+        Icons.pickerOpen(true);
+        open = dlg;
+        dlg.setOnDismissListener(d -> { Icons.pickerOpen(false); searcher.shutdown(); });
         dlg.show();
         new Thread(() -> {
             List<String> got = new ArrayList<>();

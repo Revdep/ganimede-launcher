@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Summary;
+import org.ganimede.launcher.core.Voice;
 
 import android.app.Notification;
 import android.content.ComponentName;
@@ -19,6 +20,7 @@ import android.service.notification.StatusBarNotification;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,6 +46,15 @@ public class NotifService extends NotificationListenerService {
     public void onListenerConnected() {
         connected = true;
         self = this;
+        worker.post(() -> { // the notes posted while this app wasn't listening, as long as they are still shared
+            lastSeen = ""; // reconnected, the same notifications must be read in again
+            sweptKeys = "";
+            try {
+                VoicePlayer.keep(this, getActiveNotifications());
+            } catch (RuntimeException e) {
+                Log.w("Ganimede", "Voice notes not kept: " + e.getClass().getName());
+            }
+        });
         update();
     }
 
@@ -54,15 +65,24 @@ public class NotifService extends NotificationListenerService {
         synchronized (active) {
             active.clear();
         }
-        worker.post(() -> lastSeen = ""); // reconnected, the same notifications must be read in again
+        // Not through the worker: onDestroy quits it before Android calls this. No access, no kept voice notes; a rebind
+        // with access on keeps them, a note's grant may be gone by then.
+        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null, 0);
         tell();
     }
 
     @Override
     public void onNotificationPosted(StatusBarNotification s, RankingMap rank) {
         try {
-            if (maybeBatch(s, rank)) return;
-            update();
+            // summary_held is read and written on the worker only: the hold below posts back to it, so no write is lost
+            worker.post(() -> {
+                try {
+                    VoicePlayer.keep(this, s); // first, held for the summary or not: a chat app may withdraw the audio when it re-posts
+                    if (!maybeBatch(s, rank)) update();
+                } catch (RuntimeException e) {
+                    Log.w("Ganimede", "Notification skipped: " + e.getClass().getName());
+                }
+            });
         } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
             Log.w("Ganimede", "Notification skipped: " + e.getClass().getName());
         }
@@ -70,6 +90,7 @@ public class NotifService extends NotificationListenerService {
 
     @Override
     public void onNotificationRemoved(StatusBarNotification s) {
+        sweepNext = true;
         try {
             update();
         } catch (RuntimeException e) {
@@ -77,47 +98,79 @@ public class NotifService extends NotificationListenerService {
         }
     }
 
+    /** Keys whose hold is queued but not yet written; only the worker thread touches it. */
+    private final Set<String> holding = new HashSet<>();
+
     /** Summary: snooze a non-urgent notification of a chosen app until the next summary time. */
     private boolean maybeBatch(StatusBarNotification s, RankingMap rank) {
         SharedPreferences p = Prefs.of(this);
         // held keys are in prefs, not memory: after a process restart Android still re-posts them at the summary
         long at = System.currentTimeMillis();
-        Set<String> held = p.getBoolean("summary", false) ? Summary.expire(p.getStringSet("summary_held", Set.of()), at) : Set.of();
-        if (held.size() != p.getStringSet("summary_held", Set.of()).size()) p.edit().putStringSet("summary_held", held).apply(); // switched off or stale
+        boolean on = p.getBoolean("summary", false);
+        Set<String> stored = p.getStringSet("summary_held", Set.of());
+        Set<String> held = on ? Summary.expire(stored, at) : Set.of();
+        if (held.size() != stored.size()) p.edit().putStringSet("summary_held", held).apply(); // switched off or stale
         if (Summary.cameBack(Summary.due(held, s.getKey()), at)) {
-            Set<String> rest = new HashSet<>(held);
-            rest.removeIf(e -> e.substring(0, e.lastIndexOf('|')).equals(s.getKey()));
-            p.edit().putStringSet("summary_held", rest).apply();
+            p.edit().putStringSet("summary_held", Summary.release(held, s.getKey())).apply();
             return false;
         }
-        if (Summary.isDue(p.getLong("summary_last", 0), System.currentTimeMillis())) return false;
+        long was = p.getLong("summary_last", 0);
+        if (Summary.isDue(was, at)) return false;
         Notification n = s.getNotification();
         Ranking r = new Ranking();
         boolean known = rank != null && rank.getRanking(s.getKey(), r);
-        if (!Summary.waits(new Summary.Rules(p.getBoolean("summary", false),
+        if (!Summary.waits(new Summary.Rules(on,
                 p.getStringSet("summary_apps", Set.of()).contains(s.getPackageName()),
                 p.getBoolean("summary_skip_chats", true), p.getBoolean("summary_silent", false)),
                 new Summary.Note(s.isClearable(), (n.flags & (Notification.FLAG_ONGOING_EVENT | Notification.FLAG_FOREGROUND_SERVICE)) != 0,
                         n.category != null && URGENT.contains(n.category), n.fullScreenIntent != null,
                         Notification.CATEGORY_MESSAGE.equals(n.category) || (known && Build.VERSION.SDK_INT >= 31 && r.isConversation()),
                         known && r.getImportance() < android.app.NotificationManager.IMPORTANCE_DEFAULT))) return false;
-        long now = System.currentTimeMillis(), last = Summary.roll(p.getLong("summary_last", 0), now);
+        if (!holding.add(s.getKey())) return true; // a re-post inside the window: its hold is already queued
+        long last = Summary.roll(was, at);
         p.edit().putLong("summary_last", last).apply();
-        long wait = Summary.upcoming(last, now) - now;
-        try {
-            snoozeNotification(s.getKey(), wait);
-            p.edit().putStringSet("summary_held", Summary.hold(held, s.getKey(), now + wait, now))
-                    .putInt("summary_count", p.getInt("summary_count", 0) + 1).apply();
-            return true;
-        } catch (Exception e) {
-            Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
-            return false;
-        }
+        long wait = Summary.upcoming(last, at) - at;
+        String key = s.getKey();
+        // Held first, snoozed after: if the process dies in between, the hold is there for the re-post at the summary.
+        // Taken back below when the snooze does not happen.
+        long due = at + wait;
+        int count = p.getInt("summary_count", 0), counted = Summary.counted(count, held, key, due);
+        p.edit().putStringSet("summary_held", Summary.hold(held, key, due, at)).putInt("summary_count", counted).apply();
+        // Snoozing revokes the chat app's audio grants at once (NotificationManagerService.SnoozeNotificationRunnable ->
+        // cancelNotificationLocked -> updateUriPermissions(null, r, ...)): its voice notes are kept first.
+        VoicePlayer.afterKept(() -> {
+            try {
+                if (!connected) { // unbound meanwhile: snoozeNotification does nothing
+                    unhold(p, key, counted > count);
+                    return;
+                }
+                snoozeNotification(key, wait);
+            } catch (RuntimeException e) { // access just lost: shown, not held
+                Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
+                unhold(p, key, counted > count);
+                update();
+            } finally {
+                later(() -> holding.remove(key));
+            }
+        });
+        return true;
+    }
+
+    /** Takes back a hold whose snooze did not happen (counted: it had added to the count). */
+    private void unhold(SharedPreferences p, String key, boolean counted) {
+        later(() -> p.edit().putStringSet("summary_held", Summary.release(p.getStringSet("summary_held", Set.of()), key))
+                .putInt("summary_count", Math.max(0, p.getInt("summary_count", 0) - (counted ? 1 : 0))).apply());
     }
 
     /** Reads the notifications off the main thread: each read crosses into the system and unpacks every one. */
     private Handler worker;
     private volatile boolean updatePending;
+    private volatile boolean alive = true;
+
+    /** Posts to the worker unless onDestroy has stopped it: a hold's snooze can finish after that, and a closed looper only logs. */
+    private void later(Runnable r) {
+        if (alive) worker.post(r);
+    }
 
     @Override
     public void onCreate() {
@@ -129,6 +182,7 @@ public class NotifService extends NotificationListenerService {
 
     @Override
     public void onDestroy() {
+        alive = false;
         worker.getLooper().quitSafely();
         super.onDestroy();
     }
@@ -140,28 +194,45 @@ public class NotifService extends NotificationListenerService {
     private void update() {
         if (updatePending) return;
         updatePending = true;
-        worker.postDelayed(() -> {
+        if (!alive || !worker.postDelayed(() -> {
             updatePending = false;
             try {
                 read();
             } catch (RuntimeException e) { // as in the callbacks: never take the home's process down
                 Log.w("Ganimede", "Notifications not read: " + e.getClass().getName());
             }
-        }, 250);
+        }, 250)) updatePending = false;
     }
 
     /** What the home was last told about (keys and texts); only the worker thread touches it. */
     private String lastSeen = "";
+    /** The signature (Voice.signature) the voice notes were last swept against (worker only), and a removal that asks for another sweep. */
+    private String sweptKeys = "";
+    private volatile boolean sweepNext;
 
     private void read() {
         StatusBarNotification[] all;
+        long snapshot = System.currentTimeMillis(); // before the read: a note kept after it is not in `all`
         try {
             all = getActiveNotifications();
         } catch (RuntimeException e) {
             return;
         }
+        if (all == null) all = new StatusBarNotification[0];
+        String[] keys = new String[all.length];
+        String[][] uris = new String[all.length][];
+        for (int i = 0; i < all.length; i++) {
+            keys[i] = all[i].getKey();
+            uris[i] = VoicePlayer.notes(all[i]).stream().map(Object::toString).toArray(String[]::new);
+        }
+        String signature = Voice.signature(keys, uris);
+        // the sweep reads the notifications twice more: only when they or their notes changed, or one was removed
+        if (sweepNext || !signature.equals(sweptKeys)) {
+            sweepNext = false;
+            if (sweepVoice(all, snapshot)) sweptKeys = signature;
+        }
         Map<String, List<StatusBarNotification>> m = new HashMap<>();
-        for (StatusBarNotification s : all == null ? new StatusBarNotification[0] : all) {
+        for (StatusBarNotification s : all) {
             Notification n = s.getNotification();
             if (!s.isClearable() || (n.flags & (Notification.FLAG_ONGOING_EVENT | Notification.FLAG_GROUP_SUMMARY)) != 0) continue;
             m.computeIfAbsent(group(s.getPackageName(), s.getUser()), k -> new ArrayList<>()).add(s);
@@ -181,6 +252,22 @@ public class NotifService extends NotificationListenerService {
             active.putAll(m);
         }
         tell();
+    }
+
+    /** Kept voice notes stay while their notification is shown or held for the summary. */
+    private boolean sweepVoice(StatusBarNotification[] all, long snapshot) {
+        if (!VoicePlayer.hasKept(this)) return false; // nothing to delete: skip the call for the snoozed ones
+        try {
+            List<StatusBarNotification> l = new ArrayList<>(Arrays.asList(all));
+            StatusBarNotification[] held = getSnoozedNotifications();
+            if (held != null) l.addAll(Arrays.asList(held));
+            l.addAll(Arrays.asList(getActiveNotifications())); // read again after the snoozed: one coming back between the two reads is in neither
+            VoicePlayer.sweep(this, l, snapshot);
+            return true;
+        } catch (RuntimeException e) { // access revoked mid-read: the next read sweeps
+            Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
+            return false;
+        }
     }
 
     /** Notifications are grouped per app and profile: the same app in the work profile is another group. */

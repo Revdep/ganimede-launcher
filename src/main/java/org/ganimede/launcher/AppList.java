@@ -28,11 +28,13 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -48,13 +50,17 @@ final class AppList {
     static final class Extra {
         final String label, glyph;
         final Runnable action;
-        final List<String> buttons = new ArrayList<>();       // small action buttons on the right (glyphs)
-        final List<Runnable> buttonActions = new ArrayList<>();
+        final List<Button> buttons = new ArrayList<>(); // small action buttons on the right
         Extra(String glyph, String label, Runnable action) { this.glyph = glyph; this.label = label; this.action = action; }
-        Extra button(String glyph, Runnable r) { buttons.add(glyph); buttonActions.add(r); return this; }
+        Extra button(String glyph, String description, Runnable r) { buttons.add(new Button(glyph, description, r)); return this; }
     }
 
+    /** A glyph-only button, so TalkBack reads its description ("Call Anna") instead of the glyph. */
+    private record Button(String glyph, String description, Runnable action) {}
+
     /** How many contacts match a query, and the rows read so far: the first few, or all of them after "Show all". */
+    private record NumberRow(long id, String digits) {}
+
     private static final class ContactHits {
         final int count;
         final List<Extra> people;
@@ -89,6 +95,8 @@ final class AppList {
      * builds views: no hitches.
      */
     private final Map<Object, View> rowCache = new HashMap<>();
+    /** The apps shown, in order: kept while typing, dropped when the search is empty or clearCache runs. */
+    private List<Item> visibleCache;
     /** Contacts read one query at a time, off the main thread. */
     private static final ExecutorService CONTACTS = Executors.newSingleThreadExecutor();
     /** Contacts found per query (the last 20): typing back and forth costs nothing. */
@@ -97,6 +105,10 @@ final class AppList {
     };
     /** The read asked last ("\n" at the end: all of them); a queued read that is no longer it is skipped. */
     private volatile String contactAsked = "";
+    /** (contact id, digits of a number) of every phone number, read on the first number search and dropped when the search closes. */
+    private volatile List<NumberRow> numberIndex;
+    /** Bumped each time the search closes: a scan that began before it must not store its index. */
+    private volatile int numberEpoch;
     /** The query whose contacts are all shown ("Show all" tapped); any other query shows the first few. */
     private String contactsAll = "";
 
@@ -157,6 +169,7 @@ final class AppList {
     /** Labels, icons or notifications may have changed: rows are built again. */
     void clearCache() {
         rowCache.clear();
+        visibleCache = null;
     }
 
     int indexOf(String letter) {
@@ -171,9 +184,12 @@ final class AppList {
         rows.clear();
         String q = search.getText().toString().trim();
         String ql = q.toLowerCase(Locale.ROOT);
+        if (q.isEmpty()) { numberIndex = null; numberEpoch++; contactHits.clear(); visibleCache = null; } // closed: contacts may change before the next search
         if (!q.equals(contactsAll)) contactsAll = ""; // another text, or search closed: the first few again
-        List<Item> visible = apps.visible();
+        if (visibleCache == null) visibleCache = apps.visible(); // reordered once, not at every key
+        List<Item> visible = visibleCache;
         if (!ql.isEmpty()) {
+            JSONArray links = Sunflower.links(ui.a); // parsed once per key
             // Ranked by the search score, worked out once per app; ties go to the app you open most.
             rows.addAll(Search.rank(visible, apps::label, apps::uses, ql));
             // Hidden apps still turn up when searched for by name.
@@ -182,12 +198,12 @@ final class AppList {
             for (Item it : apps.all()) if (hidden.contains(it.key) && Search.score(apps.label(it), ql) > 0) hiddenHits.add(it);
             if (!hiddenHits.isEmpty()) { rows.add(ui.tr("Hidden")); rows.addAll(hiddenHits); }
             if (ui.prefs.getBoolean("contacts_search", false) && q.length() >= 2) addContacts(q); // one letter matches nearly everyone
-            addSunflower(q, visible);
+            addSunflower(q, visible, links);
             rows.add(ui.tr("Web"));
             String[] engine = Search.engine(ui.prefs.getString("engine", "DuckDuckGo"));
             rows.add(new Extra("⌕", ui.f("Search %s for “%s”", engine[0], q), () -> web(q)));
             // Search shortcuts: my links with %s become "search there for what I typed".
-            for (Sunflower.Hit h : Sunflower.searches(ui.a, q)) rows.add(new Extra("⌕", h.label, () -> Sunflower.open(ui.a, h)));
+            for (Sunflower.Hit h : Sunflower.searches(ui.a, links, q)) rows.add(new Extra("⌕", h.label, () -> Sunflower.open(ui.a, h)));
         } else {
             Map<String, String> listFolders = new LinkedHashMap<>(); // id → section letter, each folder read once
             for (String id : layout.folderIds()) {
@@ -247,51 +263,110 @@ final class AppList {
         });
     }
 
-    // Only people I can call or write to: messenger accounts (WhatsApp, Telegram) add contacts with a name and neither.
-    private static final String REACHABLE = ContactsContract.Contacts.HAS_PHONE_NUMBER + "=1 OR " + ContactsContract.Contacts._ID
-            + " IN (SELECT contact_id FROM view_data WHERE mimetype='" + Email.CONTENT_ITEM_TYPE + "')";
-
     /**
-     * How many contacts match, starred first then by name, with the details (number, email) of only the rows shown:
-     * the first few, or all of them after "Show all". The count comes from the cursor; the rest are not read.
+     * Only people I can call or write to (messenger accounts like WhatsApp or Telegram add contacts with a name and
+     * neither). How many contacts match, starred first then by name, with the details (number, email) of only the rows shown:
+     * the first few, or all of them after "Show all". Only contacts the search rule matches (name, email, company or nickname) are counted and shown.
      */
     private ContactHits queryContacts(String q, boolean all) {
-        return queryContacts(q, all, REACHABLE);
-    }
-
-    private ContactHits queryContacts(String q, boolean all, String where) {
+        List<Long> found = new ArrayList<>();
+        Set<Long> phoneless = new HashSet<>(); // reachable only if they have an email
+        List<Uri> foundLooks = new ArrayList<>();
+        List<String> foundNames = new ArrayList<>();
+        boolean byNumber = Search.isNumberQuery(q); // digits: the contacts whose number holds them, not the name filter
+        Uri u = byNumber ? ContactsContract.Contacts.CONTENT_URI
+                : Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(q));
+        try (Cursor c = ui.a.getContentResolver().query(u, new String[]{ContactsContract.Contacts._ID,
+                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
+                ContactsContract.Contacts.HAS_PHONE_NUMBER},
+                byNumber ? ContactsContract.Contacts._ID + " IN (" + numberContactIds(q) + ")" : null, null,
+                ContactsContract.Contacts.STARRED + " DESC, " + ContactsContract.Contacts.SORT_KEY_PRIMARY)) {
+            while (c != null && c.moveToNext()) {
+                if (c.getString(2) == null) continue;
+                if (!byNumber && c.getInt(3) == 0) phoneless.add(c.getLong(0));
+                found.add(c.getLong(0));
+                foundLooks.add(ContactsContract.Contacts.getLookupUri(c.getLong(0), c.getString(1)));
+                foundNames.add(c.getString(2));
+            }
+        } catch (Exception unavailable) { // provider busy or gone
+            return null;
+        }
+        // the provider also matches mid-word and on other entries: each contact passes the search rule on its name or
+        // on its email, company or nickname
+        Set<Long> mailed = new HashSet<>();
+        Map<Long, List<String>> others = byNumber ? Map.of() : otherEntries(found, mailed);
+        if (others == null) return null; // not read: the contacts with no number may have an email, so no answer, not a wrong one
         List<Long> ids = new ArrayList<>();
         List<Uri> looks = new ArrayList<>();
         List<String> names = new ArrayList<>();
         int count = 0;
-        Uri u = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(q));
-        try (Cursor c = ui.a.getContentResolver().query(u, new String[]{ContactsContract.Contacts._ID,
-                ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY}, where, null,
-                ContactsContract.Contacts.STARRED + " DESC, " + ContactsContract.Contacts.SORT_KEY_PRIMARY)) {
-            if (c != null) count = c.getCount();
-            while (c != null && ids.size() < Search.shownContacts(count, all) && c.moveToNext()) {
-                ids.add(c.getLong(0));
-                looks.add(ContactsContract.Contacts.getLookupUri(c.getLong(0), c.getString(1)));
-                names.add(c.getString(2));
-            }
-        } catch (Exception unavailable) { // provider busy or gone; or one without the AOSP view_data table: then unfiltered
-            return where != null ? queryContacts(q, all, null) : null;
+        for (int i = 0; i < found.size(); i++) {
+            if (phoneless.contains(found.get(i)) && !mailed.contains(found.get(i))) continue;
+            if (!byNumber && !Search.contactMatches(foundNames.get(i), others.getOrDefault(found.get(i), List.of()), q)) continue;
+            if (ids.size() >= Search.shownContacts(++count, all)) continue;
+            ids.add(found.get(i));
+            looks.add(foundLooks.get(i));
+            names.add(foundNames.get(i));
         }
         Map<String, String> data = contactData(ids);
         List<Extra> people = new ArrayList<>();
         for (int i = 0; i < ids.size(); i++) {
             Uri look = looks.get(i);
-            Extra e = new Extra("☺", names.get(i), () -> ui.open(new Intent(Intent.ACTION_VIEW, look)));
+            String name = names.get(i);
+            Extra e = new Extra("☺", name, () -> ui.open(new Intent(Intent.ACTION_VIEW, look)));
             // Contact actions: call, message, email in one tap (the dialer opens; no calling permission).
             String phone = data.get(ids.get(i) + "|" + Phone.CONTENT_ITEM_TYPE), mail = data.get(ids.get(i) + "|" + Email.CONTENT_ITEM_TYPE);
             if (phone != null) {
-                e.button("✆", () -> ui.open(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone)))));
-                e.button("✉", () -> ui.open(new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))));
+                e.button("✆", ui.f("Call %s", name), () -> ui.open(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone)))));
+                e.button("✉", ui.f("Message %s", name), () -> ui.open(new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))));
             }
-            if (mail != null) e.button("@", () -> ui.open(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(mail, "@")))));
+            if (mail != null) e.button("@", ui.f("Email %s", name), () -> ui.open(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(mail, "@")))));
             people.add(e);
         }
         return new ContactHits(count, people);
+    }
+
+    /** The email addresses, companies and nicknames of each contact, by contact id (null when the read failed); the ids of those with an email go into mailed. */
+    private Map<Long, List<String>> otherEntries(List<Long> all, Set<Long> mailed) {
+        Map<Long, List<String>> out = new HashMap<>();
+        for (int from = 0; from < all.size(); from += 500) {
+            List<Long> ids = all.subList(from, Math.min(all.size(), from + 500));
+            String[] args = new String[ids.size() + 3];
+            StringBuilder in = new StringBuilder();
+            for (int i = 0; i < ids.size(); i++) { in.append(i == 0 ? "?" : ",?"); args[i] = String.valueOf(ids.get(i)); }
+            args[ids.size()] = Email.CONTENT_ITEM_TYPE;
+            args[ids.size() + 1] = ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE;
+            args[ids.size() + 2] = ContactsContract.CommonDataKinds.Nickname.CONTENT_ITEM_TYPE;
+            try (Cursor d = ui.a.getContentResolver().query(ContactsContract.Data.CONTENT_URI,
+                    new String[]{ContactsContract.Data.CONTACT_ID, ContactsContract.Data.DATA1, ContactsContract.Data.MIMETYPE},
+                    ContactsContract.Data.CONTACT_ID + " IN (" + in + ") AND " + ContactsContract.Data.MIMETYPE + " IN (?,?,?)",
+                    args, null)) {
+                while (d != null && d.moveToNext()) {
+                    out.computeIfAbsent(d.getLong(0), k -> new ArrayList<>()).add(d.getString(1));
+                    if (Email.CONTENT_ITEM_TYPE.equals(d.getString(2))) mailed.add(d.getLong(0));
+                }
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return out;
+    }
+
+    /** Ids (comma separated) of the contacts with a phone number holding the typed digits; the rule is Search.numberMatches. */
+    private String numberContactIds(String q) {
+        List<NumberRow> index = numberIndex;
+        if (index == null) { // one scan of all the numbers while the search is open, not one per key
+            int epoch = numberEpoch;
+            index = new ArrayList<>();
+            try (Cursor p = ui.a.getContentResolver().query(Phone.CONTENT_URI, new String[]{Phone.CONTACT_ID, Phone.NUMBER}, null, null, null)) {
+                while (p != null && p.moveToNext()) if (p.getString(1) != null) index.add(new NumberRow(p.getLong(0), Search.digits(p.getString(1))));
+            }
+            if (epoch == numberEpoch) numberIndex = index; // not if the search closed meanwhile
+        }
+        StringBuilder ids = new StringBuilder();
+        Search.NumberQuery typed = Search.numberQuery(q); // read once, not per number
+        for (NumberRow n : index) if (typed.matches(n.digits)) ids.append(ids.length() == 0 ? "" : ",").append(n.id);
+        return ids.toString();
     }
 
     /**
@@ -323,13 +398,13 @@ final class AppList {
     }
 
     /** Search results beyond apps: my links, quick actions, shortcuts inside apps, settings pages. All offline. */
-    private void addSunflower(String q, List<Item> visible) {
+    private void addSunflower(String q, List<Item> visible, JSONArray links) {
         // QuickSearch: "<app name> <words>" searches inside that app, when the app accepts searches.
         int space = q.indexOf(' ');
         if (space > 0 && space < q.length() - 1) {
             String name = q.substring(0, space), terms = q.substring(space + 1).trim();
             for (Item it : visible) {
-                if (Search.score(apps.label(it), name) < 16 * name.length()) continue; // typed from the name's start
+                if (!Search.startsWith(apps.label(it), name)) continue; // typed from the name's start
                 Intent si = new Intent(Intent.ACTION_SEARCH).setPackage(it.pkg);
                 if (!Sunflower.opens(ui.a, si)) continue; // asked without the words, so the answer is kept
                 si.putExtra(SearchManager.QUERY, terms);
@@ -342,7 +417,7 @@ final class AppList {
             rows.add(ui.tr("Quick actions"));
             for (Sunflower.Hit h : actions) rows.add(new Extra("✦", h.label, () -> Sunflower.open(ui.a, h)));
         }
-        List<Sunflower.Hit> mine = Sunflower.custom(ui.a, q);
+        List<Sunflower.Hit> mine = Sunflower.custom(links, q);
         List<Sunflower.Hit> inApps = ui.prefs.getBoolean("search_shortcuts", true) ? Sunflower.shortcuts(q, pkg -> {
             Item a = apps.byPackage(pkg);
             return a == null ? null : apps.label(a);
@@ -386,12 +461,12 @@ final class AppList {
         t.setText(e.label);
         t.setPaddingRelative(ui.dp(20), 0, 0, 0);
         row.addView(t, new LinearLayout.LayoutParams(0, -2, 1));
-        for (int i = 0; i < e.buttons.size(); i++) {
+        for (Button button : e.buttons) {
             TextView b = ui.text(20, false);
             b.setGravity(Gravity.CENTER);
-            b.setText(e.buttons.get(i));
-            Runnable r = e.buttonActions.get(i);
-            b.setOnClickListener(v -> r.run());
+            b.setText(button.glyph());
+            b.setContentDescription(button.description());
+            b.setOnClickListener(v -> button.action().run());
             row.addView(b, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
         }
         row.setOnClickListener(v -> e.action.run());

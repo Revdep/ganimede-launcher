@@ -1,18 +1,21 @@
 """Packs Arcticons' line icons into Ganimede's built-in icon set (issue 076), read by core/IconSet.
 
-usage, from app/: python3 -I tools/icons/pack.py <Arcticons checkout at ARCTICONS_COMMIT> src/main/assets/icons.bin
+usage, from app/: python3 -I tools/icons/pack.py <Arcticons checkout at ARCTICONS_COMMIT> src/main/assets/icons.bin <android-app-categories checkout at CATEGORIES_COMMIT>
 It reads <checkout>/icons/white/*.svg and <checkout>/app/src/main/assets/appfilter.xml.
 
 Format (little endian), all geometry on Arcticons' 48x48 grid:
-  header   'ICN1' (format 1), 20 B Arcticons commit (SHA-1), u32 iconCount, u32 indexCount, u32 namesOff, u32 indexOff
+  header   'ICN2', 20 B Arcticons commit (SHA-1), u32 iconCount, u32 indexCount, u32 namesOff, u32 indexOff
   offsets  u32[iconCount + 1], icon i is data[off[i]:off[i+1]], data starts right after this table
-  icon     varint pathCount; per path: u8 style (1 stroke, 2 fill, 4 evenodd, bits 3-4 cap 0 round 1 butt 2 square,
-           bits 5-6 join 0 round 1 miter 2 bevel), u8 stroke width * 16, u8 alpha * 255,
+  icon     varint pathCount; per path: u8 style (1 stroke, 2 fill, 4 evenodd), u8 alpha * 255,
            varint opCount, then ops: u8 op (0 M, 1 L, 2 C, 3 Z, 4 OVAL x0 y0 x1 y1) followed by its points, each
            x and y a zigzag varint delta from the previous point of the icon, in 1/32 of a unit
   names    per icon, ids in name order: varint length + UTF-8
-  index    indexCount * (u48 low bits of FNV-1a 64 of the key, u16 icon id), sorted by hash; the key is the package
-           when every component of it in the appfilter draws one icon, otherwise "package/full.ClassName"
+  index    indexCount * (u48 low bits of FNV-1a 64 of the key, u16 icon id), sorted by hash; the key is
+           "package/full.ClassName" of each component the appfilter lists (an unlisted activity has no icon in the set)
+The header goes on (52 B in all) with u32 categoryKeys, u32 categoryIndexOff, u32 categoryTableOff: the app categories
+(issue 087) follow the icon index. The category index has the icon index's layout (u48 hash of the package, u16 category id =
+position in the table); the table is u16 n, n * u16 glyph icon id, in the order of core/AppCategory.
+Stroke width, caps and joins are not stored: the look (core/IconLook) decides them, whatever the SVG says.
 Arcs become cubics, dashes become subpaths (a zero-length dash is a zero-length line, drawn by its cap), transforms,
 CSS classes and the viewBox are applied here, so the reader only draws.
 Whether a subpath is closed (for fills, issue 080) is read from the geometry by the decoder, not stored.
@@ -31,7 +34,6 @@ NS = "{http://www.w3.org/2000/svg}"
 Q = 32  # coordinates are stored in 1/32 of a unit
 OPS = {"M": 0, "L": 1, "C": 2, "Z": 3, "O": 4}
 STROKE, FILL, EVEN_ODD = 1, 2, 4
-CAPS, JOINS = {"round": 0, "butt": 1, "square": 2}, {"round": 0, "miter": 1, "bevel": 2}  # style bits 3-4 and 5-6
 NUMBER = r"-?[\d.]+(?:e-?\d+)?"
 
 
@@ -64,8 +66,8 @@ def style_of(el, classes, inherited):
     opacity is not inherited: collect multiplies it down the tree.
     """
     s = {k: v for k, v in inherited.items() if k != "opacity"}
-    for k in ("fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity", "stroke-linecap",
-              "stroke-linejoin", "stroke-dasharray", "stroke-dashoffset"):
+    for k in ("display", "fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity",
+              "stroke-dasharray", "stroke-dashoffset"):
         if el.get(k) is not None:
             s[k] = el.get(k)
     for c in (el.get("class") or "").split():
@@ -124,6 +126,8 @@ def matrix(t):
     m = (1, 0, 0, 1, 0, 0)
     for fn, args in re.findall(r"(\w+)\s*\(([^)]*)\)", t or ""):
         v = [float(x) for x in re.findall(NUMBER, args)]
+        if not v and fn in ("translate", "scale", "rotate", "skewX", "skewY"):
+            raise ValueError("transform %s() has no arguments" % fn)
         if fn == "translate":
             n = (1, 0, 0, 1, v[0], v[1] if len(v) > 1 else 0)
         elif fn == "scale":
@@ -188,102 +192,115 @@ def arc_to_cubics(x1, y1, rx, ry, phi, large, sweep, x2, y2):
     return out
 
 
-TOK = re.compile(r"[MmLlHhVvCcSsQqTtAaZz]|-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+COMMAND = re.compile(r"[MmLlHhVvCcSsQqTtAaZz]")
+SEPARATORS = re.compile(r"[\s,]*")
+PATH_NUMBER = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+FLAG = re.compile(r"[01]")  # an arc flag is one digit: SVGO writes "a1 1 0 00.5.5", flags and next number touching
+ARC_FLAGS = (3, 4)
 
 
 def parse_d(d):
     """SVG path data -> absolute ops ('M',x,y) ('L',x,y) ('C',x1,y1,x2,y2,x,y) ('Z',).
 
     Every subpath starts with M: a drawing command right after Z gets the M that SVG implies (back to the start).
+    Malformed data (not starting with M, an unknown letter, a short or non-numeric argument, a number after Z) is a
+    ValueError: a browser would draw up to there, but a packed icon that silently loses its tail is a bug to fix in the SVG.
     """
-    toks = TOK.findall(d)
-    ops, i, cmd = [], 0, None
+    ops, pos, cmd = [], 0, None
     x = y = sx = sy = 0.0
     lc = lq = None  # last control points, for S and T
     after_z = False
 
-    def nums(n):
-        nonlocal i
-        v = [float(t) for t in toks[i:i + n]]
-        if len(v) < n:
-            raise ValueError("short")
-        i += n
-        return v
-    while i < len(toks):
-        if toks[i].isalpha():
-            cmd = toks[i]
-            i += 1
+    def skip():
+        nonlocal pos
+        pos = SEPARATORS.match(d, pos).end()
+
+    def nums(n, flags=()):
+        nonlocal pos
+        out = []
+        for k in range(n):
+            skip()
+            m = (FLAG if k in flags else PATH_NUMBER).match(d, pos)
+            if not m:
+                raise ValueError("path %r: argument %d of %s at offset %d" % (d, k + 1, cmd, pos))
+            out.append(float(m.group(0)))
+            pos = m.end()
+        return out
+    while True:
+        skip()
+        if pos >= len(d):
+            return ops
+        m = COMMAND.match(d, pos)
+        if m:
+            cmd = m.group(0)
+            pos += 1
+            if not ops and cmd not in "Mm":
+                raise ValueError("path %r: starts with %s, not M" % (d, cmd))
             if cmd in "Zz":
                 ops.append(("Z",))
                 x, y = sx, sy
                 lc = lq = None
                 after_z = True
                 continue
-        elif cmd is None:
-            break
+        elif cmd is None or cmd in "Zz":
+            raise ValueError("path %r: a number at offset %d with no command to take it" % (d, pos))
         rel = cmd.islower()
         C = cmd.upper()
         if after_z and C != "M":
             ops.append(("M", x, y))
         after_z = False
         ox, oy = (x, y) if rel else (0, 0)
-        try:
-            if C == "M":
-                a = nums(2)
-                x, y = a[0] + ox, a[1] + oy
-                sx, sy = x, y
-                ops.append(("M", x, y))
-                cmd = "l" if rel else "L"
-                lc = lq = None
-            elif C == "L":
-                a = nums(2)
-                x, y = a[0] + ox, a[1] + oy
-                ops.append(("L", x, y))
-                lc = lq = None
-            elif C == "H":
-                x = nums(1)[0] + ox
-                ops.append(("L", x, y))
-                lc = lq = None
-            elif C == "V":
-                y = nums(1)[0] + oy
-                ops.append(("L", x, y))
-                lc = lq = None
-            elif C in "CS":
-                if C == "C":
-                    a = nums(6)
-                    c1 = (a[0] + ox, a[1] + oy)
-                    c2, e = (a[2] + ox, a[3] + oy), (a[4] + ox, a[5] + oy)
-                else:
-                    a = nums(4)
-                    c1 = (2 * x - lc[0], 2 * y - lc[1]) if lc else (x, y)
-                    c2, e = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
-                ops.append(("C",) + c1 + c2 + e)
-                lc, lq = c2, None
-                x, y = e
-            elif C in "QT":
-                if C == "Q":
-                    a = nums(4)
-                    q, e = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
-                else:
-                    a = nums(2)
-                    q = (2 * x - lq[0], 2 * y - lq[1]) if lq else (x, y)
-                    e = (a[0] + ox, a[1] + oy)
-                ops.append(("C", x + 2 / 3 * (q[0] - x), y + 2 / 3 * (q[1] - y),
-                            e[0] + 2 / 3 * (q[0] - e[0]), e[1] + 2 / 3 * (q[1] - e[1]), e[0], e[1]))
-                lq, lc = q, None
-                x, y = e
-            elif C == "A":
-                a = nums(7)
-                ex, ey = a[5] + ox, a[6] + oy
-                for cu in arc_to_cubics(x, y, a[0], a[1], a[2], int(a[3]), int(a[4]), ex, ey):
-                    ops.append(("C",) + cu)
-                x, y = ex, ey
-                lc = lq = None
+        if C == "M":
+            a = nums(2)
+            x, y = a[0] + ox, a[1] + oy
+            sx, sy = x, y
+            ops.append(("M", x, y))
+            cmd = "l" if rel else "L"
+            lc = lq = None
+        elif C == "L":
+            a = nums(2)
+            x, y = a[0] + ox, a[1] + oy
+            ops.append(("L", x, y))
+            lc = lq = None
+        elif C == "H":
+            x = nums(1)[0] + ox
+            ops.append(("L", x, y))
+            lc = lq = None
+        elif C == "V":
+            y = nums(1)[0] + oy
+            ops.append(("L", x, y))
+            lc = lq = None
+        elif C in "CS":
+            if C == "C":
+                a = nums(6)
+                c1 = (a[0] + ox, a[1] + oy)
+                c2, e = (a[2] + ox, a[3] + oy), (a[4] + ox, a[5] + oy)
             else:
-                i += 1
-        except ValueError:
-            break  # SVG: render up to the first error
-    return ops
+                a = nums(4)
+                c1 = (2 * x - lc[0], 2 * y - lc[1]) if lc else (x, y)
+                c2, e = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
+            ops.append(("C",) + c1 + c2 + e)
+            lc, lq = c2, None
+            x, y = e
+        elif C in "QT":
+            if C == "Q":
+                a = nums(4)
+                q, e = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
+            else:
+                a = nums(2)
+                q = (2 * x - lq[0], 2 * y - lq[1]) if lq else (x, y)
+                e = (a[0] + ox, a[1] + oy)
+            ops.append(("C", x + 2 / 3 * (q[0] - x), y + 2 / 3 * (q[1] - y),
+                        e[0] + 2 / 3 * (q[0] - e[0]), e[1] + 2 / 3 * (q[1] - e[1]), e[0], e[1]))
+            lq, lc = q, None
+            x, y = e
+        else:  # A
+            a = nums(7, ARC_FLAGS)
+            ex, ey = a[5] + ox, a[6] + oy
+            for cu in arc_to_cubics(x, y, a[0], a[1], a[2], int(a[3]), int(a[4]), ex, ey):
+                ops.append(("C",) + cu)
+            x, y = ex, ey
+            lc = lq = None
 
 
 def dash_pattern(st):
@@ -412,14 +429,20 @@ def dashed(ops, pattern, offset):
 
 
 def collect(el, classes, inherited, m, alpha, out):
-    """Appends (style, width, alpha, ops) for each painted shape under el, in document order, transforms applied.
+    """Appends (style, alpha, ops) for each painted shape under el, in document order, transforms applied.
 
     alpha is the product of the ancestors' opacity; a shape whose fill and stroke differ in opacity becomes two paths.
     """
     tag = el.tag.replace(NS, "")
     if tag in ("defs", "style", "title", "desc", "metadata", "clipPath", "mask") or tag.startswith("{"):
         return
+    if tag in ("use", "text", "image"):
+        raise ValueError("<%s> is not supported: the packer would drop it silently" % tag)
     st = style_of(el, classes, inherited)
+    if st.get("clip-path") or st.get("mask") or el.get("clip-path") or el.get("mask"):
+        raise ValueError("clip-path and mask are not supported: the packer would draw the shape uncut")
+    if st.get("display") == "none":
+        raise ValueError("display:none is not supported: the packer would draw it")
     m = mul(m, matrix(el.get("transform")))
     alpha *= num(st.get("opacity"), 1.0)
     if tag in ("g", "svg"):
@@ -433,14 +456,10 @@ def collect(el, classes, inherited, m, alpha, out):
         return
     if st.get("fill-rule") == "evenodd":
         style |= EVEN_ODD
-    ends = 0
-    if stroked:  # SVG's defaults are butt and miter; unknown values (miter-clip, arcs) draw as miter
-        ends = CAPS.get(st.get("stroke-linecap"), 1) << 3 | JOINS.get(st.get("stroke-linejoin"), 1) << 5
-    style |= ends
     pattern = dash_pattern(st) if stroked else None
     fill_alpha, stroke_alpha = alpha * num(st.get("fill-opacity"), 1.0), alpha * num(st.get("stroke-opacity"), 1.0)
     if style & FILL and stroked and (fill_alpha != stroke_alpha or pattern):
-        parts = [(style & (FILL | EVEN_ODD), fill_alpha), (STROKE | ends, stroke_alpha)]  # SVG paints the fill, then the stroke
+        parts = [(style & (FILL | EVEN_ODD), fill_alpha), (STROKE, stroke_alpha)]  # SVG paints the fill, then the stroke
     else:
         parts = [(style, stroke_alpha if stroked else fill_alpha)]
     rigid = abs(m[1]) < 1e-9 and abs(m[2]) < 1e-9
@@ -452,7 +471,7 @@ def collect(el, classes, inherited, m, alpha, out):
         if rx > 0 and ry > 0:
             box = (m[0] * (cx - rx) + m[4], m[3] * (cy - ry) + m[5], m[0] * (cx + rx) + m[4], m[3] * (cy + ry) + m[5])
             box = (min(box[0], box[2]), min(box[1], box[3]), max(box[0], box[2]), max(box[1], box[3]))
-            out += [(paint, width * math.sqrt(abs(m[0] * m[3])), a, [("O",) + box]) for paint, a in parts]
+            out += [(paint, a, [("O",) + box]) for paint, a in parts]
         return
     d = shape_path(tag, el.attrib)
     if not d:
@@ -469,7 +488,7 @@ def collect(el, classes, inherited, m, alpha, out):
             for k in range(0, len(pts), 2):
                 tp += [m[0] * pts[k] + m[2] * pts[k + 1] + m[4], m[1] * pts[k] + m[3] * pts[k + 1] + m[5]]
             ops.append((op[0],) + tuple(tp))
-        out.append((paint, width * math.sqrt(abs(m[0] * m[3] - m[1] * m[2])), a, ops))
+        out.append((paint, a, ops))
 
 
 def icon_paths(svg_file):
@@ -495,8 +514,8 @@ def encode_icon(paths):
     b = bytearray()
     varint(b, len(paths))
     lx = ly = 0
-    for style, width, alpha, ops in paths:
-        b += bytes((style, min(255, round(width * 16)), max(0, min(255, round(alpha * 255)))))
+    for style, alpha, ops in paths:
+        b += bytes((style, max(0, min(255, round(alpha * 255)))))
         varint(b, len(ops))
         for op in ops:
             b.append(OPS[op[0]])
@@ -529,13 +548,10 @@ def components(appfilter, ids):
 
 
 def keys(comps):
-    """One key per package that draws one icon everywhere, else one per component (core/IconIndex.find)."""
+    """One key per component the appfilter lists ("package/full.Class"): an activity it does not list keeps the app's own icon."""
     out = {}
-    for pkg, cs in comps.items():
-        if len(set(cs.values())) == 1:
-            out[pkg] = next(iter(cs.values()))
-        else:
-            out.update(cs)
+    for cs in comps.values():
+        out.update(cs)
     return out
 
 
@@ -548,18 +564,96 @@ def index(key_ids, hash48=fnv48):
     return entries
 
 
-def pack(svg_dir, appfilter, commit):
-    """-> (icons.bin bytes, summary line)."""
+# Play Store categories in the order of core/AppCategory, with the built-in icon that stands for each: read from that
+# enum, the one place they are written (issue 087)
+ENUM = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../src/main/java/org/ganimede/launcher/core/AppCategory.java")
+with open(ENUM, encoding="utf-8") as _f:
+    GLYPHS = dict(re.findall(r'\b([A-Z][A-Z_]+)\("([a-z0-9_]+)"\)', _f.read().split("enum AppCategory")[1].split(";")[0]))
+CATEGORIES_COMMIT = "05ba4fb166ae3e5dd66ee50645ac8a6186259216"  # heysupratim/android-app-categories (Unlicense)
+# the dataset's 67 `type` values that are not a category's own name once "&" is "AND": typos, old names, games without "GAME_"
+ALIASES = {
+    "Offic": "PRODUCTIVITY", "Office": "PRODUCTIVITY", "Development": "TOOLS", "Utilities": "TOOLS",
+    "Transport": "MAPS_AND_NAVIGATION", "Transportation": "MAPS_AND_NAVIGATION", "Sport": "SPORTS",
+    "Libraries & Demo": "LIBRARIES_AND_DEMO", "Library & Demos": "LIBRARIES_AND_DEMO",
+    "Media & Audio": "MUSIC_AND_AUDIO", "Music & AUdio": "MUSIC_AND_AUDIO",
+    "Media & Video": "VIDEO_PLAYERS", "Media & Videos": "VIDEO_PLAYERS", "Media & Vide0": "VIDEO_PLAYERS",
+    "Video Players & Editors": "VIDEO_PLAYERS", "Travel & Locale": "TRAVEL_AND_LOCAL",
+    "Brain Games": "GAME_PUZZLE", "Puzles": "GAME_PUZZLE", "Puzzle": "GAME_PUZZLE", "Board Games": "GAME_BOARD",
+    "Racing Games": "GAME_RACING", "Quiz": "GAME_TRIVIA", "General Culture": "GAME_TRIVIA", "Music": "GAME_MUSIC",
+    "Educational": "GAME_EDUCATIONAL", "Role Playing": "GAME_ROLE_PLAYING"}
+for _g in ("Action", "Adventure", "Arcade", "Board", "Card", "Casino", "Casual", "Racing", "Simulation", "Strategy", "Trivia", "Word"):
+    ALIASES[_g] = "GAME_" + _g.upper()
+
+
+def category_of(type_):
+    """The Play category of a dataset `type` value, or None for the one empty value (every other value must map)."""
+    if not type_.strip():
+        return None
+    name = ALIASES.get(type_) or type_.upper().replace(" & ", "_AND_").replace(" ", "_")
+    if name not in GLYPHS:
+        sys.exit("dataset type %r maps to no category" % type_)
+    return name
+
+
+def read_curated(path):
+    """{package: category} from curated.tsv: package TAB CATEGORY TAB source and date; blank and # lines skipped."""
+    out = {}
+    for n, line in enumerate(open(path, encoding="utf-8"), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        cols = line.rstrip("\n").split("\t")
+        if len(cols) < 3 or cols[1] not in GLYPHS or not cols[2].strip():
+            sys.exit("%s:%d: want package, a category and its source" % (path, n))
+        out[cols[0]] = cols[1]
+    return out
+
+
+def read_dataset(path):
+    """{package: category} from heysupratim's apps_with_category.txt."""
+    import json
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for app in json.load(f)["apps"]:
+            c = category_of(app["type"])
+            if c:
+                out[app["packagename"]] = c
+    return out
+
+
+def category_keys(curated, dataset, taken):
+    """{package: category}: the curated table beats the dataset; a package with an Arcticons component is dropped."""
+    merged = dict(dataset)
+    merged.update(curated)
+    return {p: c for p, c in merged.items() if p not in {k.split("/")[0] for k in taken}}
+
+
+def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
+    """-> (icons.bin bytes, summary line, the icon keys). categories = (curated.tsv, dataset or None), or None for a set without categories."""
     names = sorted(n[:-4] for n in os.listdir(svg_dir) if n.endswith(".svg"))
     if len(names) > 0xFFFF:
         sys.exit("%d icons: ids are u16" % len(names))
     blobs = []
     for n in names:
+        if not re.fullmatch(r"[a-z0-9_]+", n):
+            sys.exit("%s.svg: an icon name is [a-z0-9_]+ (a picked icon is stored by name, and the backup checks it)" % n)
         try:
-            blobs.append(encode_icon(icon_paths(os.path.join(svg_dir, n + ".svg"))))
-        except ET.ParseError as e:
+            paths = icon_paths(os.path.join(svg_dir, n + ".svg"))
+        except (ET.ParseError, ValueError) as e:
             sys.exit("%s.svg: %s" % (n, e))
-    entries = index(keys(components(appfilter, {n: i for i, n in enumerate(names)})))
+        if not paths:
+            sys.exit("%s.svg: no painted path" % n)
+        blobs.append(encode_icon(paths))
+    icon_keys = keys(components(appfilter, {n: i for i, n in enumerate(names)}))
+    entries = index(icon_keys)
+    glyph_ids, cat_entries = [], []
+    if categories:
+        for c, g in glyphs.items():
+            if g not in names:
+                sys.exit("category %s: glyph %r is not among the icons" % (c, g))
+            glyph_ids.append(names.index(g))
+        cats = list(glyphs)
+        cat_entries = index({p: cats.index(c) for p, c in category_keys(
+            read_curated(categories[0]), read_dataset(categories[1]) if categories[1] else {}, icon_keys).items()})
     offs, data = [0], bytearray()
     for bl in blobs:
         data += bl
@@ -569,29 +663,56 @@ def pack(svg_dir, appfilter, commit):
         e = n.encode()
         varint(namesec, len(e))
         namesec += e
-    head = 40 + 4 * len(offs)
-    out = bytearray(b"ICN1" + bytes.fromhex(commit))
+    head = 52 + 4 * len(offs)
+    out = bytearray(b"ICN2" + bytes.fromhex(commit))
     out += struct.pack("<IIII", len(names), len(entries), head + len(data), head + len(data) + len(namesec))
+    cat_at = head + len(data) + len(namesec) + 8 * len(entries)
+    out += struct.pack("<III", len(cat_entries), cat_at, cat_at + 8 * len(cat_entries))
     out += struct.pack("<%dI" % len(offs), *offs) + data + namesec
-    for h, v in entries:
+    for h, v in entries + cat_entries:
         out += struct.pack("<Q", h)[:6] + struct.pack("<H", v)
-    empty = sum(1 for bl in blobs if bl == b"\x00")
-    return bytes(out), ("icons %d (empty %d), index %d keys, geometry %d B, names %d B, total %d B"
-                        % (len(names), empty, len(entries), len(data), len(namesec), len(out)))
+    out += struct.pack("<H", len(glyph_ids)) + struct.pack("<%dH" % len(glyph_ids), *glyph_ids)
+    return bytes(out), ("icons %d, index %d keys, %d category keys, geometry %d B, names %d B, total %d B"
+                        % (len(names), len(entries), len(cat_entries), len(data), len(namesec), len(out))), icon_keys
 
 
-def main(checkout, dst):
+HERE = os.path.dirname(os.path.abspath(__file__))
+CURATED = os.path.join(HERE, "categories", "curated.tsv")
+COVERAGE = os.path.join(HERE, "categories", "coverage")
+
+
+def checked_out(checkout, pinned, what):
     head = subprocess.run(["git", "-C", checkout, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    if head != ARCTICONS_COMMIT:
-        sys.exit("Arcticons checkout is at %r, the pinned commit is %s" % (head, ARCTICONS_COMMIT))
-    data, summary = pack(os.path.join(checkout, "icons", "white"),
-                         os.path.join(checkout, "app", "src", "main", "assets", "appfilter.xml"), ARCTICONS_COMMIT)
+    if head != pinned:
+        sys.exit("%s checkout is at %r, the pinned commit is %s" % (what, head, pinned))
+
+
+def coverage(icon_keys, category_packages):
+    """Per public list (tools/icons/categories/coverage/*.txt, one package per line): % with an icon / a category / neither."""
+    for name in sorted(os.listdir(COVERAGE)):
+        pkgs = [l.split()[0] for l in open(os.path.join(COVERAGE, name), encoding="utf-8") if l.strip() and not l.startswith("#")]
+        have = {k.split("/")[0] for k in icon_keys}
+        icon = sum(1 for p in pkgs if p in have)
+        cat = sum(1 for p in pkgs if p not in have and p in category_packages)
+        print("%s: %d apps, icon %d%%, category only %d%%, neither %d%%" % (
+            name, len(pkgs), 100 * icon // len(pkgs), 100 * cat // len(pkgs), 100 * (len(pkgs) - icon - cat) // len(pkgs)))
+
+
+def main(checkout, dst, dataset_checkout=None):
+    checked_out(checkout, ARCTICONS_COMMIT, "Arcticons")
+    appfilter = os.path.join(checkout, "app", "src", "main", "assets", "appfilter.xml")
+    dataset = None
+    if dataset_checkout:
+        checked_out(dataset_checkout, CATEGORIES_COMMIT, "Category dataset")
+        dataset = os.path.join(dataset_checkout, "apps_with_category.txt")
+    data, summary, icon_keys = pack(os.path.join(checkout, "icons", "white"), appfilter, ARCTICONS_COMMIT, (CURATED, dataset))
     with open(dst, "wb") as f:
         f.write(data)
     print(summary)
+    coverage(icon_keys, (read_dataset(dataset) if dataset else {}) | read_curated(CURATED))
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:])

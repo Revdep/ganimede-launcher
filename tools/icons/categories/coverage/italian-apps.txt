@@ -1,0 +1,11 @@
+# Italian banking, payment and public-service apps whose package id was checked on its Play Store page (2026-11-27). Extend by hand.
+it.bnl.apps.banking
+it.nexi.yap
+com.satispay.customer
+com.unicredit
+com.fineco.it
+com.paypal.android.p2pmobile
+com.revolut.revolut
+it.pagopa.io.app
+it.ipzs.cieid
+it.subito

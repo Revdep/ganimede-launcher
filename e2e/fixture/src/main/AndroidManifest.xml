@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:label="Fixture">
+    <application android:label="Fixture" android:appCategory="news"> <!-- issue 087: the category glyph of an app with no Arcticons icon -->
         <!-- A launcher entry only so the e2e can make it a favourite; opening it shows nothing. -->
         <activity android:name=".Open" android:exported="true" android:theme="@android:style/Theme.NoDisplay"
             android:icon="@drawable/square_icon">
@@ -9,7 +9,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Also an icon pack (one icon in res/xml/appfilter.xml) so the e2e can open the icon picker's grid. -->
+            <intent-filter><action android:name="org.adw.launcher.THEMES" /></intent-filter>
         </activity>
+        <!-- A second launcher entry with an adaptive icon that has a monochrome layer (issue 079's monochrome fallback). -->
+        <activity-alias android:name=".Mono" android:targetActivity=".Open" android:exported="true"
+            android:label="Fixture mono" android:icon="@drawable/mono_icon">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
         <!-- Behaves like phone Clock apps that accept SHOW_ALARMS only from callers holding SET_ALARM. -->
         <activity android:name=".Alarms" android:exported="true" android:label="Sveglie fixture"
             android:permission="com.android.alarm.permission.SET_ALARM">

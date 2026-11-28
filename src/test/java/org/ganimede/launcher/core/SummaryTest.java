@@ -97,11 +97,25 @@ public class SummaryTest {
         yes(Summary.hold(stored, "j", 6_000_000L, 5_000_000L).size() == 1, "expired entries are forgotten");
     }
 
+    public static void testReleaseDropsOnlyThatKey() {
+        java.util.Set<String> held = java.util.Set.of("0|a|b|9000000", "0|a|9000000", "x|9000000");
+        eq(java.util.Set.of("0|a|9000000", "x|9000000"), Summary.release(held, "0|a|b"), "a key with '|' inside is matched whole");
+        eq(held, Summary.release(held, "0|a|"), "a prefix of a key is not the key");
+    }
+
     public static void testMalformedHeldEntriesAreSkipped() {
         java.util.Set<String> bad = java.util.Set.of("nobar", "k|abc", "ok|9000000");
         yes(Summary.due(bad, "nobar") == null && Summary.due(bad, "k") == null, "malformed entries are not found");
         eq(9_000_000L, Summary.due(bad, "ok"), "a good one still is");
         eq(java.util.Set.of("ok|9000000", "n|9000000"), Summary.hold(bad, "n", 9_000_000L, 9_000_000L), "and hold drops the bad ones");
         eq(java.util.Set.of("ok|9000000"), Summary.expire(bad, 9_000_000L), "expire alone clears stale and bad entries");
+    }
+
+    public static void testCountsAHoldOnceNotOnEachRepost() {
+        java.util.Set<String> held = Summary.hold(java.util.Set.of(), "k", 9_000_000L, 0);
+        eq(1, Summary.counted(0, java.util.Set.of(), "k", 9_000_000L), "first hold counts");
+        eq(1, Summary.counted(1, held, "k", 9_000_000L), "the same key already held does not");
+        eq(2, Summary.counted(1, held, "j", 9_000_000L), "another key does");
+        eq(2, Summary.counted(1, held, "k", 9_500_000L), "the same key held again for a later summary (the first was cancelled) does");
     }
 }

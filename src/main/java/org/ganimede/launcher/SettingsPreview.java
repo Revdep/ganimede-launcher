@@ -127,6 +127,7 @@ final class SettingsPreview extends FrameLayout {
         glp.topMargin = px(16);
         home.addView(grid, glp);
         dots = new LinearLayout(c);
+        dots.setLayoutDirection(LAYOUT_DIRECTION_LTR); // as on the home: dot i is page i
         dots.setGravity(Gravity.CENTER);
         home.addView(dots, new LinearLayout.LayoutParams(-1, px(16)));
         dock = new LinearLayout(c);
@@ -267,6 +268,8 @@ final class SettingsPreview extends FrameLayout {
         Context c = getContext();
         new Thread(() -> {
             Icons.load(c, want);
+            Icons.preload(c, p); // a picked built-in icon needs the set read, or the preview shows the original
+            for (Apps.Item a : items) Apps.resolveIcon(c, p, a); // the icons (a disk read each) off the main thread
             post(() -> {
                 if (!want.equals(pack)) return;
                 refresh();
@@ -393,8 +396,8 @@ final class SettingsPreview extends FrameLayout {
         alpha.setLetters(Search.sections(visible.stream().map(ap -> Apps.label(p, ap)).collect(java.util.stream.Collectors.toList())));
         alpha.setVisibility(p.getBoolean("alpha_home", true) && !classic ? VISIBLE : GONE);
         alpha.setTranslationY(px(p.getInt("alpha_y", 0)));
-        // Left-hand use mirrors the whole preview, like the home screen.
-        stage.setLayoutDirection(p.getBoolean("left_handed", false) ? LAYOUT_DIRECTION_RTL : LAYOUT_DIRECTION_LTR);
+        // Left-hand use mirrors the whole List preview, like the home screen (Classic never mirrors).
+        stage.setLayoutDirection(Ui.handDirection(p, classic));
         stage.setBackgroundColor(Colors.veil(p.getInt("dim_home", 0), dark)); // the home wallpaper darkened as on the phone
         QuickButton.paint(fab, p, accent);
         fab.setVisibility(p.getBoolean("fab", false) ? VISIBLE : GONE);
@@ -443,8 +446,8 @@ final class SettingsPreview extends FrameLayout {
     private ImageView iconView(Apps.Item a, IconLook look, int fg, int accent, int size) {
         ImageView icon = new ImageView(getContext());
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        Drawable packed = Icons.fromPack(a.info.getComponentName()); // once: it decodes the built-in icon
-        Icons.apply(icon, packed != null ? packed : a.info.getBadgedIcon(0), packed != null, look, fg, accent, size);
+        Apps.resolveIcon(getContext(), p, a); // the pack, a picked icon or "Category icons" may have just changed
+        Icons.apply(icon, a.icon, a.fromPack, a.category, a.info.getUser(), look, fg, accent, size);
         return icon;
     }
 
@@ -480,7 +483,7 @@ final class SettingsPreview extends FrameLayout {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPaddingRelative(0, gap, 0, gap);
         Apps.Item a = all.get(entry);
-        row.addView(a != null ? iconView(a, look, fg, accent, size) : tile(entry, size, fg),
+        row.addView(a != null ? iconView(a, look, fg, accent, size) : tile(entry, size, fg, accent, look),
                 new LinearLayout.LayoutParams(size + px(4), size + px(2)));
         if (labels) {
             TextView name = new TextView(c);
@@ -499,14 +502,24 @@ final class SettingsPreview extends FrameLayout {
         return entry.startsWith("s:") ? Entries.shortcutName(entry) : layout.folder(entry.substring(2)).optString("name", T.t(getContext(), "Folder"));
     }
 
+    private Apps.Item resolved(String key) {
+        Apps.Item a = all.get(key);
+        if (a != null) Apps.resolveIcon(getContext(), p, a);
+        return a;
+    }
+
     /** A folder's or shortcut's icon: a soft tile with its mark. */
-    private View tile(String entry, int icon, int fg) {
+    private View tile(String entry, int icon, int fg, int accent, IconLook look) {
+        Drawable picked = Icons.picked(getContext(), p, entry); // the icon chosen for it, as the home shows it
+        if (picked != null) {
+            ImageView iv = new ImageView(getContext());
+            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            Icons.apply(iv, picked, true, null, null, look, fg, accent, icon);
+            return iv;
+        }
+        if (entry.startsWith("f:")) return Entries.folderTile(getContext(), layout, this::resolved, entry.substring(2), icon, look, fg, accent); // as the home draws it
         View v = new View(getContext());
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(icon / 3f);
-        bg.setColor(Colors.alpha(Colors.LAVENDER, 0x55));
-        v.setBackground(new android.graphics.drawable.LayerDrawable(new Drawable[]{bg,
-                new android.graphics.drawable.InsetDrawable(new Glyph(entry.startsWith("f:") ? "folder" : "link", fg), icon / 4)}));
+        v.setBackground(Icons.markedTile("link", icon, fg));
         return v;
     }
 
@@ -615,7 +628,7 @@ final class SettingsPreview extends FrameLayout {
             iv = iconView(a, look, fg, accent, icon);
             name = Apps.label(p, a);
         } else if (layout.entryExists(entry, k -> false)) { // a folder that is kept, or a shortcut
-            iv = tile(entry, icon, fg);
+            iv = tile(entry, icon, fg, accent, look);
             name = entryName(entry);
         }
         if (iv == null) { // empty slot: a faint outline, so rows, columns and dock size show even on an empty grid

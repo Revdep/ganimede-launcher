@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- An old-style (not adaptive) launcher icon: the home must show it as it is, never cut to a shape (issue 078). -->
+<!-- An old-style (not adaptive) launcher icon: the home must show it as it is, never cut to a shape (issue 078). A square
+     frame: opaque to its corners (a cut would show) and see-through inside, so its alpha is a usable silhouette (issue 079). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#2E7D32" />
+    <stroke android:width="10dp" android:color="#2E7D32" />
     <size android:width="48dp" android:height="48dp" />
 </shape>

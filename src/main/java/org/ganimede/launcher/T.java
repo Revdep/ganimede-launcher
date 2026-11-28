@@ -115,6 +115,10 @@ final class T {
         it("Resize right edge", "Ridimensiona bordo destro");
         it("Resize top edge", "Ridimensiona bordo superiore");
         it("Resize bottom edge", "Ridimensiona bordo inferiore");
+        it("Grow", "Allarga");
+        it("Shrink", "Restringi");
+        it("Limit reached", "Limite raggiunto");
+        it("Width %d, height %d", "Larghezza %d, altezza %d");
         it("Remove a widget", "Rimuovi un widget");
         it("Create pop-up folder", "Crea cartella pop-up");
         it("Notifications", "Notifiche");
@@ -131,7 +135,7 @@ final class T {
         it("Apps in this pop-up", "App in questo pop-up");
         it("This pop-up is empty. Add apps or a widget below.", "Questo pop-up è vuoto. Aggiungi app o un widget qui sotto.");
         it("✎ Edit pop-up", "✎ Modifica pop-up");
-        it("%s removed from the pop-up", "%s tolta dal pop-up");
+        it("Position %1$d of %2$d", "Posizione %1$d di %2$d");
         it("Widget stack full: remove a widget first", "Pila di widget piena: togli prima un widget");
         it("Remove widget", "Rimuovi widget");
         it("Missing widget", "Widget mancante");
@@ -207,7 +211,7 @@ final class T {
         it("Yes, choose apps", "Sì, scegli le app");
         it("Later", "Più tardi");
         it("Added to %s", "Aggiunta a %s");
-        it("Remove from this folder", "Togli da questa cartella");
+        it("Remove from this folder", "Rimuovi dalla cartella");
         it("Add “%s”", "Aggiungi “%s”");
         it("Added", "Aggiunto");
         it("Add", "Aggiungi");
@@ -348,6 +352,8 @@ final class T {
         it("Line", "Linea");
         it("Bold", "Marcato");
         it("Sharp", "Spigoloso");
+        it("Duotone", "Bicolore");
+        it("Hollow", "Contorno");
         it("Dots (minimal)", "Puntini (minimal)");
         it("Remove from home screen", "Togli dalla Home");
         it("Add to home screen", "Aggiungi alla Home");
@@ -361,6 +367,9 @@ final class T {
         it("Loading…", "Caricamento…");
         it("Can't play this voice message", "Impossibile riprodurre questo messaggio vocale");
         it("Open", "Apri");
+        it("Call %s", "Chiama %s");
+        it("Message %s", "Messaggio a %s");
+        it("Email %s", "Email a %s");
         it("The home screen is full: long-press an empty spot → Create page", "La Home è piena: tieni premuto un punto vuoto → Crea pagina");
         it("The home screen is full", "La Home è piena");
         it("Folder created: tap it to open, long-press to rename", "Cartella creata: toccala per aprirla, tienila premuta per rinominarla");
@@ -374,11 +383,10 @@ final class T {
         it("Icon…", "Icona…");
         it("All icon packs", "Tutti i pacchetti di icone");
         it("Search icons", "Cerca icone");
-        it("No icon packs installed. Install one (for example from F-Droid) and it shows up here.",
-                "Nessun pacchetto di icone installato. Installane uno (per esempio da F-Droid) e comparirà qui.");
         it("Left-hand use (mirrored)", "Uso con la mano sinistra (specchiato)");
-        it("Alphabet on the left, everything aligned to the right", "Alfabeto a sinistra, tutto allineato a destra");
+        it("List: alphabet on the left, everything aligned to the right", "Lista: alfabeto a sinistra, tutto allineato a destra");
         it("Alphabet", "Alfabeto");
+        it("Alphabet: touch and slide to jump to apps", "Alfabeto: tocca e scorri per saltare alle app");
         it("Letter size", "Dimensione lettere");
         it("Letter colour", "Colore lettere");
         it("Same as the text", "Come il testo");

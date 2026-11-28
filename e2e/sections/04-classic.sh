@@ -3,7 +3,7 @@ step "Classic grid: positions and columns"
 seed classic
 read -r c1x c1y <<<"$(cx Calendar)"; read -r c2x c2y <<<"$(cx Clock)"; read -r c3x c3y <<<"$(cx Contacts)"
 [ -n "$c1x" ] && [ "$c1y" = "$c2y" ] && [ "$c2y" = "$c3y" ] && ok "three apps on the first grid row" || ko "first row wrong: $c1x,$c1y $c2x,$c2y $c3x,$c3y"
-cols=$(A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o 'grid_cols" value="[0-9]*' | grep -o '[0-9]*$'); cols=${cols:-5}
+cols=$(pref grid_cols); cols=${cols:-5}
 near $((c2x - c1x)) $(((W - $(dp 16)) / cols)) $(dp 6) && ok "cells are 1/$cols of the width" || ko "cell width $((c2x - c1x)), expected about $(((W - $(dp 16)) / cols))"
 setp int grid_cols 4
 read -r n1x _ <<<"$(cx Calendar)"; read -r n2x _ <<<"$(cx Clock)"
@@ -22,8 +22,8 @@ shot 21-classic-blocks
 
 step "Classic: labels on/off"
 setp boolean hide_labels true
-wait_until 5 hasd "Calendar"   # the icons are up
-has "Calendar" && ko "labels still shown" || ok "labels hidden"
+wait_until 5 hasd "Calendar" || ko "the icons did not come up"
+hasnt "Calendar" && ok "labels hidden" || ko "labels still shown"
 hasd "Calendar" && ok "icons still there (named for accessibility)" || ko "icons gone with the labels"
 setp boolean hide_labels false
 
