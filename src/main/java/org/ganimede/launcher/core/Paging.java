@@ -1,6 +1,6 @@
 package org.ganimede.launcher.core;
 
-/** Which home page a sideways swipe lands on. */
+/** Which home page a sideways swipe lands on, and which pages may hold the focus. */
 public final class Paging {
     /**
      * A flick faster than {@code flick} (px/s) turns the page its way, or cancels a drag it goes against; otherwise
@@ -11,6 +11,18 @@ public final class Paging {
         int dir = Math.abs(vx) > flick ? (drag != 0 && drag != fling ? 0 : fling) : Math.abs(dx) > width / 6 ? drag : 0;
         if (rtl) dir = -dir;
         return Math.max(0, Math.min(pages - 1, from + dir));
+    }
+
+    /**
+     * The pages whose views may take focus (Launcher3's PagedView.addFocusables): the page shown, and the next one on
+     * the side focus moves to (side: -1 left, 1 right, 0 neither). Others are off screen, though a view of the page
+     * before can end exactly at the screen's edge, where the pager counts it as shown and scrolls back to it.
+     */
+    public static int[] focusPages(int current, int pages, int side, boolean rtl) {
+        if (pages <= 0) return new int[0];
+        current = Math.max(0, Math.min(pages - 1, current));
+        int next = current + (rtl ? -side : side);
+        return side == 0 || next < 0 || next >= pages ? new int[]{current} : new int[]{current, next};
     }
 
     private Paging() {}

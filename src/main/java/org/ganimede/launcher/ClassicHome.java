@@ -71,7 +71,14 @@ final class ClassicHome {
         this.refresh = refresh;
         this.homeMenu = homeMenu;
         this.blockMenu = blockMenu;
-        pages = new LinearLayout(ui.a);
+        pages = new LinearLayout(ui.a) {
+            // Focus stays on the page shown (Paging.focusPages): a key or typed text otherwise scrolled back to page 1.
+            @Override public void addFocusables(ArrayList<View> views, int direction, int mode) {
+                int side = direction == View.FOCUS_LEFT ? -1 : direction == View.FOCUS_RIGHT ? 1 : 0;
+                for (int pg : Paging.focusPages(currentPage(), getChildCount(), side, getLayoutDirection() == View.LAYOUT_DIRECTION_RTL))
+                    getChildAt(pg).addFocusables(views, direction, mode);
+            }
+        };
         pager = new HorizontalScrollView(ui.a);
         pager.setHorizontalScrollBarEnabled(false);
         pager.setFillViewport(true);
