@@ -22,14 +22,14 @@ case "$*" in
   "shell ps -o STIME -p "*) printf 'STIME\n04:30:08\n' ;;
   "get-state") if [ -e "$FAKE_OFFLINE" ]; then rm -f "$FAKE_OFFLINE"; echo offline; else echo device; fi ;;
   "shell input text "*) [ -e "$FAKE_OFFLINE" ] || printf %s "${4//%s/ }" >> "$FAKE_FIELD" ;;
-  "shell cmd notification allow_listener "*) [ -e "$FAKE_NOTIF.denied" ] && : > "$FAKE_NOTIF.bound" ;; # binds only on a fresh grant
-  "shell cmd notification disallow_listener "*) rm -f "$FAKE_NOTIF.bound"; : > "$FAKE_NOTIF.denied" ;;
+  "shell cmd notification allow_listener "*) : > "$FAKE_NOTIF.allowed"; [ -e "$FAKE_NOTIF.denied" ] && [ ! -e "$FAKE_NOBIND" ] && : > "$FAKE_NOTIF.bound" ;; # binds only on a fresh grant
+  "shell cmd notification disallow_listener "*) rm -f "$FAKE_NOTIF.bound" "$FAKE_NOTIF.allowed"; : > "$FAKE_NOTIF.denied" ;;
   "shell dumpsys notification") printf 'Live notification listeners:\n'; [ -e "$FAKE_NOTIF.bound" ] && echo "  NotifService"; echo 'Snoozed notification listeners:' ;;
   "exec-out uiautomator dump /dev/tty") printf '<hierarchy><node class="android.widget.EditText" text="%s" focused="true" bounds="[0,0][1,1]" /></hierarchy>\n' "$(cat "$FAKE_FIELD")" ;;
 esac
 FAKE
 chmod +x "$T/bin/adb"
-export PATH="$T/bin:$PATH" FAKE_FIELD="$T/field" FAKE_OFFLINE="$T/offline" FAKE_NOTIF="$T/notif"; : > "$FAKE_FIELD"
+export PATH="$T/bin:$PATH" FAKE_FIELD="$T/field" FAKE_OFFLINE="$T/offline" FAKE_NOTIF="$T/notif" FAKE_NOBIND="$T/nobind"; : > "$FAKE_FIELD"
 fails=0
 n() { ! "$@"; } # n command…: it must fail (t's command is a function of lib.sh, which a bash -c would not see)
 t() { # t description command…: the command must succeed
@@ -89,6 +89,13 @@ FAIL=0
 t "notif_on: unbound after the first grant, bound after the fresh one" notif_on
 t "notif_on: the listener is bound" notif_bound
 t "notif_on: no ko" test "$FAIL" = 0
+# a listener that never binds: notif_on says so (one ko) and leaves the access granted, so the steps after it do not run revoked
+: > "$FAKE_NOBIND"; rm -f "$FAKE_NOTIF.bound" "$FAKE_NOTIF.denied" "$FAKE_NOTIF.allowed"; FAIL=0
+eval "_wait_until_real() $(declare -f wait_until | tail -n +2)"; wait_until() { return 1; } # no 2 x 10 s of waiting here
+notif_on
+t "notif_on: a listener that never binds is one ko" test "$FAIL" = 1
+t "notif_on: ... and the access stays granted" test -e "$FAKE_NOTIF.allowed"
+eval "wait_until() $(declare -f _wait_until_real | tail -n +2)"; rm -f "$FAKE_NOBIND"; FAIL=0
 
 # differ: two pictures that differ, two that don't, a missing file ("no", not "differ")
 magick -size 4x4 xc:red "$T/r.png"; magick -size 4x4 xc:blue "$T/b.png"; cp "$T/r.png" "$T/r2.png"

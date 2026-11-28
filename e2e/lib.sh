@@ -362,11 +362,11 @@ notif_bound() { A shell dumpsys notification | sed -n '/Live notification listen
 # 0.6 s later; the listener stayed unbound for minutes, every "Notifiche" opened Settings (Notices.show without a connection),
 # and the unchecked waits let four steps run on it. Android binds again on a fresh grant: denied and granted a second time.
 notif_on() {
-  local _
-  for _ in 1 2; do
+  local n
+  for n in 1 2; do
     A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1
     wait_until 10 notif_bound && return 0
-    A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1
+    [ $n = 1 ] && A shell cmd notification disallow_listener $PK/$PK.NotifService >/dev/null 2>&1 # only before the fresh grant: a failed run leaves the access granted
   done
   ko "Ganimede's notification listener was not bound after two grants (setting: $(A shell settings get secure enabled_notification_listeners | tr -d '\r'))"
 }
