@@ -195,9 +195,8 @@ pixel=$(folder_pixel Altra)
 A shell input keyevent KEYCODE_BACK
 
 step "Folders: an untouched one-column folder keeps its 24 dp margins and wraps its content"
-# Up to 40 installed (15 rows already overflow the screen) launcher activities as "package/class" (query-activities --brief may print ".Class" short names)
-comps=$(A shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
-  | tr -d '\r' | sed 's/^ *//' | grep '^[A-Za-z0-9_.]*/' | awk -F/ '{c=$2; if (c ~ /^\./) c=$1 c; print $1"/"c}' | sort -u | head -40)
+# Up to 40 installed launcher activities (15 rows already overflow the screen)
+comps=$(launcher_comps | head -40)
 n=$(echo "$comps" | grep -c .)
 [ "$n" -ge 15 ] && ok "$n launcher activities to fill a tall folder" || ko "only $n launcher activities installed: not enough for a tall folder"
 many=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
@@ -335,9 +334,9 @@ shot 126-folder-widget
 
 step "Folders: a long pop-up reorders past its first screen (the drag scrolls it near the edge)"
 seed list
-comps=$(A shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER | tr -d '\r' \
-  | grep -E '^[A-Za-z0-9_.]+/[A-Za-z0-9_.]+$' | grep -v "^$PK/" | sort -u | head -24)
-[ "$(echo "$comps" | grep -c .)" -ge 12 ] || echo "  INFO: only $(echo "$comps" | grep -c .) launcher apps: the pop-up may not need to scroll"
+comps=$(launcher_comps | grep -v "^$PK/" | head -24)
+n=$(echo "$comps" | grep -c .)
+[ "$n" -ge 12 ] && ok "$n launcher activities: enough for a pop-up longer than the screen" || ko "only $n launcher activities: the pop-up would not need to scroll"
 json=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
 setp string folder:long '{"name":"Lunga","where":"fav","cols":1,"apps":['"$json"']}' string fav 'f:long'
 longkeys() { pref folder:long | sed 's/&quot;/\n/g' | grep '/' | grep -v '^\[' ; }

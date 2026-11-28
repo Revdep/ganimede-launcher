@@ -156,6 +156,10 @@ tapn() { # tapn text max-scrolls: waits for the text (or scrolls to it), then ta
 }
 shot() { A exec-out screencap -p > "$OUT/$1.png"; }
 dp() { echo $(($1 * DENS / 160)); }
+launcher_comps() { # installed launcher activities as "package/class", sorted (query-activities --brief indents lines and may print ".Class" short names)
+  A shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER \
+    | tr -d '\r' | sed 's/^ *//' | grep '^[A-Za-z0-9_.]*/' | awk -F/ '{c=$2; if (c ~ /^\./) c=$1 c; print $1"/"c}' | sort -u
+}
 # the stored value of a pref, int or string (empty when unset)
 _val() { sed -n "s|.*name=\"$1\" value=\"\([^\"]*\)\".*|\1|p; s|.*name=\"$1\">\([^<]*\)<.*|\1|p"; } # "|" not "/": keys such as use:pkg/Activity hold slashes
 pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | _val "$1"; }
