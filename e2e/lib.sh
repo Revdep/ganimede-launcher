@@ -134,6 +134,11 @@ cx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo $((($
 lx() { local b; b=$(bounds "$1"); [ -z "$b" ] && return 1; set -- $b; echo "$1" $((($2 + $4) / 2)); } # left edge, middle height
 see() { local n=0; while [ $n -lt 30 ]; do has "$1" && { ok "sees “$1”"; return 0; }; _scroll; n=$((n + 1)); done; ko "doesn't see “$1”"; return 1; }
 near() { local d=$(($1 - $2)); [ ${d#-} -le "$3" ]; } # near a b tolerance
+# put_prefs file: the app's prefs become this file. The app can start again right after a force-stop (it holds HOME, a
+# listener rebinds), so a file written in place can be read half-written: an empty read opens the wizard, which saves
+# over it (run 46083578007, settings).
+# Written beside, then renamed (atomic); a leftover .bak would be restored over it.
+put_prefs() { A exec-in "run-as $PK sh -c 'mkdir -p shared_prefs; cat > shared_prefs/e2e.tmp && rm -f shared_prefs/ganimede.xml.bak && mv shared_prefs/e2e.tmp shared_prefs/ganimede.xml'" < "$1"; }
 # Change one setting the way the app stores it, then restart the home screen.
 setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item value)
   local f="$OUT/prefs.xml"
@@ -145,7 +150,7 @@ setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item
     string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
     set) sed -i "s@</map>@    <set name=\"$2\"><string>$3</string></set>\n</map>@" "$f" ;;
   esac
-  A exec-in "run-as $PK sh -c 'cat > shared_prefs/ganimede.xml'" < "$f"
+  put_prefs "$f"
   start_home
 }
 # the home screen has the focus and no window transition is playing (the focus moves when one starts: touches sent before it ends are lost)
@@ -201,7 +206,7 @@ seed() {
     <string name="icon_container">squircle</string>
 </map>
 XML
-  A exec-in "run-as $PK sh -c 'mkdir -p shared_prefs; cat > shared_prefs/ganimede.xml'" < "$f"
+  put_prefs "$f"
   A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1
   start_home
 }
