@@ -104,4 +104,57 @@ public class GridTest {
         eq("[4, 4, 4]", java.util.Arrays.toString(Grid.defaults(300, 500)), "smaller");
         eq("[3, 3, 3]", java.util.Arrays.toString(Grid.defaults(200, 300)), "tiny");
     }
+
+    private static String[] dock(String... s) { return s; }
+
+    private static String show(Grid.Drop d) {
+        return d.kind + " " + d.cells + " " + java.util.Arrays.toString(d.dock);
+    }
+
+    public static void testDropOnAnEmptyCellOrSlotMoves() {
+        eq("MOVE {5=a} [, ]", show(Grid.drop(cells(0, "a"), dock("", ""), "g:0", "g:5", "a", "")), "grid to grid");
+        eq("MOVE {} [a, ]", show(Grid.drop(cells(0, "a"), dock("", ""), "g:0", "d:0", "a", "")), "grid to dock");
+        eq("MOVE {3=a} [, ]", show(Grid.drop(cells(), dock("a", ""), "d:0", "g:3", "a", "")), "dock to grid");
+        eq("MOVE {} [, a]", show(Grid.drop(cells(), dock("a", ""), "d:0", "d:1", "a", "")), "dock to dock");
+    }
+
+    public static void testDropOnItselfDoesNothing() {
+        eq("NONE {0=a} [, ]", show(Grid.drop(cells(0, "a"), dock("", ""), "g:0", "g:0", "a", "")), "own cell");
+        eq("NONE {} [a, ]", show(Grid.drop(cells(), dock("a", ""), "d:0", "d:0", "a", "")), "own slot");
+    }
+
+    public static void testDropOnAnotherAppMakesAFolder() {
+        Grid.Drop d = Grid.drop(cells(0, "a", 1, "b"), dock("", ""), "g:0", "g:1", "a", "b");
+        eq("NEW_FOLDER {1=a} [, ]", show(d), "the cell holds the dragged one until the folder exists");
+        d.fill("f:7");
+        eq("{1=f:7}", d.cells.toString(), "then the folder takes the cell");
+    }
+
+    public static void testDropOnADockedAppSwaps() {
+        eq("SWAP {0=b} [, a]", show(Grid.drop(cells(0, "a"), dock("", "b"), "g:0", "d:1", "a", "b")), "no folder in the dock");
+    }
+
+    public static void testDropAnAppOnAFolderJoinsIt() {
+        eq("JOIN_FOLDER {1=f:1} [, ]", show(Grid.drop(cells(0, "a", 1, "f:1"), dock("", ""), "g:0", "g:1", "a", "f:1")), "grid");
+        eq("JOIN_FOLDER {} [f:1, ]", show(Grid.drop(cells(0, "a"), dock("f:1", ""), "g:0", "d:0", "a", "f:1")), "dock folder too");
+    }
+
+    public static void testDropAFolderOnAnIconSwaps() {
+        eq("SWAP {0=a, 1=f:1} [, ]", show(Grid.drop(cells(0, "f:1", 1, "a"), dock("", ""), "g:0", "g:1", "f:1", "a")), "folder on app");
+        eq("SWAP {0=f:2, 1=f:1} [, ]", show(Grid.drop(cells(0, "f:1", 1, "f:2"), dock("", ""), "g:0", "g:1", "f:1", "f:2")), "folder on folder");
+        eq("SWAP {0=a} [f:1, ]", show(Grid.drop(cells(0, "f:1"), dock("a", ""), "g:0", "d:0", "f:1", "a")), "folder on a docked app");
+    }
+
+    public static void testDropOnRemoveTakesItOffTheHome() {
+        eq("REMOVE {} [, ]", show(Grid.drop(cells(0, "a"), dock("", ""), "g:0", "remove", "a", "")), "from the grid");
+        eq("REMOVE {} [, ]", show(Grid.drop(cells(), dock("a", ""), "d:0", "remove", "a", "")), "from the dock");
+    }
+
+    public static void testDropDoesNotChangeItsInputs() {
+        Map<Integer, String> c = cells(0, "a");
+        String[] d = dock("", "");
+        Grid.drop(c, d, "g:0", "g:5", "a", "");
+        eq("{0=a}", c.toString(), "cells");
+        eq("[, ]", java.util.Arrays.toString(d), "dock");
+    }
 }
