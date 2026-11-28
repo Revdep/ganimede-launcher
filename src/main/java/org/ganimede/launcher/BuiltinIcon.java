@@ -57,8 +57,9 @@ final class BuiltinIcon extends Drawable {
         IconLook.Stroke s = look.stroke();
         Path[] shapes = paths;
         if (s.outline() > 0) {
-            shapes = outlines(s);
-            if (shapes == null) s = s.fallback(); // no outline to be had: Bold
+            Path[] o = outlines(s);
+            if (o == null) s = s.fallback(); // no outline to be had: Bold
+            else shapes = o;
         }
         GlyphFit fit = look.plated() ? GlyphFit.onContainer(GlyphFit.bounds(data), s.extent(), px) : GlyphFit.grid(s.extent(), px);
         Matrix m = new Matrix();
