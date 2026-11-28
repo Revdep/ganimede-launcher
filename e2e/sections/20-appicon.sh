@@ -184,30 +184,56 @@ app_chooser_gone \
 
 # No public build ever offered the app icon chooser (the public history starts after issue 050 removed it), so the
 # upgrade users can make is from main's build: e2e/build-legacy.sh makes it (the CI build job does), missing is a fail.
-step "Upgrade from main's build: the chosen button icon is drawn, one launcher entry (.IconDefault), MainActivity stays HOME"
+# What an update must keep: the prefs the user chose in main's build, the files in its private dir, the HOME role, the one
+# launcher entry. Each is set in main's build, then read after the install, before anything of this build starts.
+step "Upgrade from main's build: chosen prefs, private files, HOME role and the launcher entry survive the install"
 LEGACY_APK="$HERE/legacy/ganimede-main.apk"
+# the APK is main as of the merge-base: an older one tests an update from a main that no longer exists (the shards have no history: no check there)
+legacy_stale() {
+  local want; want=$(git -C "$HERE/.." merge-base origin/main HEAD 2>/dev/null) && want=$(git -C "$HERE/.." rev-parse "$want") || return 1
+  [ "$(cat "$HERE/legacy/ganimede-main.commit" 2>/dev/null)" != "$want" ]
+}
+main_gray() { [ "$(fab_icon)" = gray ]; }
+kept_prefs() { [ "$(fab_icon)" = gray ] && [ "$(pref list_apps_y)" = -8 ]; }
 if [ ! -f "$LEGACY_APK" ]; then
   ko "no $LEGACY_APK: run e2e/build-legacy.sh"
+elif legacy_stale; then
+  ko "$LEGACY_APK is not main at the merge-base with origin/main: run e2e/build-legacy.sh"
 elif ! A install -r -d "$LEGACY_APK" >/dev/null; then
   ko "setup: main's build did not install"
 else
-  setp string fab_icon gray # main's build starts on it and draws it before the upgrade
-  # The user is not on Ganimede's home during an upgrade: no HOME press, no start. The package itself must put the entry right.
-  A install -r -d "$APK" >/dev/null || ko "this build did not install over main's"
-  wait_until 10 launcher_is IconDefault \
-    && ok "LAUNCHER resolves to .IconDefault right after the upgrade" \
-    || ko "LAUNCHER resolves to '$(launcher_component)' right after the upgrade, expected .IconDefault"
-  one_launcher_entry \
-    && ok "exactly one Ganimede LAUNCHER entry exists right after the upgrade" \
-    || ko "$(launcher_entries) Ganimede LAUNCHER entries exist right after the upgrade, expected one"
-  home_is_ganimede \
-    && ok "HOME still resolves to Ganimede MainActivity" \
-    || ko "HOME resolves to '$(home_component)', expected Ganimede MainActivity"
-  start_home
-  pixel=$(centre_pixel "$OUT/appicon-upgrade-gray.png")
-  grey_pixel "$pixel" \
-    && ok "the gray button chosen in main's build is drawn after the upgrade (#$pixel)" \
-    || ko "after the upgrade the button centre is #${pixel:-missing}, expected the gray image chosen in main's build"
+  setp int list_apps_y -8 # in main's build: it restarts the home, which takes the HOME role
+  A shell "run-as $PK sh -c 'echo kept > files/upgrade-marker'"
+  if choose_icon "Icona del pulsante" "Grigia" && wait_until 5 main_gray \
+     && [ "$(pref list_apps_y)" = -8 ] && [ "$(A shell run-as "$PK" cat files/upgrade-marker | tr -d '\r')" = kept ] \
+     && A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK"; then
+    # The user is not on Ganimede's home during an upgrade: no HOME press, no start. The package itself must put the entry right.
+    A install -r -d "$APK" >/dev/null || ko "this build did not install over main's"
+    kept_prefs \
+      && ok "the prefs chosen in main's build are intact after the upgrade (fab_icon gray, list_apps_y -8)" \
+      || ko "after the upgrade fab_icon is '$(fab_icon)' and list_apps_y '$(pref list_apps_y)', expected gray and -8"
+    [ "$(A shell run-as "$PK" cat files/upgrade-marker | tr -d '\r')" = kept ] \
+      && ok "a file in the app's private dir survives the upgrade" \
+      || ko "files/upgrade-marker did not survive the upgrade"
+    A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" \
+      && ok "Ganimede still holds the HOME role right after the upgrade" \
+      || ko "the HOME role holder is '$(A shell cmd role get-role-holders android.app.role.HOME | tr -d '\r')' after the upgrade"
+    wait_until 10 launcher_is IconDefault \
+      && ok "LAUNCHER resolves to .IconDefault right after the upgrade" \
+      || ko "LAUNCHER resolves to '$(launcher_component)' right after the upgrade, expected .IconDefault"
+    one_launcher_entry \
+      && ok "exactly one Ganimede LAUNCHER entry exists right after the upgrade" \
+      || ko "$(launcher_entries) Ganimede LAUNCHER entries exist right after the upgrade, expected one"
+    home_is_ganimede \
+      && ok "HOME still resolves to Ganimede MainActivity" \
+      || ko "HOME resolves to '$(home_component)', expected Ganimede MainActivity"
+    start_home && kept_prefs \
+      && ok "this build starts on main's prefs and keeps them" \
+      || ko "after the first start of this build fab_icon is '$(fab_icon)' and list_apps_y '$(pref list_apps_y)', expected gray and -8"
+  else
+    ko "setup: main's build did not keep what the test chose in it (gray button, list_apps_y -8, a private file, the HOME role)"
+  fi
+  A shell run-as "$PK" rm -f files/upgrade-marker
 fi
 
 step "Ganimede button icon: gray image replaces the star; default restores it"
