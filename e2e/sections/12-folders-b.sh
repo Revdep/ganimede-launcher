@@ -178,7 +178,7 @@ tap Ordine; expect "Clock"; wait_until 5 settled
 scrolls() { screen | grep -c 'class="android.widget.ScrollView"'; }
 one=$(scrolls)
 read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
-wait_until 5 has "Aggiungi a una cartella pop-up" && tap "Aggiungi a una cartella pop-up"
+wait_until 5 has "Aggiungi a una cartella pop-up" && tap "Aggiungi a una cartella pop-up…"
 wait_until 5 has "Nuova cartella" && tap "Nuova cartella"
 wait_until 5 has "Nome cartella" && typ Altra && tap "Crea"
 wait_until 5 has "Più tardi" && tap "Più tardi"
