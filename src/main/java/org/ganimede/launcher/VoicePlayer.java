@@ -240,7 +240,7 @@ final class VoicePlayer {
     }
 
     /** The voice notes of a notification, in the chat's order, shared or not; none if it is secret (never shown, never kept). */
-    private static List<Uri> notes(StatusBarNotification s) {
+    static List<Uri> notes(StatusBarNotification s) {
         List<Uri> found = new ArrayList<>();
         if (Safe.secret(s.getNotification().visibility)) return found;
         try {

@@ -33,6 +33,16 @@ public final class Voice {
         return hash(key) + "-" + hash(uri);
     }
 
+    /**
+     * What the voice sweep depends on: each notification's key and the addresses of its notes (none once it is secret).
+     * The sweep runs when this changes, so a chat re-posted under the same key as secret is swept too.
+     */
+    public static String signature(String[] keys, String[][] uris) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < keys.length; i++) b.append(keys[i]).append('|').append(String.join(",", uris[i])).append('\n');
+        return b.toString();
+    }
+
     /** The largest note copied, all kept notes together, and the longest a copy may take before it is cut off. */
     public static final long NOTE_BYTES = 25L << 20, KEPT_BYTES = 50L << 20, COPY_MS = 10_000;
 
