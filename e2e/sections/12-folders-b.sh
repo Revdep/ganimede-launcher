@@ -176,3 +176,18 @@ pref folder:sc | grep -q 'zz1' && ko "the shortcut is still stored: $(pref folde
 pref folder:sc | grep -q 'deskclock.*calendar' && ok "Clock and Calendar keep their order" || ko "folder:sc = $(pref folder:sc)"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
+
+step "Folders: New folder made from an open pop-up replaces it, never stacks over it (c3 P2-1)"
+seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock"]}' string fav 'f:ord' del grid
+tap Ordine; expect "Clock"; wait_until 5 settled
+scrolls() { screen | grep -c 'class="android.widget.ScrollView"'; }
+one=$(scrolls)
+read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
+wait_until 5 has "Aggiungi a una cartella pop-up" && tap "Aggiungi a una cartella pop-up"
+wait_until 5 has "Nuova cartella" && tap "Nuova cartella"
+wait_until 5 has "Nome cartella" && typ Altra && tap "Crea"
+wait_until 5 has "Più tardi" && tap "Più tardi"
+wait_until 5 settled
+[ "$(scrolls)" = "$one" ] && ok "one pop-up card on screen after the new folder opened (as before: $one ScrollView)" || ko "ScrollViews: $(scrolls), with one pop-up open there were $one"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Clock"
+hasnt "Clock" && ok "Back closes the only pop-up, none is left under it" || ko "an older pop-up was left open under the new one"

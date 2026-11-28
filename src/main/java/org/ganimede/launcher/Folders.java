@@ -276,6 +276,7 @@ final class Folders {
 
     /** A pop-up: the folder's widgets on top, then its apps. */
     void show(String id) {
+        if (popup != null && popup.isShowing()) popup.dismiss(); // "New folder" from inside one must not open a second over it
         JSONObject f = layout.folder(id);
         int[] d = FolderControls.defaults(ui.prefs, ui.light());
         FolderLook look = FolderLook.resolve(number(f, BG), number(f, ALPHA), number(f, COLUMNS), d[0], d[1], d[2], ui.light());
