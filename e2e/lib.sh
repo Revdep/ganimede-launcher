@@ -440,3 +440,9 @@ tapd() { local xy; xy=$(reach "$@") && [ -n "$xy" ] && { set -- $xy; A shell inp
 stored() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"$1\">$2</string>"; }
 BUILTIN=builtin:arcticons
 CAL=com.google.android.calendar/com.android.calendar.AllInOneActivity
+
+# The folder pop-up's card (12-folders-a and -b)
+card() { # the pop-up card: the last ScrollView of the dump (the pop-up window comes after the home), "x1 y1 x2 y2"
+  screen | grep -o 'class="android.widget.ScrollView"[^>]*bounds="[^"]*"' | tail -1 \
+    | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr -d '[' | tr ']' ' ' | tr ',' ' '
+}
