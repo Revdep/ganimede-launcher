@@ -343,13 +343,22 @@ n=$(echo "$comps" | grep -c .)
 [ "$n" -ge 12 ] && ok "$n launcher activities: enough for a pop-up longer than the screen" || ko "only $n launcher activities: the pop-up would not need to scroll"
 json=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
 setp string folder:long '{"name":"Lunga","where":"fav","cols":1,"apps":['"$json"']}' string fav 'f:long'
-longkeys() { pref folder:long | sed 's/&quot;/\n/g' | grep '/' | grep -v '^\[' ; }
-first=$(longkeys | head -1)
+# the entries as stored: written by setp with plain quotes, by the app with &quot; and JSON's escaped "\/"
+longkeys() { pref folder:long | sed 's/&quot;/"/g; s|\\/|/|g' | tr '"' '\n' | grep / ; }
+first=$(echo "$comps" | head -1)
 tap Lunga; wait_until 10 card_settled # (has "Lunga" is true at once: the home's own folder label)
 read -r x1 y1 x2 y2 <<<"$(card)" # the pop-up's own ScrollView: its first row is just under the title
 # the first row's label: the next text after the pop-up's title (the last "Lunga"), skipping the rows' text-less nodes
 lab=$(screen | grep -o 'text="[^"]*"' | grep -vx 'text=""' | grep -A1 -x 'text="Lunga"' | tail -1 | sed 's/^text="//; s/"$//')
-A shell input draganddrop $(((x1 + x2) / 2)) $((y1 + $(dp 90))) $(((x1 + x2) / 2)) $((H - $(dp 24))) 8000
+# picked up, carried below the pop-up's bottom edge and held there, as a user would, until the autoscroll reaches the end: a
+# draganddrop lets go as soon as it arrives, after ~1 s at the edge, and dropped Camera mid-list (run 46114401591, 20 apps)
+mx=$(((x1 + x2) / 2)); ey=$((H - $(dp 24)))
+A shell input motionevent DOWN $mx $((y1 + $(dp 90))); sleep 1.5 # long-press: the icon's menu
+A shell "input motionevent MOVE $mx $((y1 + $(dp 130))); input motionevent MOVE $mx $ey" # past the slop: picked up; then to the edge
+was_read= # the pop-up as read last time: the same twice in a row, it stopped scrolling
+scroll_stopped() { local s; s=$(screen | grep -o 'text="[^"]*"[^>]*bounds="[^"]*"'); [ -n "$s" ] && [ "$s" = "$was_read" ] && return 0; was_read=$s; return 1; }
+wait_until 20 scroll_stopped || ko "the pop-up still scrolls after 20 s held at its edge"
+A shell input motionevent UP $mx $ey
 last_is_first() { [ "$(longkeys | tail -1)" = "$first" ]; }
 wait_until 5 last_is_first && ok "the first entry was carried to the last place: the drag scrolled the pop-up to reach it" \
   || ko "the first entry is not last: order ends in $(longkeys | tail -1), expected $first"
