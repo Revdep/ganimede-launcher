@@ -628,7 +628,7 @@ def category_keys(curated, dataset, taken):
 
 
 def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
-    """-> (icons.bin bytes, summary line). categories = (curated.tsv, dataset or None), or None for a set without categories."""
+    """-> (icons.bin bytes, summary line, the icon keys). categories = (curated.tsv, dataset or None), or None for a set without categories."""
     names = sorted(n[:-4] for n in os.listdir(svg_dir) if n.endswith(".svg"))
     if len(names) > 0xFFFF:
         sys.exit("%d icons: ids are u16" % len(names))
@@ -673,7 +673,7 @@ def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
         out += struct.pack("<Q", h)[:6] + struct.pack("<H", v)
     out += struct.pack("<H", len(glyph_ids)) + struct.pack("<%dH" % len(glyph_ids), *glyph_ids)
     return bytes(out), ("icons %d, index %d keys, %d category keys, geometry %d B, names %d B, total %d B"
-                        % (len(names), len(entries), len(cat_entries), len(data), len(namesec), len(out)))
+                        % (len(names), len(entries), len(cat_entries), len(data), len(namesec), len(out))), icon_keys
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -705,13 +705,11 @@ def main(checkout, dst, dataset_checkout=None):
     if dataset_checkout:
         checked_out(dataset_checkout, CATEGORIES_COMMIT, "Category dataset")
         dataset = os.path.join(dataset_checkout, "apps_with_category.txt")
-    data, summary = pack(os.path.join(checkout, "icons", "white"), appfilter, ARCTICONS_COMMIT, (CURATED, dataset))
+    data, summary, icon_keys = pack(os.path.join(checkout, "icons", "white"), appfilter, ARCTICONS_COMMIT, (CURATED, dataset))
     with open(dst, "wb") as f:
         f.write(data)
     print(summary)
-    names = sorted(n[:-4] for n in os.listdir(os.path.join(checkout, "icons", "white")) if n.endswith(".svg"))
-    coverage(keys(components(appfilter, {n: i for i, n in enumerate(names)})),
-             (read_dataset(dataset) if dataset else {}) | read_curated(CURATED))
+    coverage(icon_keys, (read_dataset(dataset) if dataset else {}) | read_curated(CURATED))
 
 
 if __name__ == "__main__":
