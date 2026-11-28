@@ -15,6 +15,7 @@ case "$*" in
   "shell wm density") echo "Physical density: 420" ;;
   "shell wm size") echo "Physical size: 1080x2424" ;;
   "shell settings get "*) echo null ;;
+  "exec-out run-as org.ganimede.launcher cat shared_prefs/ganimede.xml") cat "$FAKE_PREFS" ;;
   "shell dumpsys input_method") echo "mInputShown=true" ;;
   "shell input text "*) printf %s "${4//%s/ }" >> "$FAKE_FIELD" ;;
   "exec-out uiautomator dump /dev/tty") printf '<hierarchy><node class="android.widget.EditText" text="%s" focused="true" bounds="[0,0][1,1]" /></hierarchy>\n' "$(cat "$FAKE_FIELD")" ;;
@@ -43,6 +44,26 @@ t "edit_prefs: old set item gone" n grep -q "<string>old</string>" "$P"
 t "edit_prefs: del removed the key" n grep -q gone "$P"
 t "edit_prefs: del alone, no value" edit_prefs "$P" del a
 t "edit_prefs: del alone removed the key" n grep -q 'name="a"' "$P"
+
+for kind in int boolean string set; do # a kind with no value is a ko (counted in FAIL), never an unbound $3
+  FAIL=0; edit_prefs "$P" $kind k >/dev/null; r=$?
+  t "edit_prefs $kind without a value: ko and return 1" test "$r" = 1 -a "$FAIL" = 1
+done
+FAIL=0
+
+# pref_lacks / set_lacks: false on an empty or half file, whatever they are asked; true only on a whole file lacking the value
+# (the fake device's run-as cat answers with $FAKE_PREFS)
+FAKE_PREFS="$T/device-prefs"; export FAKE_PREFS
+: > "$FAKE_PREFS"
+n pref_lacks fav calendar;  t "pref_lacks: an empty file is not a pass" test $? = 0
+n set_lacks hidden settings; t "set_lacks: an empty file is not a pass" test $? = 0
+printf "<map>\n    <string name=\"fav\">a/b</string>\n    <set name=\"hidden\">\n        <string>x</string>\n    </set>\n</map>\n" > "$FAKE_PREFS"
+t "pref_lacks: whole file, value absent" pref_lacks fav calendar
+n pref_lacks fav a/b;       t "pref_lacks: whole file, value present is false" test $? = 0
+t "set_lacks: whole file, item absent" set_lacks hidden settings
+n set_lacks hidden x;       t "set_lacks: whole file, item present is false" test $? = 0
+head -2 "$FAKE_PREFS" > "$T/half"; cp "$T/half" "$FAKE_PREFS"
+n pref_lacks fav calendar;  t "pref_lacks: a file cut before </map> is not a pass" test $? = 0
 
 # typ: the text arrives once, spaces included, into an empty field and into one that holds something
 typ "cal bar"

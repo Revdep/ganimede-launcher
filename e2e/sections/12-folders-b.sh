@@ -167,7 +167,7 @@ tap "✎ Modifica pop-up"; tap "Scegli app"; wait_until 5 has "Zz Posta"
 tap "Zz Posta"; tap "Salva"
 wait_until 5 has "Calendar" # the pop-up opens again with the result
 hasnt "Zz Posta" && ok "the unchecked shortcut is gone from the pop-up" || ko "the shortcut is still in the pop-up"
-pref folder:sc | grep -q 'zz1' && ko "the shortcut is still stored: $(pref folder:sc)" || ok "the shortcut is no longer stored"
+pref_lacks folder:sc 'zz1' && ok "the shortcut is no longer stored" || ko "the shortcut is still stored, or prefs unreadable: $(pref folder:sc)"
 pref folder:sc | grep -q 'deskclock.*calendar' && ok "Clock and Calendar keep their order" || ko "folder:sc = $(pref folder:sc)"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 

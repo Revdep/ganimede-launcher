@@ -41,7 +41,7 @@ if [ -n "$x1" ]; then
   longpress $(((x1 + x2) / 2)) $(((y1 + y2) / 2))
   tap "Rimuovi"
   wait_until 5 test -z "$(pref blocks | grep -o 'id&quot;:&quot;clock')"
-  pref blocks | grep -q 'id&quot;:&quot;clock' && ko "clock still in blocks" || ok "Rimuovi: the clock block is gone"
+  pref_lacks blocks 'id&quot;:&quot;clock' && ok "Rimuovi: the clock block is gone" || ko "clock still in blocks (or prefs unreadable)"
   longpress $((W / 2)) 1900
   expect "Aggiungi orologio" && A shell input keyevent KEYCODE_BACK
 else ko "no clock block"; fi
@@ -64,4 +64,4 @@ longpress $(((wx1 + wx2) / 2)) $(((wy1 + wy2) / 2))
 tap "Rimuovi"
 wait_until 5 test "$(hostviews)" -le "$before"
 [ "$(hostviews)" -le "$before" ] && ok "Rimuovi: the widget block is gone" || ko "widget still on the home"
-pref blocks | grep -q 'id&quot;:&quot;[0-9]' && ko "widget still in blocks" || ok "its cells are free again (no widget in blocks)"
+pref_lacks blocks 'id&quot;:&quot;[0-9]' && ok "its cells are free again (no widget in blocks)" || ko "widget still in blocks (or prefs unreadable)"

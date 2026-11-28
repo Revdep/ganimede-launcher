@@ -157,7 +157,13 @@ tapn() { # tapn text max-scrolls: waits for the text (or scrolls to it), then ta
 shot() { A exec-out screencap -p > "$OUT/$1.png"; }
 dp() { echo $(($1 * DENS / 160)); }
 # the stored value of a pref, int or string (empty when unset)
-pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | sed -n "s|.*name=\"$1\" value=\"\([^\"]*\)\".*|\1|p; s|.*name=\"$1\">\([^<]*\)<.*|\1|p"; } # "|" not "/": keys such as use:pkg/Activity hold slashes
+_val() { sed -n "s|.*name=\"$1\" value=\"\([^\"]*\)\".*|\1|p; s|.*name=\"$1\">\([^<]*\)<.*|\1|p"; } # "|" not "/": keys such as use:pkg/Activity hold slashes
+pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | _val "$1"; }
+# The negative checks on the prefs: an empty or unreadable file holds nothing, so "does not hold X" would pass on it. These are false
+# unless the file was read whole (it ends with </map>). pref_lacks key regex: the value of the key doesn't match; set_lacks key regex: no item of the set does.
+prefs_read() { P=$(A exec-out run-as $PK cat shared_prefs/ganimede.xml); grep -q '</map>' <<<"$P"; }
+pref_lacks() { prefs_read && ! grep -q "$2" <<<"$(_val "$1" <<<"$P")"; }
+set_lacks() { prefs_read && ! sed -n "\\@name=\"$1\"@,\\@</set>@p" <<<"$P" | grep -q "$2"; }
 # bounds of the first node whose text (or content-desc with "desc:") is exactly $1: "x1 y1 x2 y2", empty if none
 bounds() {
   local attr=text v="$1" r; case "$v" in desc:*) attr=content-desc; v="${v#desc:}";; esac
@@ -239,6 +245,7 @@ put_prefs() {
 edit_prefs() {
   local f="$1" v; shift
   while [ $# -ge 2 ]; do
+    [ "$1" = del ] || [ $# -ge 3 ] || { ko "edit_prefs: no value for $2"; return 1; } # not a crash on $3 under set -u
     v=${3-}; v=${v//&/\\&} # a & in the value is the whole match to sed: the callers write it plain
     # @: keys hold "/" (use:package/class). A set is deleted whole: its items sit on lines of their own up to </set>
     sed -i -e "\\@^ *<set name=\"$2\">\$@,\\@</set>@d" -e "\\@ name=\"$2\"@d" "$f"
@@ -247,7 +254,7 @@ edit_prefs() {
       string) sed -i "s@</map>@    <string name=\"$2\">$v</string>\n</map>@" "$f" ;;
       set) sed -i "s@</map>@    <set name=\"$2\"><string>$v</string></set>\n</map>@" "$f" ;;
     esac
-    if [ "$1" = del ]; then shift 2; elif [ $# -ge 3 ]; then shift 3; else ko "edit_prefs: no value for $2"; return 1; fi
+    if [ "$1" = del ]; then shift 2; else shift 3; fi
   done
 }
 # Change settings, then restart the home screen once. A restart takes ~9 s (force-stop, focus, two alike dumps): a step
