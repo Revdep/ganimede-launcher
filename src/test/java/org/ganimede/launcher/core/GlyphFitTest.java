@@ -83,6 +83,11 @@ public class GlyphFitTest {
         fit(GlyphFit.onContainer(GlyphFit.bounds(p, 96), 0, 96), 1.3, 22, -4, 0);
     }
 
+    public static void testPixelBoundsEmpty() {
+        // nothing at or above the threshold: the whole square, so an empty bitmap centres as it is
+        fit(GlyphFit.onContainer(GlyphFit.bounds(new int[96 * 96], 96), 0, 96), 52 / 96.0, 22, 22, 0);
+    }
+
     private static List<Float> toList(float[] a) {
         Float[] out = new Float[a.length];
         for (int i = 0; i < a.length; i++) out[i] = a[i];
