@@ -4,7 +4,6 @@ import org.ganimede.launcher.core.FolderOrder;
 import org.ganimede.launcher.core.Gestures;
 
 import android.os.Bundle;
-import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -81,11 +80,9 @@ final class FolderDrag {
         committed = new ArrayList<>(keys);
         v.setOnLongClickListener(x -> {
             if (touched != null && x != touched) return true; // a finger that came down later elsewhere owns downX/downY
-            if (ui.haptics()) x.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-            menu.accept(keys.get(views.indexOf(x)));
-            if (x != touched) return true; // TalkBack's long-press: no finger is down, nothing to drag
-            held = x;
-            x.getParent().requestDisallowInterceptTouchEvent(true); // the pop-up doesn't scroll away with the finger
+            boolean finger = x == touched; // else TalkBack's long-press: no finger is down, nothing to drag
+            DragDrop.longPressed(ui, x, () -> menu.accept(keys.get(views.indexOf(x))), finger);
+            if (finger) held = x;
             return true;
         });
         //noinspection ClickableViewAccessibility: only the drag after the long-press menu is taken; taps reach the click listener
