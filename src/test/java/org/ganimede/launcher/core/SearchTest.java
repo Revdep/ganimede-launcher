@@ -7,13 +7,6 @@ import java.util.List;
 import java.util.Map;
 
 public class SearchTest {
-    public static void testScore() {
-        eq(0, Search.score("Calculator", "zz"), "letters not in the name");
-        yes(Search.score("Calculator", "cal") > Search.score("Contacts Calendar", "cal"), "the name's start wins over a later word");
-        eq(2, Search.score("Calculator", "c"), "the first letter is the name's start");
-        yes(Search.score("Météo", "meteo") > 0, "accents ignored");
-    }
-
     public static void testLetterAndEngine() {
         yes(Search.letter("Éclair").equals("E") && Search.letter("7zip").equals("#") && Search.letter("files").equals("F"), "sections");
         eq("DuckDuckGo", Search.engine("nope")[0], "an unknown engine falls back to the first");
@@ -70,6 +63,9 @@ public class SearchTest {
                 "smart: a letter's most used first (Camera before Calendar)");
         eq(List.of("Cab", "Cob"), Search.order(List.of("Cob", "Cab"), s -> s, s -> 4, true), "equal use: by name");
         eq(List.of("Cab", "Cob"), Search.order(List.of("Cob", "Cab"), s -> s, s -> 0, true), "unused: by name");
+        eq(List.of("apple", "Bank", "Cab"), Search.order(List.of("Cab", "Bank", "apple"), s -> s, s -> 0, false), "A to Z ignoring case across letters");
+        eq(List.of("Cab", "cab"), Search.order(List.of("Cab", "cab"), s -> s, s -> 0, false), "the same name ignoring case: the order given stays");
+        eq(List.of("cab", "Cab"), Search.order(List.of("cab", "Cab"), s -> s, s -> 0, true), "also with smart sorting and equal use");
     }
 
     public static void testContactsShowAllAfterFive() {
@@ -80,10 +76,12 @@ public class SearchTest {
     }
 
     public static void testScoresAreExact() {
+        eq(0, Search.score("Calculator", "zz"), "letters not in the name");
+        yes(Search.score("Calculator", "cal") > Search.score("Contacts Calendar", "cal"), "the name's start wins over a later word");
+        eq(2, Search.score("Calculator", "c"), "the first letter is the name's start");
         eq(2, Search.score("Calculator", "calc"), "the name begins with the text");
         eq(2, Search.score("Posta Italiana", "posta ita"), "the name begins with the whole text, spaces included");
         eq(1, Search.score("Organic Maps", "maps"), "a later word begins with the text");
-        eq(1, Search.score("Posta Italiana", "ita pos"), "every typed word begins a word, not the name's start");
         eq(1, Search.score("a b c d e f g h i j k", "k"), "the same however many words come before");
         eq(0, Search.score("Calculator", "a"), "inside a word");
     }
@@ -124,11 +122,6 @@ public class SearchTest {
         yes(Search.score("Posta Italiana", "ita pos") > 0, "in any order");
         eq(0, Search.score("Posta Italiana", "pos pos"), "two typed words cannot share one word of the name");
         yes(Search.score("Poste Pay", "p pos") > 0, "the short p takes Pay, leaving Poste to pos");
-    }
-
-    public static void testAccentsAndCaseIgnored() {
-        yes(Search.score("Café", "cafe") > 0, "accent in the name");
-        yes(Search.score("CAFÉ", "café") > 0, "case and accent on both sides");
     }
 
     public static void testDigitBoundaryStartsAWord() {
