@@ -93,7 +93,7 @@ folder_pixel() { # folder_pixel name: RGB safely inside the card's left padding,
     | sed -n 's/.*#\([0-9A-Fa-f]\{6\}\).*/#\1/p' | tr '[:lower:]' '[:upper:]'
 }
 folder_settings() { # home → Personalizza → Cartelle (own pill), from a fresh Settings (a reopened one keeps its scroll)
-  start_home; wait_until 5 settled
+  start_home
   # A long-press on a home that has just restarted can be lost: press again until the home menu shows.
   for _ in 1 2 3; do A shell input swipe 540 1900 540 1900 1500; wait_until 3 has "Impostazioni Ganimede" && break; done
   tap "Impostazioni Ganimede"; tap "Personalizza"

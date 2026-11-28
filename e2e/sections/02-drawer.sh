@@ -29,7 +29,7 @@ wait_until 3 has "Cerca app" && ok "the search is still open after the menu" || 
 step "Restart after typing: no focus box over the home"
 touch_mode() { A shell dumpsys window | grep -q 'mInTouchMode=true'; }
 A shell input keyevent KEYCODE_DPAD_DOWN  # a key press leaves touch mode, as typing does (a modifier like Shift does not)
-seed classic; wait_until 5 settled
+seed classic
 touch_mode && ko "precondition: already in touch mode" || ok "precondition: outside touch mode"
 wait_until 5 settled; home=$(screen) # settled just read the screen: an empty dump was retried
 if [ -z "$home" ]; then

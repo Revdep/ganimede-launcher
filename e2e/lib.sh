@@ -161,11 +161,14 @@ setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item
 # the home screen has the focus and no window transition is playing (the focus moves when one starts: touches sent before it ends are lost)
 focus() { local w; w=$(A shell dumpsys window | grep -E "mCurrentFocus|reason=Transition"); [[ $w == *mCurrentFocus*MainActivity* && $w != *reason=Transition* ]]; }
 drawn() { dump | grep -q "package=\"$PK\""; } # touches sent before the first frame are lost
+# start_home: the home restarted and ready for touches. Its first frame has no apps yet (onResume builds the screen before
+# the apps load); once they load, every view is built again and a touch held on the old one is lost (run 46081674535,
+# widgets: the long-press on the clock opened no menu). So it also waits for the screen to stop changing.
 start_home() {
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" \
     || A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1 # another launcher holding HOME would start a second task
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" || { ko "Ganimede doesn't hold the HOME role"; return 1; }
-  A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME; wait_until 10 focus && wait_until 10 drawn; }
+  A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME; wait_until 10 focus && wait_until 10 drawn && wait_until 10 settled; }
 hasd() { screen | grep -q "content-desc=\"$1\""; }  # a node with this content-desc
 valid() { screen >/dev/null; [ -s "$SCR" ]; } # a screen read that worked: an absent node means nothing without one
 hasnt() { valid && ! has "$1"; }
