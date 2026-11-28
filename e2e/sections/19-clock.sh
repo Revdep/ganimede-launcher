@@ -243,8 +243,8 @@ a11y list . "$BOTTOM_HANDLE"
 A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Allarga' && A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Restringi' \
   && ok "la maniglia espone Allarga e Restringi" || ko "la maniglia non espone Allarga/Restringi (solo: $(A logcat -d -s $A11Y_TAG:I | tr '\n' ' '))"
 a11y label Restringi "$BOTTOM_HANDLE"
-a11y_performed && wait_until 5 test -n "$(prefstr blocks | grep -o 'rowSpan&quot;:1')" \
-  && ok "Restringi salva il blocco più basso di una cella" || ko "Restringi non cambia la misura (blocks: $(prefstr blocks))"
+a11y_performed && wait_until 5 test -n "$(pref blocks | grep -o 'rowSpan&quot;:1')" \
+  && ok "Restringi salva il blocco più basso di una cella" || ko "Restringi non cambia la misura (blocks: $(pref blocks))"
 wait_until 5 hasd "$BOTTOM_HANDLE" && ok "il ridimensionamento resta attivo dopo l'azione" || ko "il ridimensionamento si è chiuso dopo l'azione"
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 a11y_off; clock_fixture_cleanup

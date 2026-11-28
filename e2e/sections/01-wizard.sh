@@ -53,7 +53,7 @@ fi
 tap "Avanti"
 expect "Stile delle icone" && shot 05-icons
 # The selected tile's "✓ Originale" and the two-line "Quadrato arrotondato" are drawn whole, not cut after the tick (issue 088)
-label_whole "✓ Originale" 80 && ok "tile “✓ Originale” shows its whole label" || ko "tile “✓ Originale” is cut"
+label_whole "✓ Originale" 80 60 && ok "tile “✓ Originale” shows its whole label" || ko "tile “✓ Originale” is cut"
 hsee "Quadrato arrotondato" "✓ Originale" && tap "Quadrato arrotondato"
 wait_until 5 has "✓ Quadrato arrotondato" && label_whole "✓ Quadrato arrotondato" 80 70 && ok "tile “Quadrato arrotondato” shows its whole label" || ko "tile “✓ Quadrato arrotondato” is cut"
 stap "Squircle" # the Plate row, under the Style row (issue 078)

@@ -97,7 +97,8 @@ tapn() { # tapn text max-scrolls: waits for the text (or scrolls to it), then ta
 }
 shot() { A exec-out screencap -p > "$OUT/$1.png"; }
 dp() { echo $(($1 * DENS / 160)); }
-pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\" value=\"-*[0-9]*" | grep -o '\-*[0-9]*$'; }
+# the stored value of a pref, int or string (empty when unset)
+pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | sed -n "s/.*name=\"$1\" value=\"\([^\"]*\)\".*/\1/p; s/.*name=\"$1\">\([^<]*\)<.*/\1/p"; }
 # bounds of the first node whose text (or content-desc with "desc:") is exactly $1: "x1 y1 x2 y2", empty if none
 bounds() {
   local attr=text v="$1" r; case "$v" in desc:*) attr=content-desc; v="${v#desc:}";; esac
@@ -110,7 +111,7 @@ bounds() {
 hsee() {
   local n=0 y b x1 y1 x2 y2; b=$(bounds "$2"); [ -n "$b" ] || return 1; read -r x1 y1 x2 y2 <<<"$b"; y=$(((y1 + y2) / 2))
   while [ $n -lt 6 ]; do
-    b=$(bounds "$1"); [ -n "$b" ] && { read -r x1 y1 x2 y2 <<<"$b"; [ "$x2" -le $((W - 60)) ] && return 0; }
+    b=$(bounds "$1"); [ -n "$b" ] && { read -r x1 y1 x2 y2 <<<"$b"; [ "$x2" -le $((W - $(dp 24))) ] && return 0; }
     A shell input swipe $((W - 100)) $y 200 $y 300; rm -f "$SCR"; n=$((n + 1))
   done
   ko "no “$1” in the row of “$2”"; return 1
@@ -190,7 +191,6 @@ start_home() {
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" || { ko "Ganimede doesn't hold the HOME role"; return 1; }
   A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME; wait_until 10 focus && wait_until 10 drawn && wait_until 10 settled; }
 target48() { local b; b=$(bounds "$1"); [ -n "$b" ] || return 1; set -- $b; [ $(($3 - $1)) -ge $(($(dp 48) - 1)) ] && [ $(($4 - $2)) -ge $(($(dp 48) - 1)) ]; } # target48 text|desc:…: the node is at least 48 x 48 dp
-prefstr() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | sed "s/^[^>]*>//"; }
 hasd() { screen | grep -q "content-desc=\"$1\""; }  # a node with this content-desc
 valid() { screen >/dev/null; [ -s "$SCR" ]; } # a screen read that worked: an absent node means nothing without one
 hasnt() { valid && ! has "$1"; }

@@ -1,5 +1,5 @@
 # dock slots, clock block resize/remove, widgets add/remove
-docked_n() { prefstr dock | sed 's/&#10;/\n/g' | grep -c .; } # filled dock slots
+docked_n() { pref dock | sed 's/&#10;/\n/g' | grep -c .; } # filled dock slots
 hostviews() { dump | grep -o 'class="android.appwidget.AppWidgetHostView"' | wc -l; }
 longpress() { A shell input swipe "$1" "$2" "$1" "$2" 1300; }
 
@@ -35,13 +35,13 @@ if [ -n "$x1" ]; then
   read -r hx hy <<<"$(cx "desc:Ridimensiona bordo inferiore")"
   A shell input swipe "$hx" "$hy" "$hx" $((hy - $(dp 120))) 800
   wait_until 5 nod "Ridimensiona bordo inferiore"
-  prefstr blocks | grep -q 'rowSpan&quot;:1' && ok "blocks pref stores the new size (rowSpan 1)" || ko "blocks pref: $(prefstr blocks)"
+  pref blocks | grep -q 'rowSpan&quot;:1' && ok "blocks pref stores the new size (rowSpan 1)" || ko "blocks pref: $(pref blocks)"
   shot 151-clock-resized
   seed classic # a fresh clock: the menu on a block just resized is not reliable to hit on a 1-row clock
   longpress $(((x1 + x2) / 2)) $(((y1 + y2) / 2))
   tap "Rimuovi"
-  wait_until 5 test -z "$(prefstr blocks | grep -o 'id&quot;:&quot;clock')"
-  prefstr blocks | grep -q 'id&quot;:&quot;clock' && ko "clock still in blocks" || ok "Rimuovi: the clock block is gone"
+  wait_until 5 test -z "$(pref blocks | grep -o 'id&quot;:&quot;clock')"
+  pref blocks | grep -q 'id&quot;:&quot;clock' && ko "clock still in blocks" || ok "Rimuovi: the clock block is gone"
   longpress $((W / 2)) 1900
   expect "Aggiungi orologio" && A shell input keyevent KEYCODE_BACK
 else ko "no clock block"; fi
@@ -57,11 +57,11 @@ tap "Aggiungi widget"   # the in-app picker lists "App · widget"
 expect "Clock · Stopwatch" && tap "Clock · Stopwatch"
 wait_until 10 test "$(hostviews)" -gt "$before"
 [ "$(hostviews)" -gt "$before" ] && ok "Stopwatch widget block appears on the home" || ko "no widget on the home after picking it"
-prefstr blocks | grep -q 'id&quot;:&quot;[0-9]' && ok "blocks pref holds the widget" || ko "no widget id in blocks: $(prefstr blocks)"
+pref blocks | grep -q 'id&quot;:&quot;[0-9]' && ok "blocks pref holds the widget" || ko "no widget id in blocks: $(pref blocks)"
 shot 152-widget-added
 read -r wx1 wy1 wx2 wy2 <<<"$(bounds "desc:Stopwatch")"
 longpress $(((wx1 + wx2) / 2)) $(((wy1 + wy2) / 2))
 tap "Rimuovi"
 wait_until 5 test "$(hostviews)" -le "$before"
 [ "$(hostviews)" -le "$before" ] && ok "Rimuovi: the widget block is gone" || ko "widget still on the home"
-prefstr blocks | grep -q 'id&quot;:&quot;[0-9]' && ko "widget still in blocks" || ok "its cells are free again (no widget in blocks)"
+pref blocks | grep -q 'id&quot;:&quot;[0-9]' && ko "widget still in blocks" || ok "its cells are free again (no widget in blocks)"
