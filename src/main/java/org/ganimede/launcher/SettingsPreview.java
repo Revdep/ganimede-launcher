@@ -127,6 +127,7 @@ final class SettingsPreview extends FrameLayout {
         glp.topMargin = px(16);
         home.addView(grid, glp);
         dots = new LinearLayout(c);
+        dots.setLayoutDirection(LAYOUT_DIRECTION_LTR); // as on the home: dot i is page i
         dots.setGravity(Gravity.CENTER);
         home.addView(dots, new LinearLayout.LayoutParams(-1, px(16)));
         dock = new LinearLayout(c);

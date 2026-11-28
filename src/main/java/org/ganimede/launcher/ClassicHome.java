@@ -125,6 +125,7 @@ final class ClassicHome {
             }
         });
         dots = new LinearLayout(ui.a);
+        dots.setLayoutDirection(View.LAYOUT_DIRECTION_LTR); // dot i is page i, which runs left to right for both hands
         dots.setGravity(Gravity.CENTER);
         dots.setContentDescription(ui.tr("Arrange pages"));
         dots.setOnClickListener(v -> arrangePages());

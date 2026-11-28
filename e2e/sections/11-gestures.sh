@@ -195,6 +195,16 @@ step "Gestures: left-hand Classic keeps pages and block edges as on screen (find
 seed classic boolean drawer false boolean left_handed true; wait_until 10 pages_ge2; wait_until 5 has Calendar
 read -r cx0 _ <<<"$(cx Calendar)"
 [ -n "$cx0" ] && [ "$cx0" -lt $((W / 2)) ] && ok "left-handed: Calendar in its left column" || ko "left-handed: Calendar at x ${cx0:-none}, not in the left column"
+# the page dots run left to right for both hands (c2-3): on page 1 the lit dot is the left one, as right-handed.
+# Two dots: the half of their strip that is brighter than the other is the lit one's (the faded one is 40% as strong).
+dots_lit() { local b; b=$(bounds "desc:Regola pagine") || return 1; set -- $b; local c=$((($1 + $3) / 2)) y=$((($2 + $4) / 2)) h=$(dp 15)
+  A exec-out screencap -p | magick png:- -crop "$((h * 2))x$(dp 8)+$((c - h))+$((y - $(dp 4)))" +repage -crop 2x1@ +repage -format '%[fx:mean]\n' info: 2>/dev/null \
+    | awk 'NR==1{l=$1} NR==2{r=$1} END{print (l>r) ? "left" : "right"}'; }
+dots_lh=$(dots_lit)
+seed classic boolean drawer false boolean left_handed false; wait_until 10 pages_ge2; wait_until 5 has Calendar
+dots_rh=$(dots_lit)
+[ -n "$dots_lh" ] && [ "$dots_lh" = "$dots_rh" ] && ok "left-handed: page 1's lit dot is on the $dots_lh as right-handed" || ko "left-handed: lit dot on the ${dots_lh:-?}, right-handed on the ${dots_rh:-?}"
+seed classic boolean drawer false boolean left_handed true; wait_until 10 pages_ge2; wait_until 5 has Calendar
 swipe_h $((W - $(dp 40))) $(dp 40)
 side_app=$(texts | grep -E 'text="[A-Za-z]' | head -1 | sed 's/ text="//; s/"$//')
 hasnt Calendar && [ -n "$side_app" ] && ok "left-handed: swipe left shows page 2 (“$side_app”)" || ko "left-handed: swipe left did not show page 2"
