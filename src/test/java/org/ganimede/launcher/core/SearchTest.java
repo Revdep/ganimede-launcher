@@ -111,6 +111,14 @@ public class SearchTest {
         yes(Search.score("TeamViewer", "viewer") > 0, "Viewer starts after the lower-to-upper change");
     }
 
+    public static void testWordStartInAcronymsAndIdeographs() {
+        yes(Search.score("PDFReader", "reader") > 0, "Reader starts after the capitals PDF");
+        yes(Search.score("GMaps", "maps") > 0, "Maps starts after the capital G");
+        eq(0, Search.score("PDFReader", "dfr"), "inside the capitals stays out");
+        yes(Search.score("微信支付", "支付") > 0, "every ideograph starts a word: no spaces in Chinese");
+        eq(0, Search.score("שלום", "לום"), "other scripts' letters (Hebrew) are not each a word start");
+    }
+
     public static void testEveryTypedWordStartsADifferentWord() {
         yes(Search.score("Posta Italiana", "pos ita") > 0, "in the name's order");
         yes(Search.score("Posta Italiana", "ita pos") > 0, "in any order");

@@ -9,13 +9,17 @@ import java.util.function.ToIntFunction;
 
 /** The app search: how well a name matches what's typed, the A–Z sections, and the web engines. */
 public final class Search {
-    /** Word start (Launcher3's breaks): after a non-letter/digit, lower to upper case, and letter to digit either way. */
+    /**
+     * Word start (Launcher3's breaks): after a non-letter/digit, lower to upper case, the last capital of an acronym when
+     * a lower-case letter follows (PDFReader, GMaps), letter to digit either way; and every ideograph, which has no spaces.
+     */
     private static boolean wordStart(String s, int i) {
         if (i == 0) return true;
         char c = s.charAt(i), p = s.charAt(i - 1);
         if (!Character.isLetterOrDigit(c)) return false;
-        return !Character.isLetterOrDigit(p) || (Character.isUpperCase(c) && !Character.isUpperCase(p))
-                || Character.isDigit(c) != Character.isDigit(p);
+        boolean acronymEnd = Character.isUpperCase(c) && Character.isUpperCase(p) && i + 1 < s.length() && Character.isLowerCase(s.charAt(i + 1));
+        return !Character.isLetterOrDigit(p) || (Character.isUpperCase(c) && !Character.isUpperCase(p)) || acronymEnd
+                || Character.isDigit(c) != Character.isDigit(p) || Character.isIdeographic(c);
     }
 
     private static final java.util.regex.Pattern MARKS = java.util.regex.Pattern.compile("\\p{M}");
