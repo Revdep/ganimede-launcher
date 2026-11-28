@@ -96,7 +96,17 @@ public final class Search {
 
     /** The number holds the typed digits, whatever the spaces, dashes or international prefix (+39, 0039) around them. */
     public static boolean numberMatches(String number, String query) {
-        return number != null && digits(number).contains(digits(query));
+        if (number == null) return false;
+        String saved = digits(number), typed = digits(query), q = query.trim();
+        if (saved.contains(typed)) return true;
+        if (!q.startsWith("+") && !q.startsWith("00")) return false;
+        // typed with a prefix the saved number may lack: the country code is 1 to 3 digits, the rest must still be 3+
+        int from = q.startsWith("+") ? 0 : 2;
+        for (int cc = 1; cc <= 3; cc++) {
+            String rest = typed.substring(Math.min(typed.length(), from + cc));
+            if (rest.length() >= 3 && saved.contains(rest)) return true;
+        }
+        return false;
     }
 
     private static String digits(String s) {
