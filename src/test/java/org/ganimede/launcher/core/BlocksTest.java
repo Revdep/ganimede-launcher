@@ -127,4 +127,16 @@ public class BlocksTest {
         Blocks.Result r = Blocks.put(Blocks.edgeStep(at, "bottom", -1), 1, 4, 4, List.of(at), cells());
         yes(!r.changed, "a block cannot vanish by shrinking");
     }
+
+    // Finding c3 M15: an arrow key on a focused handle moves that edge the way the arrow points
+    public static void testArrowOnAHandleMovesItsEdgeTowardsTheArrow() {
+        eq(1, Blocks.arrowStep("left", "left"), "left edge, arrow left: grows");
+        eq(-1, Blocks.arrowStep("left", "right"), "left edge, arrow right: shrinks");
+        eq(1, Blocks.arrowStep("right", "right"), "right edge, arrow right: grows");
+        eq(-1, Blocks.arrowStep("right", "left"), "right edge, arrow left: shrinks");
+        eq(1, Blocks.arrowStep("top", "up"), "top edge, arrow up: grows");
+        eq(-1, Blocks.arrowStep("bottom", "up"), "bottom edge, arrow up: shrinks");
+        eq(1, Blocks.arrowStep("bottom", "down"), "bottom edge, arrow down: grows");
+        eq(0, Blocks.arrowStep("left", "up"), "an arrow across the edge does nothing");
+    }
 }

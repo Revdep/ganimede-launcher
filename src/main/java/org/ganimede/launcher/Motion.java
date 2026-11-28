@@ -23,6 +23,9 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 import android.widget.ScrollView;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Every pop-up and bottom sheet of the home screen: a full-screen see-through window holding one card that grows out
  * of what was touched and shrinks back onto it (Morph has the geometry), over a dim that fades with it. However it
@@ -31,6 +34,8 @@ import android.widget.ScrollView;
  */
 final class Motion extends Dialog {
     private static final int DIM = 0x99;
+    /** Every pop-up and sheet on screen now, so Home can close them all (Launcher3's closeAllOpenViews). */
+    private static final List<Motion> OPEN = new ArrayList<>();
 
     private final Ui ui;
     private final View card;
@@ -96,6 +101,7 @@ final class Motion extends Dialog {
     @Override
     public void show() {
         super.show();
+        OPEN.add(this);
         View decor = ui.a.getWindow().getDecorView();
         pointX = ui.touchX;
         pointY = ui.touchY;
@@ -159,7 +165,13 @@ final class Motion extends Dialog {
         dim.setAlpha(Math.round(DIM * p));
     }
 
+    /** Closes every pop-up and sheet open (each with its close animation). */
+    static void dismissAll() {
+        for (Motion m : new ArrayList<>(OPEN)) m.dismiss();
+    }
+
     private void end() {
+        OPEN.remove(this);
         if (run != null) run.cancel();
         ui.a.getWindow().getDecorView().getOverlay().remove(dim);
         if (!ui.a.isDestroyed()) super.dismiss(); // else its window went with the screen it belonged to

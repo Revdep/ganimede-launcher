@@ -26,6 +26,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.window.OnBackInvokedDispatcher;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -74,7 +75,10 @@ public class MainActivity extends Activity implements Actions.Home {
             updateClock();
         }
     };
+    /** Settings written so far, and how many (and which dark/light mode) the screen was last built for: onResume rebuilds only if they differ. */
+    private int prefChanges, builtAtChanges = -1, builtAtUiMode = -1;
     private final SharedPreferences.OnSharedPreferenceChangeListener prefWatch = (p, key) -> {
+        prefChanges++;
         if (WeatherStore.KEY.equals(key)) handler.post(this::updateWeather);
         else if ("fab_icon".equals(key)) handler.post(() -> fab.style(!listMode)); // a late import, restore or fallback
     };
@@ -135,6 +139,8 @@ public class MainActivity extends Activity implements Actions.Home {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = Prefs.of(this);
+        if (Build.VERSION.SDK_INT >= 33)
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::back);
         launcherApps = getSystemService(LauncherApps.class);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
@@ -156,7 +162,7 @@ public class MainActivity extends Activity implements Actions.Home {
         classic = new ClassicHome(ui, layout, apps, entries, widgets, drag, launcher, landing, handler, this::refreshAll,
                 v -> menus.home((String) v.getTag()), id -> menus.block(id));
         widgets.setClassic(classic);
-        folders = new Folders(ui, sheets, layout, apps, entries, launcher, widgets, icons, classic, this::refreshAll,
+        folders = new Folders(ui, sheets, layout, apps, entries, widgets, icons, classic, this::refreshAll,
                 (entry, folder) -> menus.forEntry(entry, folder));
         menus = new Menus(ui, sheets, layout, apps, launcher, launcherApps, folders, icons, classic, widgets, notices, this::refreshAll);
         media = new MediaRows(ui, apps, launcher, handler);
@@ -296,6 +302,8 @@ public class MainActivity extends Activity implements Actions.Home {
 
     private void refreshAll() {
         if (isDestroyed()) return; // a background job finishing after the screen closed
+        builtAtChanges = prefChanges;
+        builtAtUiMode = getResources().getConfiguration().uiMode;
         applyLook();
         list.clearCache(); // labels, icons or notifications may have changed
         folders.reshowIfChanged();
@@ -333,11 +341,16 @@ public class MainActivity extends Activity implements Actions.Home {
         }
         screen.alpha.setLetters(Search.sections(visible.stream().map(apps::label).collect(java.util.stream.Collectors.toList())));
         widgets.rebuild();
+        refreshLive();
+        list.rebuild();
+    }
+
+    /** What changes with time alone: the player, the next event, the clock and date. */
+    private void refreshLive() {
         media.updateMedia();
         media.updateMusic();
         screen.outlook.updateEvent();
         updateClock();
-        list.rebuild();
     }
 
     private void refreshNotifications() {
@@ -443,12 +456,18 @@ public class MainActivity extends Activity implements Actions.Home {
             classic.stopResizing();
             classic.firstPage();
         }
+        if (i.hasCategory(Intent.CATEGORY_HOME)) Motion.dismissAll(); // Home closes the pop-ups, menus and "Arrange pages"
         showHome();
         landing.answer(i);
     }
 
+    /** Back before Android 13 (from 13 the callback below gets it, with the system's predictive back). */
     @Override
     public void onBackPressed() {
+        back();
+    }
+
+    private void back() {
         if (classic.stopResizing()) return;
         if (listMode) closeList();
     }
@@ -517,7 +536,10 @@ public class MainActivity extends Activity implements Actions.Home {
             loadApps();
         }
         updateWeather();
-        refreshAll();
+        // Back from an app: rebuilding everything is for a setting, the system's dark mode or the apps having changed
+        // (Apps.load calls refreshAll itself); otherwise only what moves with time.
+        if (builtAtChanges == prefChanges && builtAtUiMode == getResources().getConfiguration().uiMode) refreshLive();
+        else refreshAll();
         isResumed = true;
         enterAnim();
     }

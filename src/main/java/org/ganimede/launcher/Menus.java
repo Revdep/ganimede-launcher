@@ -3,6 +3,7 @@ package org.ganimede.launcher;
 import static org.ganimede.launcher.Sheets.item;
 
 import org.ganimede.launcher.Apps.Item;
+import org.ganimede.launcher.core.FolderOrder;
 import org.ganimede.launcher.core.Safe;
 
 import android.Manifest;
@@ -138,8 +139,8 @@ final class Menus {
         rows.add(item(null, ui.tr("More"), null));
         if (isFav) {
             int at = fav.indexOf(it.key);
-            if (at > 0) rows.add(item("up", ui.tr("Move up"), () -> { fav.set(at, fav.get(at - 1)); fav.set(at - 1, it.key); saveFavourites(fav); }));
-            if (at < fav.size() - 1) rows.add(item("down", ui.tr("Move down"), () -> { fav.set(at, fav.get(at + 1)); fav.set(at + 1, it.key); saveFavourites(fav); }));
+            if (at > 0) rows.add(item("up", ui.tr("Move up"), () -> saveFavourites(FolderOrder.move(fav, at, at - 1))));
+            if (at < fav.size() - 1) rows.add(item("down", ui.tr("Move down"), () -> saveFavourites(FolderOrder.move(fav, at, at + 1))));
         }
         rows.add(item("music", (layout.inSet("music_apps", it.key) ? "✓ " : "") + ui.tr("Music app (show with headphones)"), () -> toggleSet("music_apps", it.key)));
         rows.add(item("pause", (layout.inSet("breaker_apps", it.key) ? "✓ " : "") + ui.tr("Break reminder"), () -> {

@@ -3,6 +3,7 @@ package org.ganimede.launcher;
 import org.ganimede.launcher.core.Backup;
 import org.ganimede.launcher.core.Blocks;
 import org.ganimede.launcher.core.LimitedInputStream;
+import org.ganimede.launcher.core.Paging;
 import org.ganimede.launcher.core.Safe;
 
 import android.appwidget.AppWidgetHost;
@@ -141,7 +142,7 @@ final class SettingsBackup {
                 if (a.length() == 0) return true;
                 JSONObject b = a.getJSONObject(0);
                 return b.length() == 6 && b.optString("id").equals("clock") && b.optInt("page", -1) >= 0
-                        && b.optInt("page") < 100 && b.optInt("col", -1) >= 0 && b.optInt("col") < 10
+                        && b.optInt("page") < Paging.MAX_PAGES && b.optInt("col", -1) >= 0 && b.optInt("col") < 10
                         && b.optInt("row", -1) >= 0 && b.optInt("row") < 8
                         && b.optInt("colSpan", 0) > 0 && b.optInt("colSpan") <= 10
                         && b.optInt("rowSpan", 0) > 0 && b.optInt("rowSpan") <= 8;

@@ -115,8 +115,8 @@ final class DragDrop {
         if (ui.haptics()) v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         if (bar.getChildCount() > 1) bar.getChildAt(1).setVisibility(from.startsWith("b:") ? View.GONE : View.VISIBLE);
         bar.setVisibility(View.VISIBLE); // before the drag starts, so its targets hear about it
-        v.startDragAndDrop(ClipData.newPlainText("ganimede", entry), new View.DragShadowBuilder(v), new Drag(entry, from), 0);
-        v.setAlpha(0.25f);
+        if (v.startDragAndDrop(ClipData.newPlainText("ganimede", entry), new View.DragShadowBuilder(v), new Drag(entry, from), 0)) v.setAlpha(0.25f);
+        else bar.setVisibility(View.GONE); // the system refused: no drag will end to hide it
     }
 
     /**
@@ -132,7 +132,7 @@ final class DragDrop {
     /** Long-press opens the entry's menu and arms the drag. */
     private boolean[] arm(View v, Runnable openMenu) {
         boolean[] armed = new boolean[1];
-        v.setOnLongClickListener(x -> {
+        ui.onLongPress(v, x -> {
             longPressed(ui, x, openMenu, true);
             armed[0] = true;
             return true;
@@ -176,10 +176,8 @@ final class DragDrop {
             this.view = view;
             this.id = id;
             longPress = () -> {
-                if (ui.haptics()) view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                openMenu.run();
+                longPressed(ui, view, openMenu, true);
                 armed = true;
-                view.getParent().requestDisallowInterceptTouchEvent(true);
             };
         }
 

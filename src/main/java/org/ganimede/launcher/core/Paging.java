@@ -2,9 +2,12 @@ package org.ganimede.launcher.core;
 
 /**
  * Which home page a sideways swipe lands on, and which pages may hold the focus. Pages run left to right for both
- * hands (left-hand use mirrors the rest of the home, not the pages: their grid is in screen coordinates).
+ * hands (left-hand use mirrors the List home only; Classic is never mirrored).
  */
 public final class Paging {
+    /** The most home pages: what a backup keeps (Backup's grid_pages) and every place that adds a page stops at. */
+    public static final int MAX_PAGES = 100;
+
     /**
      * A flick faster than {@code flick} (px/s) turns the page its way, or cancels a drag it goes against; otherwise
      * a drag of a sixth of the width turns the page. dx and vx are the finger's travel and speed (negative = left).
@@ -23,8 +26,13 @@ public final class Paging {
     public static int[] focusPages(int current, int pages, int side) {
         if (pages <= 0) return new int[0];
         current = Math.max(0, Math.min(pages - 1, current));
-        int next = current + side;
-        return side == 0 || next < 0 || next >= pages ? new int[]{current} : new int[]{current, next};
+        int next = turn(current, pages, side);
+        return next == current ? new int[]{current} : new int[]{current, next};
+    }
+
+    /** The page a side key turns to from {@code current} (side: -1 left, 1 right): the next one, or the same at the end. */
+    public static int turn(int current, int pages, int side) {
+        return Math.max(0, Math.min(pages - 1, current + side));
     }
 
     private Paging() {}

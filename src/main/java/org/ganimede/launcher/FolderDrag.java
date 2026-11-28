@@ -2,6 +2,7 @@ package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.FolderOrder;
 import org.ganimede.launcher.core.Gestures;
+import org.ganimede.launcher.core.Morph;
 
 import android.os.Bundle;
 import android.view.MotionEvent;
@@ -80,7 +81,7 @@ final class FolderDrag {
         keys.add(key);
         order.add(v);
         committed = new ArrayList<>(keys);
-        v.setOnLongClickListener(x -> {
+        ui.onLongPress(v, x -> {
             if (touched != null && x != touched) return true; // a finger that came down later elsewhere owns downX/downY
             boolean finger = x == touched; // else TalkBack's long-press: no finger is down, nothing to drag
             DragDrop.longPressed(ui, x, () -> menu.accept(keys.get(views.indexOf(x))), finger);
@@ -112,7 +113,7 @@ final class FolderDrag {
                 // keeps TalkBack on the icon just moved instead of jumping elsewhere
                 //noinspection AccessibilityFocus: focus returns to the node the action was performed on
                 host.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
-                host.announceForAccessibility(ui.f("Position %1$d of %2$d", to + 1, order.size()));
+                Ui.announce(host, ui.f("Position %1$d of %2$d", to + 1, order.size()));
                 return true;
             }
         });
@@ -246,7 +247,7 @@ final class FolderDrag {
             parent[i].addView(w, index[i], params[i]);
             w.setTranslationX(tx[i]);
             w.setTranslationY(ty[i]);
-            w.animate().translationX(0).translationY(0).setDuration(150);
+            Anim.to(w, Morph.SNAP_MS).translationX(0).translationY(0);
         }
         views.clear();
         views.addAll(order);
@@ -279,7 +280,7 @@ final class FolderDrag {
         for (int i = 0; i < order.size(); i++) {
             View w = order.get(i);
             int home = views.indexOf(w);
-            if (w != except) w.animate().translationX(sx[i] - sx[home]).translationY(sy[i] - sy[home]).setDuration(150);
+            if (w != except) Anim.to(w, Morph.SNAP_MS).translationX(sx[i] - sx[home]).translationY(sy[i] - sy[home]);
         }
     }
 

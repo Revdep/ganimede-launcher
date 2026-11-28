@@ -49,11 +49,22 @@ public class PagingTest {
         eq("[2]", focus(2, 3, 1), "no page after the last");
     }
 
-    // Finding c1-2: left-hand use mirrors the home, but the pages stay left to right (page 1 leftmost, as the grid's
-    // cells): a swipe and the focus go the same way for both hands.
-    public static void testOneDirectionForBothHands() {
-        eq(1, Paging.target(0, 3, -200, 0, W, FLICK), "dragging left goes forward");
-        eq(0, Paging.target(0, 3, 200, 0, W, FLICK), "dragging right from page 1 stays");
+    // Classic is never mirrored: the focus goes right for both hands (the swipe's own direction is covered above).
+    public static void testFocusGoesRight() {
         eq("[0, 1]", focus(0, 2, 1), "right: the next page");
+    }
+
+    // Finding c3 M5: one page limit, the one a backup accepts.
+    public static void testMaxPagesIsWhatABackupKeeps() {
+        org.ganimede.launcher.Expect.yes(Backup.fits("grid_pages", Paging.MAX_PAGES), "the last page count a backup keeps");
+        org.ganimede.launcher.Expect.yes(!Backup.fits("grid_pages", Paging.MAX_PAGES + 1), "one more is out");
+    }
+
+    // Finding c3 P2-2: a side key with no icon to move to turns the page whole, never half
+    public static void testSideKeyTurnsOnePageAndStaysInRange() {
+        eq(2, Paging.turn(1, 4, 1), "right");
+        eq(0, Paging.turn(1, 4, -1), "left");
+        eq(0, Paging.turn(0, 4, -1), "left on the first page stays");
+        eq(3, Paging.turn(3, 4, 1), "right on the last page stays");
     }
 }

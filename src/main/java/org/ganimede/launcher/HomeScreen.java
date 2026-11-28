@@ -82,7 +82,7 @@ final class HomeScreen {
         home.setOrientation(LinearLayout.VERTICAL);
         home.setGravity(Gravity.BOTTOM);
         home.setPaddingRelative(ui.dp(40), 0, ui.dp(72), ui.dp(64)); // start 40dp, end 72dp, bottom 64dp
-        home.setOnLongClickListener(v -> { menus.home(null); return true; });
+        ui.onLongPress(home, v -> { menus.home(null); return true; });
         GestureDetector homeTaps = new GestureDetector(activity, new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent e) { return true; }
             @Override public boolean onDoubleTap(MotionEvent e) { activity.quickLock(); return true; }
@@ -143,7 +143,7 @@ final class HomeScreen {
         // The panel's empty part is the home too: the list fills the panel so a long-press there reaches it
         // (a scroll view itself never reports long-presses).
         favScroll.setFillViewport(true);
-        favBox.setOnLongClickListener(v -> { menus.home(null); return true; });
+        ui.onLongPress(favBox, v -> { menus.home(null); return true; });
         favScroll.setVerticalScrollBarEnabled(false);
         favScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         favScroll.setFadingEdgeLength(ui.dp(24));

@@ -171,3 +171,34 @@ pref_lacks folder:sc 'zz1' && ok "the shortcut is no longer stored" || ko "the s
 pref folder:sc | grep -q 'deskclock.*calendar' && ok "Clock and Calendar keep their order" || ko "folder:sc = $(pref folder:sc)"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Calendar"
 
+
+step "Folders: New folder made from an open pop-up replaces it, never stacks over it (c3 P2-1)"
+seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock"]}' string fav 'f:ord' del grid
+tap Ordine; expect "Clock"; wait_until 5 settled
+scrolls() { screen | grep -c 'class="android.widget.ScrollView"'; }
+one=$(scrolls)
+read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
+wait_until 5 has "Aggiungi a una cartella pop-up" && tap "Aggiungi a una cartella pop-up"
+wait_until 5 has "Nuova cartella" && tap "Nuova cartella"
+wait_until 5 has "Nome cartella" && typ Altra && tap "Crea"
+wait_until 5 has "Più tardi" && tap "Più tardi"
+wait_until 5 settled
+[ "$(scrolls)" = "$one" ] && ok "one pop-up card on screen after the new folder opened (as before: $one ScrollView)" || ko "ScrollViews: $(scrolls), with one pop-up open there were $one"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Clock"
+hasnt "Clock" && ok "Back closes the only pop-up, none is left under it" || ko "an older pop-up was left open under the new one"
+
+step "Folders: a tap on a shortcut closes the pop-up, as a tap on an app does (c3 M2)"
+seed classic string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta"]}' string fav 'f:sc' del grid
+tap Scorciatoie; expect "Zz Posta"; wait_until 5 settled
+tap "Zz Posta"
+wait_until 8 hasnt "Zz Posta" && ok "the pop-up closed on the shortcut's tap" || ko "the pop-up stayed open after tapping the shortcut"
+
+step "Folders: Home closes an open pop-up (c3 M1)"
+seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock"]}' string fav 'f:ord' del grid
+tap Ordine; expect "Clock"; wait_until 5 settled
+A shell input keyevent KEYCODE_HOME
+wait_until 5 hasnt "Clock" && ok "Home closed the pop-up" || ko "the pop-up stayed open after Home"
+read -r ax ay <<<"$(cx Ordine)"; hold "$ax" "$ay"
+wait_until 5 has "Rinomina"
+A shell input keyevent KEYCODE_HOME
+wait_until 5 hasnt "Rinomina" && ok "Home closed the folder's menu" || ko "the menu stayed open after Home"

@@ -199,6 +199,21 @@ wait_until 5 settled
 aligned() { hasnt Calendar || { read -r cx1 _ <<<"$(cx Calendar)"; [ -n "$cx1" ] && [ "$((cx1 - cx0))" -ge -3 ] && [ "$((cx1 - cx0))" -le 3 ]; }; }
 wait_until 5 aligned && ok "DPAD_RIGHT past the last column: the pager rests on a page" || ko "DPAD_RIGHT left the pager between pages (Calendar at x ${cx1:-?}, was $cx0)"
 
+step "Gestures: a side key towards an empty page turns the whole page, never half (c3 P2-2)"
+seed classic int grid_pages 2 boolean drawer true; wait_until 5 has Calendar # page 2 holds nothing to focus
+A shell input keyevent KEYCODE_DPAD_DOWN # a key leaves touch mode: the home hands the focus to a view
+for _ in 1 2 3 4 5 6 7 8; do A shell input keyevent KEYCODE_DPAD_RIGHT; done
+wait_until 5 settled
+wait_until 5 hasnt Calendar && ok "DPAD_RIGHT towards an empty page 2: the pager is on page 2, not half way" || ko "the pager stopped between the pages (Calendar still on screen)"
+A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar
+
+step "Gestures: left-hand Classic mirrors nothing, the dock's first slot is on the left (c3 M13)"
+seed classic boolean left_handed true string dock "com.google.android.calendar/com.android.calendar.AllInOneActivity"
+wait_until 5 hasd "Calendar" # the dock icon's label is a content-desc
+read -r dx _ <<<"$(cx "desc:Calendar")"
+[ -n "$dx" ] && [ "$dx" -lt $((W / 2)) ] && ok "left-handed Classic: the first dock slot is on the left (x $dx)" || ko "left-handed Classic: the first dock slot at x ${dx:-none}, not on the left"
+setp del left_handed del dock
+
 step "Gestures: left-hand Classic keeps pages and block edges as on screen (finding c1-2)"
 # Left-hand use mirrors the home, not the classic pages: page 1 stays leftmost, a cell's column and a block's left edge
 # are the ones on screen. Mirrored, Home showed page 2, a key gave the focus to the hidden page and the left handle moved the right edge.

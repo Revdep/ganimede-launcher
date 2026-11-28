@@ -394,8 +394,8 @@ final class SettingsPreview extends FrameLayout {
         alpha.setLetters(Search.sections(visible.stream().map(ap -> Apps.label(p, ap)).collect(java.util.stream.Collectors.toList())));
         alpha.setVisibility(p.getBoolean("alpha_home", true) && !classic ? VISIBLE : GONE);
         alpha.setTranslationY(px(p.getInt("alpha_y", 0)));
-        // Left-hand use mirrors the whole preview, like the home screen.
-        stage.setLayoutDirection(Ui.handDirection(p));
+        // Left-hand use mirrors the whole List preview, like the home screen (Classic never mirrors).
+        stage.setLayoutDirection(Ui.handDirection(p, classic));
         stage.setBackgroundColor(Colors.veil(p.getInt("dim_home", 0), dark)); // the home wallpaper darkened as on the phone
         QuickButton.paint(fab, p, accent);
         fab.setVisibility(p.getBoolean("fab", false) ? VISIBLE : GONE);

@@ -60,9 +60,9 @@ final class Ui {
         return Colors.alpha(darkText ? 0x000000 : 0xFFFFFF, Math.round(dockAlpha(p) * 2.55f));
     }
 
-    /** Left-hand use mirrors the home (and its preview): alphabet on the left, everything aligned right. */
-    static int handDirection(SharedPreferences p) {
-        return p.getBoolean("left_handed", false) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR;
+    /** Left-hand use mirrors the List home (and its preview): alphabet on the left, everything aligned right. Classic never mirrors. */
+    static int handDirection(SharedPreferences p, boolean classic) {
+        return !classic && p.getBoolean("left_handed", false) ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR;
     }
 
     /** The dock shelf's opacity in percent; before it had a slider it was only on (20) or off. */
@@ -91,6 +91,17 @@ final class Ui {
 
     boolean haptics() {
         return prefs.getBoolean("haptics", true);
+    }
+
+    /** Says something to a screen reader. The one place to change when announceForAccessibility goes (deprecated from API 36). */
+    static void announce(View v, CharSequence text) {
+        v.announceForAccessibility(text);
+    }
+
+    /** Arms a long-press: the system's own tick (the view's haptic feedback) follows the "haptics" setting, not only ours. */
+    void onLongPress(View v, View.OnLongClickListener l) {
+        v.setHapticFeedbackEnabled(haptics());
+        v.setOnLongClickListener(l);
     }
 
     /** The typeface a font choice names (the one place a font preference becomes a Typeface). */
