@@ -103,17 +103,20 @@ public class NotifService extends NotificationListenerService {
         SharedPreferences p = Prefs.of(this);
         // held keys are in prefs, not memory: after a process restart Android still re-posts them at the summary
         long at = System.currentTimeMillis();
-        Set<String> held = p.getBoolean("summary", false) ? Summary.expire(p.getStringSet("summary_held", Set.of()), at) : Set.of();
-        if (held.size() != p.getStringSet("summary_held", Set.of()).size()) p.edit().putStringSet("summary_held", held).apply(); // switched off or stale
+        boolean on = p.getBoolean("summary", false);
+        Set<String> stored = p.getStringSet("summary_held", Set.of());
+        Set<String> held = on ? Summary.expire(stored, at) : Set.of();
+        if (held.size() != stored.size()) p.edit().putStringSet("summary_held", held).apply(); // switched off or stale
         if (Summary.cameBack(Summary.due(held, s.getKey()), at)) {
             p.edit().putStringSet("summary_held", Summary.release(held, s.getKey())).apply();
             return false;
         }
-        if (Summary.isDue(p.getLong("summary_last", 0), System.currentTimeMillis())) return false;
+        long was = p.getLong("summary_last", 0);
+        if (Summary.isDue(was, at)) return false;
         Notification n = s.getNotification();
         Ranking r = new Ranking();
         boolean known = rank != null && rank.getRanking(s.getKey(), r);
-        if (!Summary.waits(new Summary.Rules(p.getBoolean("summary", false),
+        if (!Summary.waits(new Summary.Rules(on,
                 p.getStringSet("summary_apps", Set.of()).contains(s.getPackageName()),
                 p.getBoolean("summary_skip_chats", true), p.getBoolean("summary_silent", false)),
                 new Summary.Note(s.isClearable(), (n.flags & (Notification.FLAG_ONGOING_EVENT | Notification.FLAG_FOREGROUND_SERVICE)) != 0,
@@ -121,9 +124,9 @@ public class NotifService extends NotificationListenerService {
                         Notification.CATEGORY_MESSAGE.equals(n.category) || (known && Build.VERSION.SDK_INT >= 31 && r.isConversation()),
                         known && r.getImportance() < android.app.NotificationManager.IMPORTANCE_DEFAULT))) return false;
         if (!holding.add(s.getKey())) return true; // a re-post inside the window: its hold is already queued
-        long now = System.currentTimeMillis(), last = Summary.roll(p.getLong("summary_last", 0), now);
+        long last = Summary.roll(was, at);
         p.edit().putLong("summary_last", last).apply();
-        long wait = Summary.upcoming(last, now) - now;
+        long wait = Summary.upcoming(last, at) - at;
         String key = s.getKey();
         // Snoozing revokes the chat app's audio grants at once (NotificationManagerService.SnoozeNotificationRunnable ->
         // cancelNotificationLocked -> updateUriPermissions(null, r, ...)): its voice notes are kept first. Counted as held
@@ -133,9 +136,9 @@ public class NotifService extends NotificationListenerService {
                 if (!connected) return;
                 snoozeNotification(key, wait);
                 worker.post(() -> {
-                    Set<String> stored = p.getStringSet("summary_held", Set.of());
-                    p.edit().putStringSet("summary_held", Summary.hold(stored, key, now + wait, now))
-                            .putInt("summary_count", Summary.counted(p.getInt("summary_count", 0), stored, key, now + wait)).apply();
+                    Set<String> latest = p.getStringSet("summary_held", Set.of()); // the hold lands later: read again
+                    p.edit().putStringSet("summary_held", Summary.hold(latest, key, at + wait, at))
+                            .putInt("summary_count", Summary.counted(p.getInt("summary_count", 0), latest, key, at + wait)).apply();
                 });
             } catch (RuntimeException e) { // access just lost: shown, not held
                 Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
