@@ -57,17 +57,20 @@ seed classic; setp int grid_cols 5; setp int grid_rows 6; setp int grid_pages 2;
 A shell input swipe $((W - $(dp 40))) $((H / 2)) $(dp 40) $((H / 2)) 250
 wait_until 5 hasnt Calendar && ok "the swipe shows page 2" || ko "the swipe left page 1 on screen"
 wait_until 5 settled
-hold $((W / 2)) $((H / 2))
+# 085: a picture after each step shows (under the dim) which step turns the home back to page 1
+hold $((W / 2)) $((H / 2)); wait_until 5 has "Crea cartella pop-up"; shot 085-1-menu
 tap "Crea cartella pop-up"; wait_until 5 has "Nome cartella" && ok "the name dialog shows" || ko "no “Nome cartella” after “Crea cartella pop-up”"
-typ Pag2; tap "Crea"
+wait_until 5 kbd && echo "  INFO: soft keyboard up" || echo "  INFO: no soft keyboard"; shot 085-2-keyboard
+typ Pag2; shot 085-3-typed; tap "Crea"
 wait_until 5 has "Più tardi" && ok "“add apps now?” shows" || ko "no “Più tardi” after “Crea”"
+shot 085-4-add-apps
 id=$(fid); [ -n "$id" ] && ok "folder:$id is stored" || ko "no folder: stored"
 cell=$(pstr grid | sed 's/&quot;/"/g' | grep -o "\"[0-9]*\":\"f:${id:-none}\"" | grep -o '^"[0-9]*' | tr -d '"')
 [ -n "$cell" ] && [ $((cell / 30)) -eq 1 ] && [ $((cell % 5)) -eq 2 ] && ok "grid: f:$id in cell $cell (page 2, column 3)" \
   || ko "grid cell of f:${id:-?}: ${cell:-none} (want page 2 = cells 30-59, column 3); grid = $(pstr grid | sed 's/&quot;/"/g')"
 A shell input keyevent KEYCODE_BACK # "add apps now?": Back says no and opens nothing
 wait_until 5 hasnt "Più tardi" && ok "Back closes “add apps now?”" || ko "“Più tardi” still shown after Back"
-wait_until 5 settled
+wait_until 5 settled; shot 085-5-after-back
 hasnt Calendar && ok "after Back the home is still on page 2" || ko "after Back the home went back to page 1"
 on2=; wait_until 5 has Pag2 && hasnt Calendar && { on2=1; ok "the folder is on page 2"; } || ko "no “Pag2” on page 2"
 read -r px _ <<<"$(cx Pag2)"; near "${px:-0}" $((W / 2)) $((W / 10)) && ok "in the pressed cell" || ko "Pag2 at x=$px, pressed $((W / 2))"
