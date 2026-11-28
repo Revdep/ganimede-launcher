@@ -38,7 +38,7 @@ public enum AppCategory {
             case 5 -> Optional.of(NEWS_AND_MAGAZINES);
             case 6 -> Optional.of(MAPS_AND_NAVIGATION);
             case 7 -> Optional.of(PRODUCTIVITY);
-            case 8 -> Optional.of(TOOLS);
+            case 8 -> Optional.of(TOOLS); // CATEGORY_ACCESSIBILITY: no glyph of its own, deliberately the tools one
             default -> Optional.empty();
         };
     }
