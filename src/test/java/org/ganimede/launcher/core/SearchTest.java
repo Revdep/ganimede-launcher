@@ -144,6 +144,9 @@ public class SearchTest {
         yes(Search.contactMatches("Zz Prova", other, "acme"), "company or email word");
         yes(Search.contactMatches("Zz Prova", other, "boss"), "nickname");
         yes(Search.contactMatches("Zz Prova", other, "pro"), "the name");
+        yes(Search.contactMatches("Mario Rossi", java.util.List.of("Acme Srl"), "mario acme"), "words typed may sit in different entries of the contact");
+        yes(Search.contactMatches("Zz Prova", java.util.List.of("zz.prova@example.org"), "pro pro"), "two words, the name's and the email's");
+        yes(!Search.contactMatches("Zz Prova", java.util.List.of("Boss"), "pro pro"), "one word cannot serve two typed words");
         yes(!Search.contactMatches("Zz Prova", other, "cme"), "letters mid-word stay out");
         yes(!Search.contactMatches("Zz Prova", java.util.List.of(), "rova"), "no other entries, mid-word name");
     }

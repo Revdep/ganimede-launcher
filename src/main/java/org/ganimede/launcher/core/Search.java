@@ -68,12 +68,11 @@ public final class Search {
         return beginsWith(l, q) ? 2 : 1;
     }
 
-    /** A contact stays when its name or any other entry (email, company, nickname) has a word beginning with the text. */
+    /** A contact stays when the typed words each begin a different word of its name and other entries (email, company, nickname) taken together. */
     public static boolean contactMatches(String name, List<String> others, String query) {
-        String q = typed(query);
-        if (scoreTyped(name, q) > 0) return true;
-        for (String o : others) if (o != null && scoreTyped(o, q) > 0) return true;
-        return false;
+        StringBuilder all = new StringBuilder(name);
+        for (String o : others) if (o != null) all.append(' ').append(o);
+        return score(all.toString(), query) > 0;
     }
 
     /** The items whose name matches, best score first; ties go to the one opened most. Each scored once. */
