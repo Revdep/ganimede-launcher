@@ -25,4 +25,10 @@ public class FavouritesTest {
         eq(List.of("e", "c"), Favourites.suggested(visible, List.of("a"), Set.of("d"), k -> uses.get(k)), "refused ones skipped");
         eq(List.of(), Favourites.suggested(visible, List.of(), Set.of(), k -> 2), "used fewer than 3 times: not suggested");
     }
+
+    public static void testTheHintNeedsAnEmptyColumnAndALoadedAppList() {
+        eq(true, Favourites.showHint(0, true), "nothing drawn, apps loaded: say how to fill it");
+        eq(false, Favourites.showHint(0, false), "the list is still loading: every favourite was dropped, not missing");
+        eq(false, Favourites.showHint(2, true), "something is drawn");
+    }
 }
