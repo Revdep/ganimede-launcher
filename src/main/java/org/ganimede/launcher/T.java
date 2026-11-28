@@ -143,6 +143,7 @@ final class T {
         it("No notifications", "Nessuna notifica");
         it("%s, 1 notification", "%s, 1 notifica");
         it("%s, %d notifications", "%s, %d notifiche");
+        it("Notifications are not connected: switch access off and on again for Ganimede", "Notifiche non collegate: spegni e riaccendi l'accesso per Ganimede");
         it("Allow notification access in settings first", "Prima consenti l'accesso alle notifiche nelle impostazioni");
         it("Clear all", "Cancella tutte");
         it("Dismiss", "Ignora");
