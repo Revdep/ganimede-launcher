@@ -35,6 +35,7 @@ for mode in list classic; do
   pg_settings; stap "Personalizza"
   wait_until 10 settled
   preview_frame || ko "no preview"
+  wait_until 5 has "Calendar" # the miniature reads the apps off the main thread
   if [ $mode = list ]; then
     pill "Alfabeto"; tap "Alfabeto"; wait_until 5 settled; preview_frame
     p_apps_top=$(top_of "desc:Anteprima: preferiti"); p_apps_bottom=$(bottom_of "desc:Anteprima: preferiti"); p_apps_left=$(left_of "desc:Anteprima: preferiti")
