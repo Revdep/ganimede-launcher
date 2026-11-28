@@ -106,9 +106,7 @@ public class NotifService extends NotificationListenerService {
         Set<String> held = p.getBoolean("summary", false) ? Summary.expire(p.getStringSet("summary_held", Set.of()), at) : Set.of();
         if (held.size() != p.getStringSet("summary_held", Set.of()).size()) p.edit().putStringSet("summary_held", held).apply(); // switched off or stale
         if (Summary.cameBack(Summary.due(held, s.getKey()), at)) {
-            Set<String> rest = new HashSet<>(held);
-            rest.removeIf(e -> e.substring(0, e.lastIndexOf('|')).equals(s.getKey()));
-            p.edit().putStringSet("summary_held", rest).apply();
+            p.edit().putStringSet("summary_held", Summary.release(held, s.getKey())).apply();
             return false;
         }
         if (Summary.isDue(p.getLong("summary_last", 0), System.currentTimeMillis())) return false;
