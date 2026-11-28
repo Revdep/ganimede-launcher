@@ -161,11 +161,10 @@ final class Sunflower {
                 String app = appName.apply(s.getPackage());
                 if (Search.score(l.toString(), q) > 0 || (app != null && Search.startsWith(app, q)))
                     out.add(new Hit(l.toString(), app, s, null));
-                if (out.size() >= 8) break;
             }
         }
-        Search.sortByScore(out, h -> h.label, q);
-        return out;
+        Search.sortByScore(out, h -> h.label, q); // the best eight, not the first eight found
+        return out.size() > 8 ? new ArrayList<>(out.subList(0, 8)) : out;
     }
 
     static List<Hit> settings(Context c, String q) {
