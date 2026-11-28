@@ -1,5 +1,5 @@
 # Folders, the app menu and the hidden-apps round trip; in Classic the menu acts on grid and dock.
-# Local helpers (could move to lib.sh): pstr, nfold, hold, clear_text.
+# Local helpers (could move to lib.sh): pstr, nfold.
 pstr() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\">[^<]*" | sed 's/^[^>]*>//'; } # a string pref, XML-escaped
 nfold() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -c 'name="folder:'; }                         # stored folders
 fid() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o 'name="folder:[0-9]*' | head -1 | grep -o '[0-9]*$'; }
