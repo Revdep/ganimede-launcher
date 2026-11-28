@@ -44,6 +44,12 @@ t "edit_prefs: del removed the key" n grep -q gone "$P"
 t "edit_prefs: del alone, no value" edit_prefs "$P" del a
 t "edit_prefs: del alone removed the key" n grep -q 'name="a"' "$P"
 
+for kind in int boolean string set; do # a kind with no value is a ko (counted in FAIL), never an unbound $3
+  FAIL=0; edit_prefs "$P" $kind k >/dev/null; r=$?
+  t "edit_prefs $kind without a value: ko and return 1" test "$r" = 1 -a "$FAIL" = 1
+done
+FAIL=0
+
 # typ: the text arrives once, spaces included, into an empty field and into one that holds something
 typ "cal bar"
 t "typ: empty field holds the text" test "$(field)" = "cal bar"

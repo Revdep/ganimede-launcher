@@ -239,6 +239,7 @@ put_prefs() {
 edit_prefs() {
   local f="$1" v; shift
   while [ $# -ge 2 ]; do
+    [ "$1" = del ] || [ $# -ge 3 ] || { ko "edit_prefs: no value for $2"; return 1; } # not a crash on $3 under set -u
     v=${3-}; v=${v//&/\\&} # a & in the value is the whole match to sed: the callers write it plain
     # @: keys hold "/" (use:package/class). A set is deleted whole: its items sit on lines of their own up to </set>
     sed -i -e "\\@^ *<set name=\"$2\">\$@,\\@</set>@d" -e "\\@ name=\"$2\"@d" "$f"
@@ -247,7 +248,7 @@ edit_prefs() {
       string) sed -i "s@</map>@    <string name=\"$2\">$v</string>\n</map>@" "$f" ;;
       set) sed -i "s@</map>@    <set name=\"$2\"><string>$v</string></set>\n</map>@" "$f" ;;
     esac
-    if [ "$1" = del ]; then shift 2; elif [ $# -ge 3 ]; then shift 3; else ko "edit_prefs: no value for $2"; return 1; fi
+    if [ "$1" = del ]; then shift 2; else shift 3; fi
   done
 }
 # Change settings, then restart the home screen once. A restart takes ~9 s (force-stop, focus, two alike dumps): a step
