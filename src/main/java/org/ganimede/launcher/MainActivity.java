@@ -191,6 +191,12 @@ public class MainActivity extends Activity implements Actions.Home {
     }
 
     @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        Icons.trim(level, prefs);
+    }
+
+    @Override
     protected void onStart() {
         super.onStart();
         started = true;

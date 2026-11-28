@@ -228,6 +228,18 @@ final class Icons {
         }
     }
 
+    /**
+     * Memory is short: fewer drawn icons; with no screen of ours showing, none, and the 4 MB set too unless the pack or a
+     * picked icon uses it (read again when needed). Hiding the home alone frees nothing: it comes back at once.
+     */
+    static void trim(int level, SharedPreferences p) {
+        if (level == android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+                || level < android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return;
+        boolean background = level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
+        CACHE.trimToSize(background ? 0 : CACHE.size() / 2);
+        if (background && loaded.set == null && !IconSet.needed(p.getAll())) builtin = null;
+    }
+
     /** An app was installed or updated: if it's an icon pack, it's read again on the next load. */
     static void forget(String pkg) {
         if (pkg != null && pkg.equals(loadedPack)) {
