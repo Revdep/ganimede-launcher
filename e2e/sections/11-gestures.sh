@@ -205,7 +205,7 @@ seed classic int grid_pages 2 boolean drawer true; wait_until 5 has Calendar # p
 A shell input keyevent KEYCODE_DPAD_DOWN # a key leaves touch mode: the home hands the focus to a view
 for _ in 1 2 3 4 5 6 7 8; do A shell input keyevent KEYCODE_DPAD_RIGHT; done
 wait_until 5 settled
-wait_until 5 hasnt Calendar && ok "DPAD_RIGHT towards an empty page 2: the pager is on page 2, not half way" || ko "the pager stopped between the pages (Calendar still on screen)"
+wait_until 5 hasnt Calendar && ok "DPAD_RIGHT towards an empty page 2: the pager is on page 2, not half way" || ko "the pager stopped between the pages (Calendar still on screen; focus: $(screen | grep -o '<node [^>]*focused="true"[^>]*>' | head -2 | tr '\n' ' '))"
 A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar
 
 step "Gestures: left-hand Classic mirrors nothing, the dock's first slot is on the left (c3 M13)"
