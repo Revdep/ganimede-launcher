@@ -46,6 +46,7 @@ public class NotifService extends NotificationListenerService {
         connected = true;
         self = this;
         worker.post(() -> { // the notes posted while this app wasn't listening, as long as they are still shared
+            lastSeen = ""; // reconnected, the same notifications must be read in again
             try {
                 VoicePlayer.keep(this, getActiveNotifications());
             } catch (RuntimeException e) {
@@ -62,7 +63,6 @@ public class NotifService extends NotificationListenerService {
         synchronized (active) {
             active.clear();
         }
-        worker.post(() -> lastSeen = ""); // reconnected, the same notifications must be read in again
         // Not through the worker: onDestroy quits it before Android calls this. No access, no kept voice notes; a rebind
         // with access on keeps them, a note's grant may be gone by then.
         if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null, 0);
@@ -128,31 +128,46 @@ public class NotifService extends NotificationListenerService {
         p.edit().putLong("summary_last", last).apply();
         long wait = Summary.upcoming(last, at) - at;
         String key = s.getKey();
+        // Held first, snoozed after: if the process dies in between, the hold is there for the re-post at the summary.
+        // Taken back below when the snooze does not happen.
+        long due = at + wait;
+        int count = p.getInt("summary_count", 0), counted = Summary.counted(count, held, key, due);
+        p.edit().putStringSet("summary_held", Summary.hold(held, key, due, at)).putInt("summary_count", counted).apply();
         // Snoozing revokes the chat app's audio grants at once (NotificationManagerService.SnoozeNotificationRunnable ->
-        // cancelNotificationLocked -> updateUriPermissions(null, r, ...)): its voice notes are kept first. Counted as held
-        // only once snoozed: unbound meanwhile, snoozeNotification does nothing.
+        // cancelNotificationLocked -> updateUriPermissions(null, r, ...)): its voice notes are kept first.
         VoicePlayer.afterKept(() -> {
             try {
-                if (!connected) return;
+                if (!connected) { // unbound meanwhile: snoozeNotification does nothing
+                    unhold(p, key, counted > count);
+                    return;
+                }
                 snoozeNotification(key, wait);
-                worker.post(() -> {
-                    Set<String> latest = p.getStringSet("summary_held", Set.of()); // the hold lands later: read again
-                    p.edit().putStringSet("summary_held", Summary.hold(latest, key, at + wait, at))
-                            .putInt("summary_count", Summary.counted(p.getInt("summary_count", 0), latest, key, at + wait)).apply();
-                });
             } catch (RuntimeException e) { // access just lost: shown, not held
                 Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
+                unhold(p, key, counted > count);
                 update();
             } finally {
-                worker.post(() -> holding.remove(key));
+                later(() -> holding.remove(key));
             }
         });
         return true;
     }
 
+    /** Takes back a hold whose snooze did not happen (counted: it had added to the count). */
+    private void unhold(SharedPreferences p, String key, boolean counted) {
+        later(() -> p.edit().putStringSet("summary_held", Summary.release(p.getStringSet("summary_held", Set.of()), key))
+                .putInt("summary_count", Math.max(0, p.getInt("summary_count", 0) - (counted ? 1 : 0))).apply());
+    }
+
     /** Reads the notifications off the main thread: each read crosses into the system and unpacks every one. */
     private Handler worker;
     private volatile boolean updatePending;
+    private volatile boolean alive = true;
+
+    /** Posts to the worker unless onDestroy has stopped it: a hold's snooze can finish after that, and a closed looper only logs. */
+    private void later(Runnable r) {
+        if (alive) worker.post(r);
+    }
 
     @Override
     public void onCreate() {
@@ -164,6 +179,7 @@ public class NotifService extends NotificationListenerService {
 
     @Override
     public void onDestroy() {
+        alive = false;
         worker.getLooper().quitSafely();
         super.onDestroy();
     }
@@ -175,14 +191,14 @@ public class NotifService extends NotificationListenerService {
     private void update() {
         if (updatePending) return;
         updatePending = true;
-        worker.postDelayed(() -> {
+        if (!alive || !worker.postDelayed(() -> {
             updatePending = false;
             try {
                 read();
             } catch (RuntimeException e) { // as in the callbacks: never take the home's process down
                 Log.w("Ganimede", "Notifications not read: " + e.getClass().getName());
             }
-        }, 250);
+        }, 250)) updatePending = false;
     }
 
     /** What the home was last told about (keys and texts); only the worker thread touches it. */
