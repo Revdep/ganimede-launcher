@@ -218,7 +218,7 @@ wait_until 10 listening; wait_until 10 bound
 c0=$(pref summary_count); c0=${c0:-0}
 NID=$((RANDOM + 2)) # a fresh id: Android keeps a snoozed key silent for hours
 A shell am broadcast -n $FIX/.Post --es shape s --ei id $NID >/dev/null # snoozing takes the chat app's grant away (issue 083)
-wait_until 8 held && ok "the chat was held for the summary" || ko "the chat was not held back by the summary"
+wait_until 8 summary_counted && ok "the chat was held for the summary" || ko "the chat was not held back by the summary"
 wait_until 15 kept_is 2 && ok "both its notes were kept before it was snoozed" || ko "kept notes of the held chat: $(kept)"
 # Not checked: the app cancelling it while held. Android still lists it as snoozed until the hold ends (SnoozeHelper.cancel
 # only marks it), so its notes stay until then; the next step's access off deletes them.
