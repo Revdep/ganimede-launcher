@@ -268,6 +268,7 @@ final class SettingsPreview extends FrameLayout {
         Context c = getContext();
         new Thread(() -> {
             Icons.load(c, want);
+            Icons.preload(c, p); // a picked built-in icon needs the set read, or the preview shows the original
             post(() -> {
                 if (!want.equals(pack)) return;
                 refresh();
