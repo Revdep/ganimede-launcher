@@ -205,6 +205,7 @@ final class Entries {
         }
         if (it != null) { // tracked even before the listener binds: onResume no longer rebuilds, the callback's refresh must reach it
             iconBox.setTag(new NotificationView(it, name, messages));
+            notificationViews.removeIf(r -> r.get() == null); // views of earlier rebuilds, collected: the list stays as long as the live ones
             notificationViews.add(new WeakReference<>(iconBox));
         }
         v.setContentDescription(described(name, count));
