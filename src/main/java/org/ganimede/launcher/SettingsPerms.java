@@ -127,7 +127,9 @@ final class SettingsPerms {
 
     /** Shows again what save kept. */
     void reopen(Bundle in) {
-        if (in.getString("explain") != null) explain(in.getString("explain"), in.getString("explain_key"));
+        String key = in.getString("explain_key");
+        // destroyed without a rotation, the dialog's dismiss already put the switch off: nothing left to explain
+        if (in.getString("explain") != null && (key == null || kit.prefs().getBoolean(key, false))) explain(in.getString("explain"), key);
     }
 
     /** The media-player switch, with the notification-access row under it while the player is on without access. */
