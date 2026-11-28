@@ -201,8 +201,8 @@ wipe; wait_until 10 kept_is 0
 voice --ei id 3; wait_until 10 kept_is 2 || ko "the other chat's notes were not kept: $(kept)"
 voice --es shape x # its open fails only after 20 s
 # Android holds a post for the assistant and lets a later cancel overtake it: cancelled only once it is posted, not enqueued
-posted() { A shell dumpsys notification | sed -n '/^  Notification List:/,/^  [^ ]/p' | grep -q "pkg=$FIX user=[^ ]* id=$1 "; }
-wait_until 5 posted 1 || ko "the hung note's notification was not posted"
+fixture_posted() { A shell dumpsys notification | sed -n '/^  Notification List:/,/^  [^ ]/p' | grep -q "pkg=$FIX user=[^ ]* id=$1 "; }
+wait_until 5 fixture_posted 1 || ko "the hung note's notification was not posted"
 voice --ei id 3 --ez cancel true # its sweep is queued behind that open
 wait_until 15 kept_is 0 && ok "the queue gave up the hung open at about 11 s, not 20: the sweep behind it ran" || ko "the sweep waited for the hung open: $(kept)"
 voice # the chat again, two good notes, queued after the open was given up
