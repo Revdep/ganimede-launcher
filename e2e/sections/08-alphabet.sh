@@ -35,8 +35,13 @@ open_browsing_at_start() {
     A shell input swipe $((W / 2)) $((H * 6 / 10)) $((W / 2)) $((H / 5)) 1000
   fi
   wait_until 10 has "Cerca app" || return 1
-  while ! has Calendar && [ $n -lt 4 ]; do
+  # has Calendar is true with the row half off the top: in list mode keep pulling until G stops moving, i.e. the list is at its top
+  # (the 29 dp tap lands on a letter, which scrolls the list to it; G0 read mid-list was 123 px above the real top, 28 Nov z-home)
+  local prev=x
+  while [ $n -lt 6 ] && { ! has Calendar || { [ "$mode" = list ] && [ "$(gy)" != "$prev" ]; }; }; do
+    prev=$(gy)
     A shell input swipe $((W / 2)) $((H * 3 / 10)) $((W / 2)) $((H * 8 / 10)) 500
+    wait_until 10 settled
     n=$((n + 1))
   done
   wait_until 10 alphabet_at_start && wait_until 10 settled # G0 is read from here: a list still moving gives a wrong start
