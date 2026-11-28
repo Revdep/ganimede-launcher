@@ -19,9 +19,11 @@ A() {
 command -v magick >/dev/null && command -v compare >/dev/null || { echo "ImageMagick (magick, compare) is missing: the wallpaper and pixel checks need it." >&2; exit 2; }
 # The fixture app (e2e/fixture), built only when its APK is missing or older than its sources (CI builds it once, in the build job), then installed.
 fixture_install() {
-  local apk="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk"
-  { [ -f "$apk" ] && [ -z "$(find "$HERE/fixture/src" "$HERE/fixture/build.gradle" -newer "$apk" -type f -print -quit)" ] \
-    || "$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1; } && A install -r "$apk" >/dev/null
+  local apk="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" out
+  if [ ! -f "$apk" ] || [ -n "$(find "$HERE/fixture/src" "$HERE/fixture/build.gradle" -newer "$apk" -type f -print -quit)" ]; then
+    out=$("$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug 2>&1) || { echo "$out" | tail -30 >&2; return 1; } # gradle's own words
+  fi
+  A install -r "$apk" >/dev/null
 }
 # The fixture's ScreenReader service stands in for TalkBack: it lists and performs a node's actions, and logs what is announced.
 FIX=org.ganimede.fixture
