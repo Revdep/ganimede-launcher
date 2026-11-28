@@ -57,7 +57,9 @@ reach() { # reach desc [neighbour]: the tile on screen, looked for below then ab
       A shell input swipe 150 ${dir% *} 150 ${dir#* } 1200; rm -f "$SCR"
     done
   done
-  if [ -n "${2:-}" ] && ! hasd "$1" && xy=$(cx "desc:$2"); then set -- "$1" $xy; A shell input swipe 150 "$3" 900 "$3" 1500; wait_until 5 settled; fi # slow: no fling to stop with the tap
+  # The neighbour as find_desc gives it, above y 2300: a row half under the navigation bar is in the dump (Settings draws
+  # edge to edge), and a swipe to the right along the bar switches to the previous app (run imp/5: Camera, from 11-gestures).
+  if [ -n "${2:-}" ] && ! hasd "$1" && xy=$(find_desc "$2"); then set -- "$1" $xy; A shell input swipe 150 "$3" 900 "$3" 1500; wait_until 5 settled; fi # slow: no fling to stop with the tap
   find_desc "$1"
 }
 tapd() { local xy; xy=$(reach "$@") && [ -n "$xy" ] && { set -- $xy; A shell input tap "$1" "$2"; }; }
