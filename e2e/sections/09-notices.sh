@@ -15,8 +15,10 @@ timer # the Clock app posts a timer notification
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 wait_until 5 has "Clock"
 clocks() { screen | grep -o 'text="Clock"' | wc -l; } # the timer has no title: a preview shows the app's name again
+# the badge and the preview come together, from the listener's callback, after the notification is posted: wait for the badge, then look for the preview
+badged() { screen | grep -qE 'text="[0-9]+\+?"'; }
+wait_until 5 badged && ok "the badge counts the notification" || ko "no badge"
 [ "$(clocks)" -eq 1 ] && ok "no preview under the name" || ko "a preview under the name (“Clock” $(clocks) times)"
-screen | grep -qE 'text="[0-9]+\+?"' && ok "the badge counts the notification" || ko "no badge"
 # swipe_opens what x y dx: a sideways swipe from (x, y) opens the pop-up, Back closes it, the notification stays
 swipe_opens() {
   A shell input swipe "$2" "$3" $(($2 + $4)) "$3" 300
