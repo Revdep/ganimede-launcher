@@ -193,7 +193,9 @@ hasd() { screen | grep -q "content-desc=\"$1\""; }  # a node with this content-d
 valid() { screen >/dev/null; [ -s "$SCR" ]; } # a screen read that worked: an absent node means nothing without one
 hasnt() { valid && ! has "$1"; }
 nod() { valid && ! hasd "$1"; }
-settled() { local a; a=$(dump); [ -n "$a" ] && [ "$a" = "$(dump)" ]; } # two screen dumps in a row alike: nothing is moving
+# two screen reads in a row alike: nothing is moving. The first is the cached one when nothing has acted on the screen since
+# (start_home's drawn just read it): one uiautomator dump (~2 s) less per home restart.
+settled() { local a; a=$(screen); [ -n "$a" ] && [ "$a" = "$(dump)" ]; }
 # Stops the Clock app and deletes its timers. A force-stop is not enough: the next timer intent starts the app again and
 # it re-arms the timers it saved, so a 15-minute timer of an earlier run rings mid-run and its heads-up over the screen
 # top takes the taps meant for the home.
