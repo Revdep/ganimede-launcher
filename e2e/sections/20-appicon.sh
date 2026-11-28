@@ -257,11 +257,16 @@ setp string fab_icon default
 if choose_icon "Icona del pulsante" "Immagine personale…"; then
   pick_file "$LARGE_NAME" || ko "the document picker did not offer $LARGE_NAME"
 fi
-# Do not wait for the worker: Home must notice the import that finishes after this press.
+# Android hands the picked file to Settings only when Settings is back in front; a Home pressed while the picker is still
+# closing leaves the result pending and no import starts (run 46128604173: HOME 4 s after the picker opened, fab_icon stayed
+# default for 35 s). So wait for Settings, then press Home without waiting for the worker: Home must notice the late import.
+settings_front() { A shell dumpsys window | grep -q "mCurrentFocus.*SettingsActivity"; }
+wait_until 10 settings_front || ko "the picker did not return to Settings with $LARGE_NAME"
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+import_t=$SECONDS
 wait_until 30 custom_saved \
-  && ok "the slow import finishes after returning Home" \
-  || ko "the slow import did not save fab_icon = custom"
+  && ok "the slow import finishes $((SECONDS - import_t)) s after returning Home" \
+  || ko "the slow import did not save fab_icon = custom within $((SECONDS - import_t)) s of returning Home"
 wait_until 5 hasnt "✳" \
   && ok "the live Home button shows the imported image without another action" \
   || ko "the live Home button still shows ✳ after the import finished"
