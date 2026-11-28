@@ -243,6 +243,8 @@ final class ItSettings {
         it("Turns the screen off with a double-tap", "Spegne lo schermo con un doppio tocco");
         it("Ganimede never connects to the internet: it doesn't even have permission to. No accounts, no ads, no analytics. The weather comes from Breezy Weather on your phone, and backups stay where you save them.",
                 "Ganimede non si collega mai a internet: non ha nemmeno il permesso di farlo. Niente account, niente pubblicità, niente statistiche. Il meteo arriva da Breezy Weather sul tuo telefono e i backup restano dove li salvi.");
+        it("Voice notes in notifications are played by Ganimede, not by the chat app, so no “listened” receipt is sent. A copy of each note stays on this phone, out of backups, while its notification is shown or held for the summary, then it is deleted.",
+                "Le note vocali nelle notifiche le riproduce Ganimede, non l'app di chat: nessuna conferma di ascolto viene inviata. Una copia di ogni nota resta su questo telefono, fuori dai backup, finché la sua notifica è mostrata o in attesa del riepilogo, poi viene cancellata.");
         it("Android's page for Ganimede: permissions and restricted settings", "La pagina di Android per Ganimede: permessi e impostazioni con restrizioni");
         it("Allowed", "Consentito");
         it("Allow", "Consenti");

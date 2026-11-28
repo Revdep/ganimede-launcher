@@ -439,6 +439,7 @@ final class SettingsPages {
 
         c = kit.card("Privacy");
         kit.para(c, kit.ui.tr("Ganimede never connects to the internet: it doesn't even have permission to. No accounts, no ads, no analytics. The weather comes from Breezy Weather on your phone, and backups stay where you save them."), 15, SettingsKit.SUB);
+        kit.para(c, kit.ui.tr("Voice notes in notifications are played by Ganimede, not by the chat app, so no “listened” receipt is sent. A copy of each note stays on this phone, out of backups, while its notification is shown or held for the summary, then it is deleted."), 15, SettingsKit.SUB);
         kit.row(c, "gear", kit.ui.tr("App info"), kit.ui.tr("Android's page for Ganimede: permissions and restricted settings"), () -> Ui.appInfo(kit.activity()));
     }
 
