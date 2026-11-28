@@ -131,7 +131,7 @@ public final class Search {
 
     private static final java.util.regex.Pattern NON_DIGITS = java.util.regex.Pattern.compile("[^0-9]");
 
-    private static String digits(String s) {
+    public static String digits(String s) {
         return NON_DIGITS.matcher(s).replaceAll("");
     }
 
