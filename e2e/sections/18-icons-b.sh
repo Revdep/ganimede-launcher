@@ -269,10 +269,12 @@ if folder_cell "$OUT/icons-folder-app-page.png"; then
 else ko "no Cartella X on the app pages"; fi
 
 step "Icon picker (the fixture is an icon pack): in landscape the search and Cancel stay on the screen (issue 064)"
-seed classic string fav "$FIXTURE/$FIXTURE.Open" boolean hide_labels false
+# rotate: the picker is a dialog of the home, which stays upright unless its rotation is allowed (HomeLook); an app's menu
+# says "Icona dell'app…" ("Icona…" is a folder's or a shortcut's): run 46109393420 found neither the item nor a turned screen
+seed classic string fav "$FIXTURE/$FIXTURE.Open" boolean hide_labels false boolean rotate true
 read -r fx fy <<<"$(cx Fixture)" || ko "no Fixture on the home"
 A shell input draganddrop "$fx" "$fy" "$fx" "$fy" 1500 # long-press: the app's menu
-expect "Icona…" && tap "Icona…"; expect "Tutti i pacchetti di icone" && tap "Tutti i pacchetti di icone"
+expect "Icona dell'app…" && tap "Icona dell'app…"; expect "Tutti i pacchetti di icone" && tap "Tutti i pacchetti di icone"
 expect "Annulla"
 A shell settings put system accelerometer_rotation 0; A shell settings put system user_rotation 1
 defer 'A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1'
