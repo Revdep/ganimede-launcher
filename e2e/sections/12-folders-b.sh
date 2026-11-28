@@ -197,3 +197,13 @@ seed classic string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.
 tap Scorciatoie; expect "Zz Posta"; wait_until 5 settled
 tap "Zz Posta"
 wait_until 8 hasnt "Zz Posta" && ok "the pop-up closed on the shortcut's tap" || ko "the pop-up stayed open after tapping the shortcut"
+
+step "Folders: Home closes an open pop-up (c3 M1)"
+seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock"]}' string fav 'f:ord' del grid
+tap Ordine; expect "Clock"; wait_until 5 settled
+A shell input keyevent KEYCODE_HOME
+wait_until 5 hasnt "Clock" && ok "Home closed the pop-up" || ko "the pop-up stayed open after Home"
+read -r ax ay <<<"$(cx Ordine)"; hold "$ax" "$ay"
+wait_until 5 has "Rinomina"
+A shell input keyevent KEYCODE_HOME
+wait_until 5 hasnt "Rinomina" && ok "Home closed the folder's menu" || ko "the menu stayed open after Home"

@@ -428,6 +428,7 @@ public class MainActivity extends Activity implements Actions.Home {
             classic.stopResizing();
             classic.firstPage();
         }
+        if (i.hasCategory(Intent.CATEGORY_HOME)) Motion.dismissAll(); // Home closes the pop-ups, menus and "Arrange pages"
         showHome();
         landing.answer(i);
     }
