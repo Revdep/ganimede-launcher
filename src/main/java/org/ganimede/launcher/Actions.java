@@ -168,7 +168,10 @@ final class Actions {
         for (String id : cm.getCameraIdList()) {
             Boolean flash = cm.getCameraCharacteristics(id).get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
             if (flash == null || !flash) continue;
-            if (torchWatched) { switchTorch(app, cm, id, !torchOn.getOrDefault(id, false)); return; }
+            if (torchWatched) { // a tap before the first state arrived would start from "off": the first tap's answer is on its way
+                if (!torchAsked.waiting()) switchTorch(app, cm, id, !torchOn.getOrDefault(id, false));
+                return;
+            }
             torchWatched = true;
             // Registering delivers each flash's present state: the first tap switches from it, not from a guess (issue 065).
             torchAsked.await(id);

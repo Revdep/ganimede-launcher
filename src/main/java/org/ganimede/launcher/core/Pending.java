@@ -4,6 +4,9 @@ package org.ganimede.launcher.core;
 public final class Pending {
     private String id;
 
+    /** Whether a tap is still waiting for its flash's first report (a second tap meanwhile must not start from a guess). */
+    public boolean waiting() { return id != null; }
+
     public void await(String id) { this.id = id; }
 
     /** Whether this report (or timeout) for id is the one the waiting tap was for; true only the first time. */

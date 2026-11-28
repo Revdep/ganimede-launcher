@@ -14,4 +14,13 @@ public class PendingTest {
     public static void testNothingWaitsBeforeATap() {
         yes(!new Pending().take("0"), "a state reported with no tap waiting switches nothing");
     }
+
+    public static void testWaitsUntilTheFirstReportOrTheTimeout() {
+        Pending p = new Pending();
+        yes(!p.waiting(), "no tap, nothing waiting");
+        p.await("0");
+        yes(p.waiting(), "a tap waits for the first state");
+        p.take("0");
+        yes(!p.waiting(), "answered: later taps switch from the known state");
+    }
 }
