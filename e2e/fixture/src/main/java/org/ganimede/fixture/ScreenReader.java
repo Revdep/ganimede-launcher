@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
  * Stands in for TalkBack, which a shell cannot drive: `am broadcast -a org.ganimede.fixture.A11Y -p org.ganimede.fixture
  * --es desc <content-desc prefix> --es mode list|click|label [--es label <regex>]` finds the first node of any window whose
  * content description starts with desc, then logs (tag FixtureA11y) "action label=..." per action it exposes, or performs
- * ACTION_CLICK, or the first action whose label matches; always ends with "done performed=true|false".
+ * ACTION_CLICK, or the first action whose label matches; always ends with "done performed=true|false". Every announcement is logged as "announce [text]".
  */
 public final class ScreenReader extends AccessibilityService {
     private static final String TAG = "FixtureA11y";
@@ -64,6 +64,8 @@ public final class ScreenReader extends AccessibilityService {
         return null;
     }
 
-    @Override public void onAccessibilityEvent(AccessibilityEvent e) { }
+    @Override public void onAccessibilityEvent(AccessibilityEvent e) {
+        if (e.getEventType() == AccessibilityEvent.TYPE_ANNOUNCEMENT) Log.i(TAG, "announce " + e.getText());
+    }
     @Override public void onInterrupt() { }
 }

@@ -311,6 +311,30 @@ for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and 
   has "Calendar" && has "Clock" && has "Contacts" && ok "$mode: menu closed, all apps still in the open pop-up" || ko "$mode: the pop-up lost an icon or closed"
 done
 
+step "Folders: a screen reader's Sposta su/giù reorders the icons in the pop-up (FolderDrag actions)"
+fixture_install && ok "fixture installed" || ko "fixture not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
+defer "A uninstall $FIX >/dev/null 2>&1"
+a11y_on
+seed classic
+setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
+setp string fav 'f:ord'; setp del grid
+tap Ordine; expect "Contacts"; wait_until 5 settled
+a11y list . Calendar
+{ A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Sposta giù' && ! A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Sposta su'; } \
+  && ok "the first icon offers Sposta giù and not Sposta su" || ko "first icon actions: $(A logcat -d -s $A11Y_TAG:I | tr '\n' ' ')"
+a11y label "Sposta giù" Calendar
+moved() { [ "$(order)" = "deskclock,calendar,contacts" ]; }
+a11y_performed && wait_until 5 moved && ok "Sposta giù saves Calendar one place later" || ko "order after Sposta giù: $(order)"
+wait_until 5 settled
+[ "$(shown)" = "$(order)" ] && ok "the pop-up shows the new order" || ko "views in the order $(shown), saved $(order)"
+wait_until 5 a11y_said "Posizione 2 di 3" && ok "the move is announced" || ko "no «Posizione 2 di 3» announcement"
+a11y label "Sposta su" Calendar
+back() { [ "$(order)" = "calendar,deskclock,contacts" ]; }
+a11y_performed && wait_until 5 back && ok "Sposta su puts Calendar back" || ko "order after Sposta su: $(order)"
+wait_until 5 settled
+[ "$(shown)" = "$(order)" ] && ok "the pop-up shows the order back" || ko "views in the order $(shown), saved $(order)"
+a11y_off; A shell input keyevent KEYCODE_BACK
+
 step "Folders: an icon's menu in the pop-up takes it out with Rimuovi dalla cartella, an app or a pinned shortcut (082)"
 seed classic
 setp string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}'

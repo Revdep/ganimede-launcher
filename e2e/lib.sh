@@ -22,6 +22,32 @@ fixture_install() {
   { [ -f "$apk" ] && [ -z "$(find "$HERE/fixture/src" "$HERE/fixture/build.gradle" -newer "$apk" -type f -print -quit)" ] \
     || "$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1; } && A install -r "$apk" >/dev/null
 }
+# The fixture's ScreenReader service stands in for TalkBack: it lists and performs a node's actions, and logs what is announced.
+FIX=org.ganimede.fixture
+A11Y_TAG=FixtureA11y
+a11y_on() { # enables it; a11y_off (also run on exit) puts the device's own accessibility settings back (a test phone may run TalkBack)
+  A11Y_SERVICES_BEFORE=$(A shell settings get secure enabled_accessibility_services | tr -d '\r'); A11Y_ENABLED_BEFORE=$(A shell settings get secure accessibility_enabled | tr -d '\r')
+  defer a11y_off
+  A shell settings put secure enabled_accessibility_services $FIX/.ScreenReader >/dev/null
+  A shell settings put secure accessibility_enabled 1 >/dev/null
+}
+a11y_off() {
+  if [ "$A11Y_SERVICES_BEFORE" = null ] || [ -z "$A11Y_SERVICES_BEFORE" ]; then A shell settings delete secure enabled_accessibility_services >/dev/null
+  else A shell settings put secure enabled_accessibility_services "$A11Y_SERVICES_BEFORE" >/dev/null; fi
+  A shell settings put secure accessibility_enabled "${A11Y_ENABLED_BEFORE/null/0}" >/dev/null
+}
+a11y_done() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed='; }
+a11y() { # a11y list|click|label [regex] [desc]: asks the service to act on the node whose description starts with desc (default the clock) and waits for its answer
+  local _ # the service binds some seconds after the setting (or after the install): no answer means not listening yet, ask again
+  for _ in 1 2 3 4; do
+    A logcat -b main -c
+    A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "'${3:-Orologio}'" --es mode "$1" --es label "'${2:-.}'" >/dev/null # desc and label quoted again for the device shell: a space splits, a | is a pipe
+    wait_until 5 a11y_done && return 0
+  done
+  return 1
+}
+a11y_performed() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed=true'; }
+a11y_said() { A logcat -d -s $A11Y_TAG:I | grep -q "announce .*$1"; } # what the app announced since the last a11y call
 # The guard of every destructive step. E2E_PHYSICAL=1 plays a physical phone (to test the guard itself).
 is_emulator() { [ -z "${E2E_PHYSICAL:-}" ] && [[ $SERIAL == emulator-* ]]; }
 emu_only() { is_emulator && return 0; SKIPS=$((SKIPS + 1)); echo "  SKIP: $* (destroys data or changes settings: emulators only)"; return 1; }

@@ -93,7 +93,7 @@ held_key && ok "and survives a restart of the process" || ko "the held key is lo
 bound_home; wipe
 
 step "Two voice notes in one chat notification: a player each, one plays at a time; none when secret (fixture app)"
-FIX=org.ganimede.fixture   # e2e/fixture: posts a MessagingStyle with two silent WAVs of 30 s and 40 s from its own provider
+# (FIX is in lib.sh) e2e/fixture: posts a MessagingStyle with two silent WAVs of 30 s and 40 s from its own provider
 fixture_install && ok "fixture app built and installed" \
   || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug): the voice checks below can't pass"
 A shell pm grant $FIX android.permission.POST_NOTIFICATIONS
