@@ -141,13 +141,14 @@ near() { local d=$(($1 - $2)); [ ${d#-} -le "$3" ]; } # near a b tolerance
 # put_prefs file: the app's prefs become this file. The app can start again right after a force-stop (it holds HOME, a
 # listener rebinds), so a file written in place can be read half-written: an empty read opens the wizard, which saves
 # over it (run 46083578007, settings).
-# Written beside, then renamed (atomic); a leftover .bak would be restored over it.
+# Written beside, then renamed (atomic). A force-stop during the app's own save leaves ganimede.xml.bak, which Android
+# restores over any new file: a wizard's half-saved prefs came back over seed's (run 46081658363, menu). It goes.
 put_prefs() { A exec-in "run-as $PK sh -c 'mkdir -p shared_prefs; cat > shared_prefs/e2e.tmp && rm -f shared_prefs/ganimede.xml.bak && mv shared_prefs/e2e.tmp shared_prefs/ganimede.xml'" < "$1"; }
 # Change one setting the way the app stores it, then restart the home screen.
 setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item value)
   local f="$OUT/prefs.xml"
   A shell am force-stop $PK
-  A exec-out run-as $PK cat shared_prefs/ganimede.xml > "$f"
+  A exec-out run-as $PK sh -c 'cat shared_prefs/ganimede.xml.bak 2>/dev/null || cat shared_prefs/ganimede.xml' > "$f" # the file Android would load
   sed -i "/ name=\"$2\"/d" "$f"
   case $1 in
     int|boolean) sed -i "s@</map>@    <$1 name=\"$2\" value=\"$3\" />\n</map>@" "$f" ;;
