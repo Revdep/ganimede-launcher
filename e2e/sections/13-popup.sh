@@ -105,7 +105,7 @@ play_at() { screen | grep -o 'content-desc="Riproduci il messaggio vocale"[^>]*b
 # uiautomator never gets a dump. VoicePlayer logs "voice plays <ms>" on start and "voice stops" on pause or stop; the last
 # one is the state, shown as the size its note's WAV has (header 44 + 16000 bytes a second, 30 s = 480044): empty when stopped.
 copies() { local l; l=$(A logcat -d -s Ganimede:I | grep -o 'voice \(plays [0-9]*\|stops\)' | tail -1)
-  case "$l" in "voice plays "*) echo $((44 + 16000 * (${l##* } + 500) / 1000));; esac; }
+  case "$l" in "voice plays "*) echo $((44 + 16000 * ((${l##* } + 500) / 1000)));; esac; }
 copies_are() { [ "$(copies)" = "$1" ]; }
 # A tap while the note loads does nothing ("Loading…", run 46083578007): a note plays once its row shows its length and the
 # app's player is started in the audio service's list.

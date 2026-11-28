@@ -64,7 +64,7 @@ if read -r gx gy gw gh <<<"$(box "$tile" "#FFFFFF")" && [ -n "$gx" ] && read -r 
     || ko "glyph $gw x $gh on a $qw plate, expected a longer side of $((qw * 26 / 48))"
 else ko "Line tile: no glyph or plate found"; fi
 nofill && ! exact "Colore" && ok "Original: no Fill, no Colour" || ko "Original shows Fill or Colour"
-tapd "${S}Marcato"
+htile "${S}Marcato" "$row" && tapd "${S}Marcato" # the tile loop left the row scrolled to its end
 wait_until 5 stored icon_glyph bold && ok "the Bold tile saves icon_glyph = bold" || ko "Bold saved nothing"
 tapd "${P}Nessuna piastra" "${P}Cerchio"
 wait_until 5 stored icon_container none || ko "No plate saved nothing"
@@ -146,5 +146,6 @@ pick_stored && ok "the picked icon is stored for the shortcut" || ko "the seeded
 wait_until 8 has "Zz Posta" || ko "the shortcut is not in the list"
 read -r ax ay <<<"$(cx "Zz Posta")"; hold "$ax" "$ay"
 expect "Rimuovi dai preferiti" && tap "Rimuovi dai preferiti"
-wait_until 5 hasnt "Zz Posta"
-prefs_read && ! grep -qF "name=\"icon:$SC\"" <<<"$PREFS_XML" && ok "the picked icon went with the shortcut" || ko "the picked icon is still stored after Rimuovi dai preferiti, or prefs unreadable"
+wait_until 5 hasnt "Zz Posta" || ko "the shortcut is still in the list"
+icon_gone() { prefs_read && ! grep -qF "name=\"icon:$SC\"" <<<"$PREFS_XML"; } # the menu saves with apply(): wait for the file
+wait_until 5 icon_gone && ok "the picked icon went with the shortcut" || ko "the picked icon is still stored after Rimuovi dai preferiti, or prefs unreadable"
