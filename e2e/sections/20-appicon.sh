@@ -202,13 +202,14 @@ elif legacy_stale; then
 elif ! A install -r -d "$LEGACY_APK" >/dev/null; then
   ko "setup: main's build did not install"
 else
+  up=0
   setp int list_apps_y -8 # in main's build: it restarts the home, which takes the HOME role
   A shell "run-as $PK sh -c 'echo kept > files/upgrade-marker'"
   if choose_icon "Icona del pulsante" "Grigia" && wait_until 5 main_gray \
      && [ "$(pref list_apps_y)" = -8 ] && [ "$(A shell run-as "$PK" cat files/upgrade-marker | tr -d '\r')" = kept ] \
      && A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK"; then
     # The user is not on Ganimede's home during an upgrade: no HOME press, no start. The package itself must put the entry right.
-    A install -r -d "$APK" >/dev/null || ko "this build did not install over main's"
+    A install -r -d "$APK" >/dev/null && up=1 || ko "this build did not install over main's"
     kept_prefs \
       && ok "the prefs chosen in main's build are intact after the upgrade (fab_icon gray, list_apps_y -8)" \
       || ko "after the upgrade fab_icon is '$(fab_icon)' and list_apps_y '$(pref list_apps_y)', expected gray and -8"
@@ -234,6 +235,8 @@ else
     ko "setup: main's build did not keep what the test chose in it (gray button, list_apps_y -8, a private file, the HOME role)"
   fi
   A shell run-as "$PK" rm -f files/upgrade-marker
+  # Whatever happened above, the rest of the section tests this build, not main's.
+  [ "$up" = 1 ] || A install -r -d "$APK" >/dev/null || { ko "this build did not install again after the upgrade step: the rest of the section would test main's build"; return 1; }
 fi
 
 step "Ganimede button icon: gray image replaces the star; default restores it"
