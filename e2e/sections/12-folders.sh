@@ -2,6 +2,7 @@
 # Local helpers (could move to lib.sh): nfold, hold, clear_text.
 nfold() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -c 'name="folder:'; }                         # stored folders
 fid() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o 'name="folder:[0-9]*' | head -1 | grep -o '[0-9]*$'; }
+APPS_JSON='"com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"'
 APPS="Calendar:com.google.android.calendar Clock:com.google.android.deskclock Contacts:com.google.android.contacts"
 
 step "Folders: made by a drop, renamed, opened"
@@ -479,3 +480,18 @@ expect "Nascondi" && tap "Nascondi"
 wait_until 5 hasnt "Contacts"
 has "Contacts" && ko "Contacts still on the grid after Hide" || ok "Hide on a grid icon removes it from the grid"
 shot 125-classic-hidden
+
+step "Folders: a folder with a widget opens, loses an app, opens again (the widget moves to the new pop-up)"
+noclock
+A shell appwidget grantbind --package $PK
+seed classic string folder:wid "{\"name\":\"ConWidget\",\"where\":\"fav\",\"apps\":[$APPS_JSON]}" string fav 'f:wid'
+read -r fx fy <<<"$(cx ConWidget)"; hold "$fx" "$fy"
+tap "Aggiungi widget"; expect "Clock · Stopwatch" && tap "Clock · Stopwatch"
+fwid() { pref folder:wid | grep -q widgets; }
+wait_until 10 fwid && ok "the widget is stored in the folder" || ko "no widget in folder:wid"
+wait_until 10 has "ConWidget"; tap "ConWidget"
+wait_until 10 has "Contacts" && ok "the pop-up opens with its apps" || ko "pop-up did not open"
+read -r ax ay <<<"$(cx Contacts)"; hold "$ax" "$ay"
+expect "Rimuovi dalla cartella" && tap "Rimuovi dalla cartella"
+wait_until 5 hasnt "Contacts" && focus && has "Clock" && ok "the pop-up came back without Contacts, widget kept" || ko "pop-up not rebuilt after removing an app (launcher died?)"
+shot 126-folder-widget
