@@ -296,10 +296,25 @@ look line none solid accent
 capture_calendar "$OUT/icons-d-line.png"
 look duotone none solid accent
 capture_calendar "$OUT/icons-d-duo.png"
-stroke_line=$(colour_pixels "$OUT/icons-d-line.png" "$RED"); stroke_duo=$(colour_pixels "$OUT/icons-d-duo.png" "$RED")
-other=$(( $(magick "$OUT/icons-d-duo.png" -format '%[fx:w*h]' info:) - stroke_duo - $(colour_pixels "$OUT/icons-d-duo.png" "$(magick "$OUT/icons-d-duo.png" -format '%[hex:u.p{0,0}]' info: | cut -c1-6 | sed 's/^/#/')") ))
-[ "$stroke_duo" -gt 20 ] && ok "Duotone: $stroke_duo stroke pixels in the accent" || ko "Duotone: $stroke_duo accent pixels, expected more than 20"
-[ "$other" -gt 20 ] && ok "Duotone: $other translucent fill pixels" || ko "Duotone: $other fill pixels, expected more than 20"
+stroke_duo=$(colour_pixels "$OUT/icons-d-duo.png" "$RED")
+# the fill: pixels that are neither the accent nor what Line shows at the same spot (the wallpaper beside the stroke)
+magick "$OUT/icons-d-duo.png" "$OUT/icons-d-line.png" -compose difference -composite -alpha off -colorspace gray -threshold 3% "$OUT/icons-d-differs.png"
+magick "$OUT/icons-d-duo.png" -alpha off -fuzz 4% -fill white +opaque "$RED" -fill black -opaque "$RED" -colorspace gray "$OUT/icons-d-notred.png"
+fillpx=$(magick "$OUT/icons-d-differs.png" "$OUT/icons-d-notred.png" -compose multiply -composite -format "%[fx:round(mean*w*h)]" info:)
+linepx=$(colour_pixels "$OUT/icons-d-line.png" "$RED")
+[ "$stroke_duo" -gt 20 ] && [ "$linepx" -gt 20 ] && ok "Duotone: $stroke_duo stroke pixels in the accent" || ko "Duotone: $stroke_duo accent pixels (Line $linepx), expected more than 20"
+[ "$fillpx" -gt 20 ] && ok "Duotone: $fillpx translucent fill pixels Line does not have" || ko "Duotone: $fillpx fill pixels, expected more than 20"
+look duotone squircle soft accent
+capture_calendar "$OUT/icons-d-soft.png"
+look line squircle solid accent
+capture_calendar "$OUT/icons-d-solid.png"
+if read -r px py pw ph <<<"$(box "$OUT/icons-d-solid.png" "$RED")" && [ -n "$px" ]; then
+  edge=$(pixel "$OUT/icons-d-soft.png" $((px + 1)) $((py + ph / 2)))
+  alike "$edge" E01010 && ok "Duotone + squircle + soft: a red border at the plate's left edge" || ko "Duotone soft: left edge is #$edge"
+  magick "$OUT/icons-d-soft.png" -crop "${pw}x${ph}+$px+$py" +repage "$OUT/icons-d-soft-plate.png"
+  white=$(colour_pixels "$OUT/icons-d-soft-plate.png" "#FFFFFF")
+  [ "${white:-0}" -eq 0 ] && ok "Duotone + squircle + soft: no white pixel" || ko "Duotone soft: $white white pixels on the plate"
+else ko "Duotone soft: no red plate found"; fi
 look hollow circle solid accent
 capture_calendar "$OUT/icons-d-hollow.png"
 if read -r gx gy gw gh <<<"$(box "$OUT/icons-d-hollow.png" "#FFFFFF")" && [ -n "$gx" ] && read -r qx qy qw qh <<<"$(box "$OUT/icons-d-hollow.png" "$RED")" && [ -n "$qx" ]; then
@@ -316,6 +331,7 @@ pg_settings; stap "Personalizza"
 pill "Temi"; tap "Temi"
 find_desc "${S}Spigoloso" >/dev/null || ko "no Sharp tile"
 for tile in Linea Marcato Spigoloso Bicolore Contorno; do hasd "$S$tile" && ok "sees the $tile tile" || ko "no $tile tile"; done
+! screen | grep -qiE 'text="[^"]*(Cutout|Ritaglio)' && ok "Icon style: no Cutout tile" || ko "a Cutout tile is still offered"
 A exec-out screencap -p > "$OUT/icons-screen.png"
 sums=""
 for tile in Originale Linea Marcato Spigoloso Bicolore Contorno; do # the icon part of each tile: 10 dp padding, then the 44 dp icon
