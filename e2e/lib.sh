@@ -230,7 +230,7 @@ timer() { A shell am start -a android.intent.action.SET_TIMER --ei android.inten
   --ez android.intent.extra.alarm.SKIP_UI true >/dev/null 2>&1; wait_until 10 timer_up; }
 timer_up() { A shell dumpsys notification | grep -q "pkg=com.google.android.deskclock.*Timers"; }
 listening() { A shell settings get secure enabled_notification_listeners | grep -q NotifService; } # Ganimede is a notification listener
-bpref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "name=\"$1\" value=\"${2:-true}\""; } # bpref key [true|false]: the stored boolean
+bpref() { [ "$(pref "$1")" = "${2:-true}" ]; } # bpref key [true|false]: the stored boolean is that
 turned() { screen | grep -q '<hierarchy[^>]*rotation="[13]"'; } # the dump's root says the display is turned
 docked() { read -r _ y <<<"$(cx "desc:Calendar")"; [ -n "$y" ] && [ "$y" -gt $((H - $(dp 200))) ]; } # Calendar sits in the dock
 # clock_bounds: the clock's bounds, empty (and false) unless they are a real box inside the screen

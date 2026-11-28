@@ -13,7 +13,7 @@ rt=$(bounds "desc:Calendar" | awk '{print $2}')
 wb=$(dump | grep -o 'text="[^"]*meteo"[^>]*bounds="[^"]*"' | head -1 | grep -o '\]\[[0-9]*,[0-9]*\]' | grep -o '[0-9]*\]$' | tr -d ']')
 [ -n "$rt" ] && [ -n "$wb" ] && [ "$rt" -ge $((wb - $(dp 2))) ] && [ "$rt" -le $((wb + $(dp 12))) ] \
   && ok "apps stop under the date line, no overlap ($wb / $rt)" || ko "apps overlap or gap wrong (line bottom $wb, apps top $rt)"
-saved=$(A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o 'list_apps_y" value="-*[0-9]*' | grep -o '\-*[0-9]*$')
+saved=$(pref list_apps_y)
 [ -n "$saved" ] && [ "$saved" -gt -600 ] && ok "the stop is saved back ($saved dp)" || ko "offset not limited in settings ($saved)"
 setp int list_apps_y -8 int list_clock_y -600              # at the top of its range: stays 4 dp under the status bar
 ct=$(bounds "desc:Orologio, tocca per le sveglie" | awk '{print $2}')
