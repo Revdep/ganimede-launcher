@@ -14,7 +14,9 @@ capture() { # capture desc out.png: only that accessible cell/row/tile, twice al
     A exec-out screencap -p > "$OUT/icons-screen.png"
     magick "$OUT/icons-screen.png" -crop "$(( $5 - $3 ))x$(( $6 - $4 ))+$3+$4" +repage "$2"
     [ -f "$OUT/icons-prev.png" ] && same "$OUT/icons-prev.png" "$2" && return 0
-    cp "$2" "$OUT/icons-prev.png"; rm -f "$SCR"; n=$((n + 1))
+    # a new screen read (~2 s) only once two shots differ, something moved: two alike at one place need none
+    [ -f "$OUT/icons-prev.png" ] && rm -f "$SCR"
+    cp "$2" "$OUT/icons-prev.png"; n=$((n + 1))
   done
 }
 capture_calendar() { capture Calendar "$1"; }
