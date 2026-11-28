@@ -67,8 +67,9 @@ wait_until 5 hasnt "Settings" && ok "removed favourite is neither a favourite no
   || ko "removed favourite came back as a suggestion"
 
 step "List suggestions: removing a favourite from Scegli i preferiti keeps it off the home"
-seed list boolean suggest true
-make_settings_often_used_favourite
+# the precondition the step above reached through the picker and three launches, written directly
+seed list boolean suggest true string fav "${SEED_FAV//&/\\&}\\&#10;$SETTINGS" int "use:$SETTINGS" 3
+wait_until 5 has "Settings" || ko "Settings is not a favourite on the home"
 A shell input swipe 540 1900 540 1900 1500
 expect "Scegli i preferiti" && tap "Scegli i preferiti"
 tapn "Settings" 30; tap "Salva"
