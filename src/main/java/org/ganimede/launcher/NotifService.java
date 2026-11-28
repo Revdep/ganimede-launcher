@@ -47,6 +47,7 @@ public class NotifService extends NotificationListenerService {
         self = this;
         worker.post(() -> { // the notes posted while this app wasn't listening, as long as they are still shared
             lastSeen = ""; // reconnected, the same notifications must be read in again
+            sweptKeys = "";
             try {
                 VoicePlayer.keep(this, getActiveNotifications());
             } catch (RuntimeException e) {
@@ -88,6 +89,7 @@ public class NotifService extends NotificationListenerService {
 
     @Override
     public void onNotificationRemoved(StatusBarNotification s) {
+        sweepNext = true;
         try {
             update();
         } catch (RuntimeException e) {
@@ -203,6 +205,9 @@ public class NotifService extends NotificationListenerService {
 
     /** What the home was last told about (keys and texts); only the worker thread touches it. */
     private String lastSeen = "";
+    /** The keys the voice notes were last swept against (worker only), and a removal that asks for another sweep. */
+    private String sweptKeys = "";
+    private volatile boolean sweepNext;
 
     private void read() {
         StatusBarNotification[] all;
@@ -213,7 +218,13 @@ public class NotifService extends NotificationListenerService {
             return;
         }
         if (all == null) all = new StatusBarNotification[0];
-        sweepVoice(all, snapshot);
+        StringBuilder keys = new StringBuilder();
+        for (StatusBarNotification s : all) keys.append(s.getKey()).append('\n');
+        // the sweep reads the notifications twice more: only when the set of them changed, or one was removed
+        if (sweepNext || !keys.toString().equals(sweptKeys)) {
+            sweepNext = false;
+            if (sweepVoice(all, snapshot)) sweptKeys = keys.toString();
+        }
         Map<String, List<StatusBarNotification>> m = new HashMap<>();
         for (StatusBarNotification s : all) {
             Notification n = s.getNotification();
@@ -238,16 +249,18 @@ public class NotifService extends NotificationListenerService {
     }
 
     /** Kept voice notes stay while their notification is shown or held for the summary. */
-    private void sweepVoice(StatusBarNotification[] all, long snapshot) {
-        if (!VoicePlayer.hasKept(this)) return; // nothing to delete: skip the call for the snoozed ones
+    private boolean sweepVoice(StatusBarNotification[] all, long snapshot) {
+        if (!VoicePlayer.hasKept(this)) return false; // nothing to delete: skip the call for the snoozed ones
         try {
             List<StatusBarNotification> l = new ArrayList<>(Arrays.asList(all));
             StatusBarNotification[] held = getSnoozedNotifications();
             if (held != null) l.addAll(Arrays.asList(held));
             l.addAll(Arrays.asList(getActiveNotifications())); // read again after the snoozed: one coming back between the two reads is in neither
             VoicePlayer.sweep(this, l, snapshot);
+            return true;
         } catch (RuntimeException e) { // access revoked mid-read: the next read sweeps
             Log.w("Ganimede", "Voice notes not swept: " + e.getClass().getName());
+            return false;
         }
     }
 
