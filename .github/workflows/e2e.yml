@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       only: { description: 'ONLY: regex on the section names (empty: all)', default: '' }
-      shards: { description: 'how many emulators (auto: one per 600 s of measured sections, at most 12)', default: 'auto' }
+      shards: { description: 'how many emulators (auto: one per 600 s of measured sections, at most 18)', default: 'auto' }
 concurrency: { group: "e2e-${{ github.ref }}", cancel-in-progress: true }
 permissions: { contents: read }
 jobs:

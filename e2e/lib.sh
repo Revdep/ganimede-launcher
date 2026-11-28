@@ -380,3 +380,69 @@ fresh_wizard() { # uninstall, install, open the first wizard step ("Welcome to G
   A shell am start -W -n org.ganimede.launcher/.MainActivity >/dev/null 2>&1
   wait_until 10 has "Welcome to Ganimede"
 }
+
+# Helpers of the icon sections (18-icons-a, 18-icons-b), each of which runs alone.
+# The icon model (issue 078) and the built-in Arcticons pack (077): shared names.
+RED="#E01010"
+# the Icons card tiles as TalkBack names them: "group: choice" (the rows share some names)
+S="Stile delle icone: " P="Piastra: " C="Colore: "
+
+capture() { # capture desc out.png: only that accessible cell/row/tile, twice alike (an icon may still be drawing)
+  local b n=0
+  rm -f "$OUT/icons-prev.png"
+  while [ $n -lt 5 ]; do
+    b=$(bounds "desc:$1"); [ -n "$b" ] || return 1
+    set -- "$1" "$2" $b
+    A exec-out screencap -p > "$OUT/icons-screen.png"
+    magick "$OUT/icons-screen.png" -crop "$(( $5 - $3 ))x$(( $6 - $4 ))+$3+$4" +repage "$2"
+    [ -f "$OUT/icons-prev.png" ] && same "$OUT/icons-prev.png" "$2" && return 0
+    # a new screen read (~2 s) only once two shots differ, something moved: two alike at one place need none
+    [ -f "$OUT/icons-prev.png" ] && rm -f "$SCR"
+    cp "$2" "$OUT/icons-prev.png"; n=$((n + 1))
+  done
+  return 1 # never two shots alike: the picture may still be moving, no caller may compare it
+}
+capture_calendar() { capture Calendar "$1"; }
+same() { [ "$(fdiff "$1" "$2")" = 0 ]; } # same pixels (lib.sh fdiff: never cmp on PNGs)
+
+colour_pixels() { # png #RRGGBB: how many pixels have that colour
+  magick "$1" -fuzz 4% -fill "$2" -opaque "$2" -depth 8 -format %c histogram:info:- \
+    | awk -v c="$2" '$0 ~ c {gsub(":", "", $1); print $1; found=1} END{if (!found) print 0}'
+}
+box() { # png #RRGGBB: "x y w h" around the pixels of that colour (nothing when none)
+  magick "$1" -alpha off -fuzz 4% -fill black +opaque "$2" -fill white -opaque "$2" -format "%@" info: 2>/dev/null \
+    | sed -E 's/^([0-9]+)x([0-9]+)\+([0-9]+)\+([0-9]+)$/\3 \4 \1 \2/' | grep -E '^[0-9]+ [0-9]+ [0-9]+ [0-9]+$'
+}
+pixel() { magick "$1" -format "%[hex:u.p{$2,$3}]" info: | cut -c1-6; } # png x y: RRGGBB
+alike() { # hex hex: every channel within 10
+  local a=$((16#$1)) b=$((16#$2)) s d
+  for s in 16 8 0; do d=$(( ((a >> s) & 255) - ((b >> s) & 255) )); [ ${d#-} -le 10 ] || return 1; done
+}
+# Every restart costs ~9 s (lib.sh setp): a step gives all its settings to one seed or setp.
+model() { echo string icon_glyph "$1" string icon_container "$2" string icon_fill "$3" string icon_color "$4"; } # as setp's words
+look() { setp $(model "$1" "$2" "$3" "$4") "${@:5}"; } # look glyph container fill colour [setp's settings ...]
+exact() { screen | grep -q "text=\"$1\""; }
+nofill() { valid && ! exact "Riempimento"; }
+reach() { # reach desc [neighbour]: the tile on screen, looked for below then above (a picked tile scrolls its row: swipe it right)
+  local i xy dir
+  for dir in "2100 1600" "1600 2100"; do # slow swipes below the preview and the pills: no fling past the row
+    for i in $(seq 8); do
+      hasd "$1" && break 2; [ -n "${2:-}" ] && hasd "$2" && break 2
+      A shell input swipe 150 ${dir% *} 150 ${dir#* } 1200; rm -f "$SCR"
+    done
+  done
+  # The neighbour as find_desc gives it, above y 2300: a row half under the navigation bar is in the dump (Settings draws
+  # edge to edge), and a swipe to the right along the bar switches to the previous app (run imp/5: Camera, from 11-gestures).
+  if [ -n "${2:-}" ] && ! hasd "$1" && xy=$(find_desc "$2"); then set -- "$1" $xy; A shell input swipe 150 "$3" 900 "$3" 1500; wait_until 5 settled; fi # slow: no fling to stop with the tap
+  find_desc "$1"
+}
+tapd() { local xy; xy=$(reach "$@") && [ -n "$xy" ] && { set -- $xy; A shell input tap "$1" "$2"; }; }
+stored() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"$1\">$2</string>"; }
+BUILTIN=builtin:arcticons
+CAL=com.google.android.calendar/com.android.calendar.AllInOneActivity
+
+# The folder pop-up's card (12-folders-a and -b)
+card() { # the pop-up card: the last ScrollView of the dump (the pop-up window comes after the home), "x1 y1 x2 y2"
+  screen | grep -o 'class="android.widget.ScrollView"[^>]*bounds="[^"]*"' | tail -1 \
+    | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr -d '[' | tr ']' ' ' | tr ',' ' '
+}
