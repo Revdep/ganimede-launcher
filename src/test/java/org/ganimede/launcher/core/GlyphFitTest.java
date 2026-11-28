@@ -1,6 +1,7 @@
 package org.ganimede.launcher.core;
 
 import static org.ganimede.launcher.Expect.eq;
+import static org.ganimede.launcher.Expect.yes;
 
 import java.util.List;
 
@@ -90,6 +91,16 @@ public class GlyphFitTest {
     public static void testPixelBoundsEmpty() {
         // nothing at or above the threshold: the whole square, so an empty bitmap centres as it is
         fit(GlyphFit.onContainer(GlyphFit.bounds(new int[96 * 96], 96), 0, 96), 52 / 96.0, 22, 22);
+    }
+
+    public static void testZeroSizeBoundsStayFinite() {
+        // a glyph that is one dot (or no point at all): no division by zero, the dot lands on the centre
+        GlyphFit f = GlyphFit.onContainer(new float[]{24, 24, 24, 24}, 1, 96);
+        yes(Float.isFinite(f.scale()) && Float.isFinite(f.dx()) && Float.isFinite(f.dy()), "finite fit, got " + f);
+        near(48, 24 * f.scale() + f.dx(), "the dot's x on the centre");
+        near(48, 24 * f.scale() + f.dy(), "the dot's y on the centre");
+        GlyphFit empty = GlyphFit.onContainer(GlyphFit.bounds(List.of()), 1, 96);
+        yes(Float.isFinite(empty.scale()) && Float.isFinite(empty.dx()), "finite fit of no paths, got " + empty);
     }
 
     private static List<Float> toList(float[] a) {

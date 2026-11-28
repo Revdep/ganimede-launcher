@@ -20,7 +20,7 @@ public record GlyphFit(float scale, float dx, float dy) {
     /** {@code bounds} is left, top, right, bottom of the paths in grid units; {@code stroke} the width in grid units. */
     public static GlyphFit onContainer(float[] bounds, float stroke, int px) {
         float strokePx = stroke * px / GRID;
-        float scale = (px * SHARE - strokePx) / Math.max(bounds[2] - bounds[0], bounds[3] - bounds[1]);
+        float scale = (px * SHARE - strokePx) / Math.max(Math.max(bounds[2] - bounds[0], bounds[3] - bounds[1]), 1 / 32f); // a dot: 1/32, the stored grid
         return new GlyphFit(scale, px / 2f - (bounds[0] + bounds[2]) / 2 * scale,
                 px / 2f - (bounds[1] + bounds[3]) / 2 * scale);
     }
