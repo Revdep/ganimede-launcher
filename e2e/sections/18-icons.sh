@@ -313,8 +313,7 @@ valid && ! exact "Piastra" && ! exact "Riempimento" && ok "Dots: no Plate, no Fi
 
 step "An old-style (not adaptive) icon stays as it is with Original and a shape"
 FIXTURE=org.ganimede.fixture
-"$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 \
-  && A install -r "$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" >/dev/null && ok "fixture app built and installed" \
+fixture_install && ok "fixture app built and installed" \
   || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
 icons_fixture_cleanup() { A uninstall "$FIXTURE" >/dev/null 2>&1; }
 defer icons_fixture_cleanup

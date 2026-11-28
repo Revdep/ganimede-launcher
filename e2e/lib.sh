@@ -16,6 +16,12 @@ A() {
 }
 ADB=$(command -v adb || echo "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb")
 command -v magick >/dev/null || { echo "ImageMagick (magick) is missing: the wallpaper checks need it." >&2; exit 2; }
+# The fixture app (e2e/fixture), built only when its APK is missing or older than its sources (CI builds it once, in the build job), then installed.
+fixture_install() {
+  local apk="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk"
+  { [ -f "$apk" ] && [ -z "$(find "$HERE/fixture/src" "$HERE/fixture/build.gradle" -newer "$apk" -type f -print -quit)" ] \
+    || "$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1; } && A install -r "$apk" >/dev/null
+}
 # The guard of every destructive step. E2E_PHYSICAL=1 plays a physical phone (to test the guard itself).
 is_emulator() { [ -z "${E2E_PHYSICAL:-}" ] && [[ $SERIAL == emulator-* ]]; }
 emu_only() { is_emulator && return 0; SKIPS=$((SKIPS + 1)); echo "  SKIP: $* (destroys data or changes settings: emulators only)"; return 1; }

@@ -97,8 +97,7 @@ bound_home; wipe
 
 step "Two voice notes in one chat notification: a player each, one plays at a time; none when secret (fixture app)"
 FIX=org.ganimede.fixture   # e2e/fixture: posts a MessagingStyle with two silent WAVs of 30 s and 40 s from its own provider
-"$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 \
-  && A install -r "$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" >/dev/null && ok "fixture app built and installed" \
+fixture_install && ok "fixture app built and installed" \
   || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug): the voice checks below can't pass"
 A shell pm grant $FIX android.permission.POST_NOTIFICATIONS
 voice() { A shell am broadcast -n $FIX/.Post "$@" >/dev/null; fx() { A shell dumpsys notification | grep -q "pkg=$FIX"; }; wait_until 10 fx; }

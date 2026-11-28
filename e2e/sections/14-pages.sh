@@ -163,8 +163,7 @@ hasnt "Accesso alle notifiche" && ok "no “Accesso alle notifiche” row on the
 
 # issue 064: the media player's buttons are announced by TalkBack (fixture app plays a session)
 step "Media player: its buttons have a content description"
-"$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 \
-  && A install -r "$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" >/dev/null && ok "fixture app built and installed" \
+fixture_install && ok "fixture app built and installed" \
   || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
 seed list
 A shell cmd notification allow_listener $PK/$PK.NotifService >/dev/null 2>&1

@@ -73,8 +73,7 @@ done
 
 step "Il tocco sull'orologio apre le sveglie protette in Lista e Classica"
 FIX=org.ganimede.fixture
-"$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 \
-  && A install -r "$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" >/dev/null && ok "fixture sveglie compilata e installata" \
+fixture_install && ok "fixture sveglie compilata e installata" \
   || ko "fixture sveglie non compilata o installata (./gradlew -Pe2e :fixture:assembleDebug)"
 clock_fixture_cleanup() {
   A shell pm enable --user 0 com.google.android.deskclock >/dev/null 2>&1
@@ -187,8 +186,7 @@ a11y_date_action() { A logcat -d -s $A11Y_TAG:I | grep -iEq 'action label=.*(dat
 DATE_ACTION='data|agenda|calendario'
 
 step "Orologio con data: azione accessibile separata e click da accessibilità (Lista e Classica)"
-"$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 \
-  && A install -r "$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" >/dev/null && ok "fixture screen reader installata" \
+fixture_install && ok "fixture screen reader installata" \
   || ko "fixture screen reader non installata (./gradlew -Pe2e :fixture:assembleDebug)"
 defer a11y_off; defer clock_fixture_cleanup
 A shell pm disable-user --user 0 com.google.android.deskclock >/dev/null
