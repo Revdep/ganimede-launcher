@@ -37,6 +37,7 @@ for f in "${picked[@]}"; do
   if bash -n "$f"; then . "$f"; else ko "$CUR: syntax error"; fi
   step_time
   [ $((PASS + FAIL + SKIPS)) -gt $before ] || ko "$CUR: ran no check (nor a skip)"
+  system_check # before the crash check: a restart's DeadSystemException lines are no crash of Ganimede's (system_check clears them)
   if A logcat -d -b crash | grep -q "org.ganimede.launcher"; then ko "$CUR: the app crashed"; A logcat -d -b crash | grep -A5 "org.ganimede" | head -20; A logcat -b crash -c; fi
   echo "  [$CUR: $((SECONDS - t)) s]"; mkdir -p "${TIMES%/*}"
   # shards share the file: append and cut under one lock (a lock on the file itself would die with the mv); the last 200 runs of sections are plenty

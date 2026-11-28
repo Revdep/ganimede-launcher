@@ -102,6 +102,32 @@ if is_emulator; then
   setting system font_scale 1.0 # a run killed mid font test leaves 1.15: List mode's clock then has no room to move up
 else echo "SKIP: $SERIAL is not an emulator: destructive sections and every settings change are left out."; fi
 A logcat -b crash -c
+# Android's own restarts. Its system server died under a step in runs 46105280536 (folders), 46107202244 (preview-parity,
+# a Watchdog kill: android.fg blocked 66 s in GnssLocationProvider.stopNavigating) and 46109393420 (icons-a): a black screen,
+# an empty `dumpsys activity` and a step red for no reason of Ganimede's, and in two of them nothing kept what killed it.
+# system_check (start_home, and run.sh after every section) turns a restart into one explicit ko with that evidence beside
+# it; sysdump keeps the same evidence at the end of every emulator run, restart or not.
+system_up() { A shell service check activity | grep -q ': found' && A shell service check role | grep -q ': found'; }
+ss_pid() { A shell pidof system_server | tr -d '\r'; }
+sysdump() { # sysdump file: since when system_server runs, and what killed the previous one (crash and system logs, dropbox)
+  { echo "== device: $(A shell 'date; cat /proc/uptime' | tr -d '\r' | tr '\n' ' ')(uptime s, idle s)"
+    echo "== system_server: $(A shell 'p=$(pidof system_server); echo "pid ${p:-none}"; [ -z "$p" ] || ps -o PID,STIME,ETIME,NAME -p $p' | tr -d '\r')"
+    echo "== logcat -b crash"; A logcat -d -b crash
+    echo "== logcat -b system (last 300 lines)"; A logcat -d -b system | tail -300
+    # one tag per call: dumpsys dropbox wants an entry to match all its words at once
+    for t in system_server_crash system_server_watchdog system_app_native_crash; do echo "== dropbox $t"; A shell dumpsys dropbox --print $t; done
+  } > "$OUT/$1" 2>&1
+}
+! is_emulator || defer "sysdump system-end.txt"
+SS_PID=$(ss_pid)
+system_check() { # 0 while the system server the run started with (or the last one seen) runs; else one ko, its evidence, and Android back up
+  local now n
+  now=$(ss_pid); [ -n "$now" ] && [ "$now" = "$SS_PID" ] && return 0
+  wait_until 180 system_up; now=$(ss_pid); n=$((FAIL + 1))
+  sysdump "system-restart-$n.txt"; A logcat -b crash -c # kept there; run.sh would read the apps' DeadSystemException as crashes of their own
+  ko "Android's system_server restarted at $( [ -z "$now" ] || A shell ps -o STIME -p "$now" | tail -1 | tr -d '\r ') (pid ${SS_PID:-?} -> ${now:-none, not back in 180 s}): not Ganimede, the evidence is in system-restart-$n.txt"
+  SS_PID=$now; return 1
+}
 PASS=0; FAIL=0; SKIPS=0
 DENS=$(A shell wm density | grep -o '[0-9]*' | tail -1)
 read -r W H <<<"$(A shell wm size | grep -o '[0-9]*x[0-9]*' | tail -1 | tr x ' ')" # real screen size in px
@@ -299,12 +325,9 @@ drawn() { dump | grep -q "package=\"$PK\""; } # touches sent before the first fr
 # the apps load); once they load, every view is built again and a touch held on the old one is lost (run 46081674535,
 # widgets: the long-press on the clock opened no menu). So it also waits for the screen to stop changing.
 # A framework restart (run 46105280536, shard 2, folders: system_server pid 562 -> 11563, a black screen, "cmd: Can't find
-# service: activity/role") is no role problem: it says so, keeps what killed it, and waits for Android to come back.
-system_up() { A shell service check activity | grep -q ': found' && A shell service check role | grep -q ': found'; }
+# service: activity/role") is no role problem: system_check says so, keeps what killed it, and waits for Android to come back.
 start_home() {
-  system_up || { { A logcat -d -b crash; A logcat -d -b system | grep -iE "watchdog|fatal|system_server" | tail -40; } > "$OUT/system-restart.txt" 2>&1
-    ko "Android's system server is down (restarting): not a role problem, what killed it is in system-restart.txt"
-    wait_until 180 system_up || return 1; }
+  system_check || [ -n "$SS_PID" ] || return 1
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" \
     || A shell cmd role add-role-holder android.app.role.HOME $PK >/dev/null 2>&1 # another launcher holding HOME would start a second task
   A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" || { ko "Ganimede doesn't hold the HOME role"; return 1; }

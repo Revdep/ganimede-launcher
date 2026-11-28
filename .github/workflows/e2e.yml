@@ -30,7 +30,7 @@ jobs:
       # branches (run this workflow there by hand); change the key's number with the emulator's settings below.
       - id: avd
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with: { key: avd-35-playstore-pixel9-1, path: "~/.android/avd/*\n~/.android/adb*" }
+        with: { key: avd-35-playstore-pixel9-2, path: "~/.android/avd/*\n~/.android/adb*" }
       - name: KVM for the runner's user
         if: steps.avd.outputs.cache-hit != 'true'
         run: |
@@ -48,7 +48,15 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim # no -no-snapshot: the exit saves it
           disable-animations: false
+          # Location and Bluetooth off in the snapshot: the suite uses neither. With location on, a GNSS stop deadlocked
+          # system_server's android.fg thread and the Watchdog killed it, ~5 min into a shard (run 46107202244, preview-parity:
+          # "Blocked in handler on foreground thread (android.fg) for 66s" in GnssLocationProvider.stopNavigating -> native_stop;
+          # in 46105280536 and 46109393420 it died at the same ~5 min, their evidence not kept). Bluetooth's stack also aborted
+          # in 46107202244 (bt_stack_manage, hci_layer on_hardware_error) without killing it. Off before the snapshot, neither
+          # stack starts in a shard.
           script: |
+            adb shell cmd location set-location-enabled false
+            adb shell 'cmd bluetooth_manager disable || svc bluetooth disable'
             adb shell 'n=0; while [ $n -lt 120 ] && [ "$(cut -d. -f1 /proc/loadavg)" -ge 1 ]; do sleep 5; n=$((n + 1)); done; cat /proc/loadavg'
             adb shell am force-stop com.google.android.apps.nexuslauncher
   # The APKs are built once here, in parallel with plan, and every shard downloads them: a shard pays for no java, gradle or build
@@ -92,7 +100,7 @@ jobs:
           sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
       - run: mkdir -p e2e/out/emulator-5554
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with: { key: avd-35-playstore-pixel9-1, path: "~/.android/avd/*\n~/.android/adb*", fail-on-cache-miss: true }
+        with: { key: avd-35-playstore-pixel9-2, path: "~/.android/avd/*\n~/.android/adb*", fail-on-cache-miss: true }
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         env: { ONLY: "${{ matrix.only }}" }
         with: # plan's emulator, started from its snapshot, which is never saved again
@@ -108,9 +116,8 @@ jobs:
           # vmstat: the runner's load and CPU steal through the run (UTC times), beside the clock on the fail-N screenshots
           script: |
             adb shell cat /proc/loadavg
-            # the suite never uses Bluetooth, and its stack (bt_stack_manage) aborted and took system_server down in runs 46107202244 and 46105280536
-            adb shell 'cmd bluetooth_manager disable || svc bluetooth disable' || true
-            echo "bluetooth_on=$(adb shell settings get global bluetooth_on | tr -d '\r') (0 = off; 1 = the disable did not take, see the run's system-restart.txt if the system server dies)"
+            # the snapshot has both off (plan job): a "true" or a 1 here is a snapshot made before that, whose system server may die mid-shard
+            echo "location=$(adb shell cmd location is-location-enabled | tr -d '\r') bluetooth_on=$(adb shell settings get global bluetooth_on | tr -d '\r')"
             bash -c 'vmstat -t -w 10 > e2e/out/emulator-5554/vmstat.log 2>&1 &'
             bash -o pipefail -c 'bash e2e/run.sh emulator-5554 2>&1 | tee e2e/out/emulator-5554/run.log'
       - if: always()
