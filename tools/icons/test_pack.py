@@ -158,10 +158,10 @@ class ShapeTest(unittest.TestCase):
 
 
 class BadSvgTest(unittest.TestCase):
-    def pack_one(self, svg):
+    def pack_one(self, svg, name="x"):
         with tempfile.TemporaryDirectory() as d:
             os.mkdir(os.path.join(d, "icons"))
-            with open(os.path.join(d, "icons", "x.svg"), "w") as f:
+            with open(os.path.join(d, "icons", name + ".svg"), "w") as f:
                 f.write(svg)
             with open(os.path.join(d, "appfilter.xml"), "w") as f:
                 f.write("<resources/>")
@@ -169,6 +169,13 @@ class BadSvgTest(unittest.TestCase):
 
     def test_a_good_icon_packs(self):
         self.pack_one('<svg xmlns="http://www.w3.org/2000/svg"><path stroke="#fff" d="M1 2 L3 4"/></svg>')
+
+    def test_icon_names_are_lowercase_words(self):
+        # Backup.fits and the picker store a picked icon by name: only [a-z0-9_] survive both
+        for name in ("Bad", "a-b", "a b", "a.b"):
+            with self.assertRaises(SystemExit, msg=name) as e:
+                self.pack_one('<svg xmlns="http://www.w3.org/2000/svg"><path stroke="#fff" d="M1 2 L3 4"/></svg>', name)
+            self.assertIn(name + ".svg", str(e.exception.code))
 
     def test_truncated_path_names_the_file(self):
         with self.assertRaises(SystemExit) as e:

@@ -634,6 +634,8 @@ def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
         sys.exit("%d icons: ids are u16" % len(names))
     blobs = []
     for n in names:
+        if not re.fullmatch(r"[a-z0-9_]+", n):
+            sys.exit("%s.svg: an icon name is [a-z0-9_]+ (a picked icon is stored by name, and the backup checks it)" % n)
         try:
             paths = icon_paths(os.path.join(svg_dir, n + ".svg"))
         except (ET.ParseError, ValueError) as e:
