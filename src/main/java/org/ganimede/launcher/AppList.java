@@ -28,6 +28,7 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URLEncoder;
@@ -94,6 +95,8 @@ final class AppList {
      * builds views: no hitches.
      */
     private final Map<Object, View> rowCache = new HashMap<>();
+    /** The apps shown, in order: kept while typing, dropped when the search is empty or clearCache runs. */
+    private List<Item> visibleCache;
     /** Contacts read one query at a time, off the main thread. */
     private static final ExecutorService CONTACTS = Executors.newSingleThreadExecutor();
     /** Contacts found per query (the last 20): typing back and forth costs nothing. */
@@ -166,6 +169,7 @@ final class AppList {
     /** Labels, icons or notifications may have changed: rows are built again. */
     void clearCache() {
         rowCache.clear();
+        visibleCache = null;
     }
 
     int indexOf(String letter) {
@@ -180,10 +184,12 @@ final class AppList {
         rows.clear();
         String q = search.getText().toString().trim();
         String ql = q.toLowerCase(Locale.ROOT);
-        if (q.isEmpty()) { numberIndex = null; numberEpoch++; contactHits.clear(); } // closed: contacts may change before the next search
+        if (q.isEmpty()) { numberIndex = null; numberEpoch++; contactHits.clear(); visibleCache = null; } // closed: contacts may change before the next search
         if (!q.equals(contactsAll)) contactsAll = ""; // another text, or search closed: the first few again
-        List<Item> visible = apps.visible();
+        if (visibleCache == null) visibleCache = apps.visible(); // reordered once, not at every key
+        List<Item> visible = visibleCache;
         if (!ql.isEmpty()) {
+            JSONArray links = Sunflower.links(ui.a); // parsed once per key
             // Ranked by the search score, worked out once per app; ties go to the app you open most.
             rows.addAll(Search.rank(visible, apps::label, apps::uses, ql));
             // Hidden apps still turn up when searched for by name.
@@ -192,12 +198,12 @@ final class AppList {
             for (Item it : apps.all()) if (hidden.contains(it.key) && Search.score(apps.label(it), ql) > 0) hiddenHits.add(it);
             if (!hiddenHits.isEmpty()) { rows.add(ui.tr("Hidden")); rows.addAll(hiddenHits); }
             if (ui.prefs.getBoolean("contacts_search", false) && q.length() >= 2) addContacts(q); // one letter matches nearly everyone
-            addSunflower(q, visible);
+            addSunflower(q, visible, links);
             rows.add(ui.tr("Web"));
             String[] engine = Search.engine(ui.prefs.getString("engine", "DuckDuckGo"));
             rows.add(new Extra("⌕", ui.f("Search %s for “%s”", engine[0], q), () -> web(q)));
             // Search shortcuts: my links with %s become "search there for what I typed".
-            for (Sunflower.Hit h : Sunflower.searches(ui.a, q)) rows.add(new Extra("⌕", h.label, () -> Sunflower.open(ui.a, h)));
+            for (Sunflower.Hit h : Sunflower.searches(ui.a, links, q)) rows.add(new Extra("⌕", h.label, () -> Sunflower.open(ui.a, h)));
         } else {
             Map<String, String> listFolders = new LinkedHashMap<>(); // id → section letter, each folder read once
             for (String id : layout.folderIds()) {
@@ -390,7 +396,7 @@ final class AppList {
     }
 
     /** Search results beyond apps: my links, quick actions, shortcuts inside apps, settings pages. All offline. */
-    private void addSunflower(String q, List<Item> visible) {
+    private void addSunflower(String q, List<Item> visible, JSONArray links) {
         // QuickSearch: "<app name> <words>" searches inside that app, when the app accepts searches.
         int space = q.indexOf(' ');
         if (space > 0 && space < q.length() - 1) {
@@ -409,7 +415,7 @@ final class AppList {
             rows.add(ui.tr("Quick actions"));
             for (Sunflower.Hit h : actions) rows.add(new Extra("✦", h.label, () -> Sunflower.open(ui.a, h)));
         }
-        List<Sunflower.Hit> mine = Sunflower.custom(ui.a, q);
+        List<Sunflower.Hit> mine = Sunflower.custom(links, q);
         List<Sunflower.Hit> inApps = ui.prefs.getBoolean("search_shortcuts", true) ? Sunflower.shortcuts(q, pkg -> {
             Item a = apps.byPackage(pkg);
             return a == null ? null : apps.label(a);

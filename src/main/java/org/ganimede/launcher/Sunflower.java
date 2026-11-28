@@ -114,9 +114,8 @@ final class Sunflower {
     }
 
     /** My links containing %s ("search shortcuts"): what was typed goes in place of %s. */
-    static List<Hit> searches(Context c, String q) {
+    static List<Hit> searches(Context c, JSONArray a, String q) {
         List<Hit> out = new ArrayList<>();
-        JSONArray a = links(c);
         for (int i = 0; i < a.length(); i++) {
             JSONObject o = a.optJSONObject(i);
             String name = o == null ? "" : o.optString("name"), uri = o == null ? "" : o.optString("uri");
@@ -181,9 +180,8 @@ final class Sunflower {
         return out;
     }
 
-    static List<Hit> custom(Context c, String q) {
+    static List<Hit> custom(JSONArray a, String q) {
         List<Hit> out = new ArrayList<>();
-        JSONArray a = links(c);
         for (int i = 0; i < a.length(); i++) {
             JSONObject o = a.optJSONObject(i);
             String name = o == null ? "" : o.optString("name"), uri = o == null ? "" : o.optString("uri");

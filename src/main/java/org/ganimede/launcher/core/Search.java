@@ -31,9 +31,18 @@ public final class Search {
         return s;
     }
 
+    private static final java.util.regex.Pattern SPACES = java.util.regex.Pattern.compile("\\s+");
+
     /** What's typed, without accents, extra spaces or spaces around it. */
     private static String typed(String query) {
-        return plain(query).trim().replaceAll("\\s+", " ");
+        return SPACES.matcher(plain(query).trim()).replaceAll(" ");
+    }
+
+    /** The typed words, longest first: two that fit one start are prefixes of each other, and the longer fits fewer starts, so it picks first. */
+    private static String[] words(String typed) {
+        String[] words = typed.split(" ");
+        java.util.Arrays.sort(words, java.util.Comparator.comparingInt(String::length).reversed());
+        return words;
     }
 
     /** The name begins with the typed text, ignoring case and accents. */
@@ -50,24 +59,22 @@ public final class Search {
      * letters mid-word or scattered, case and accents ignored. 2: the name begins with the text; 1: a match; 0: none.
      */
     public static int score(String label, String query) {
-        return scoreTyped(label, typed(query));
+        String q = typed(query);
+        return scoreTyped(label, q, words(q));
     }
 
-    /** As score, for a query already run through typed(). */
-    private static int scoreTyped(String label, String q) {
+    /** As score, for a query already run through typed() and words(): the same for every name. */
+    private static int scoreTyped(String label, String q, String[] words) {
         String l = plain(label);
         if (q.isEmpty()) return 0;
-        List<Integer> starts = new ArrayList<>();
-        for (int i = 0; i < l.length(); i++) if (wordStart(l, i)) starts.add(i);
-        String[] words = q.split(" ");
-        // Longest first: two typed words that fit one start are prefixes of each other, and the longer fits fewer
-        // starts, so it picks first and any start it takes would serve the shorter one just as well.
-        java.util.Arrays.sort(words, java.util.Comparator.comparingInt(String::length).reversed());
+        int[] starts = new int[l.length()];
+        int n = 0;
+        for (int i = 0; i < l.length(); i++) if (wordStart(l, i)) starts[n++] = i;
         for (String w : words) {
             int j = 0;
-            while (j < starts.size() && !l.regionMatches(true, starts.get(j), w, 0, w.length())) j++;
-            if (j == starts.size()) return 0;
-            starts.remove(j); // each word of the name begins one typed word only
+            while (j < n && !l.regionMatches(true, starts[j], w, 0, w.length())) j++;
+            if (j == n) return 0;
+            starts[j] = starts[--n]; // each word of the name begins one typed word only (order of the starts doesn't matter)
         }
         return beginsWith(l, q) ? 2 : 1;
     }
@@ -84,8 +91,9 @@ public final class Search {
         Map<T, Integer> scores = new HashMap<>();
         List<T> found = new ArrayList<>();
         String q = typed(query); // once, not per name
+        String[] words = words(q);
         for (T it : items) {
-            int s = scoreTyped(name.apply(it), q);
+            int s = scoreTyped(name.apply(it), q, words);
             if (s > 0) { found.add(it); scores.put(it, s); }
         }
         found.sort(best(scores, uses));
@@ -96,7 +104,8 @@ public final class Search {
     public static <T> void sortByScore(List<T> items, Function<T, String> name, String query) {
         Map<T, Integer> scores = new HashMap<>();
         String q = typed(query);
-        for (T it : items) scores.put(it, scoreTyped(name.apply(it), q));
+        String[] words = words(q);
+        for (T it : items) scores.put(it, scoreTyped(name.apply(it), q, words));
         items.sort(best(scores, it -> 0));
     }
 
@@ -143,7 +152,8 @@ public final class Search {
     /** Section letter for the A–Z list. */
     public static String letter(String label) {
         if (label == null || label.isEmpty()) return "#";
-        char ch = Character.toUpperCase(java.text.Normalizer.normalize(label, java.text.Normalizer.Form.NFD).charAt(0));
+        String first = label.substring(0, label.offsetByCodePoints(0, 1)); // only the first letter needs its accent split off
+        char ch = Character.toUpperCase(java.text.Normalizer.normalize(first, java.text.Normalizer.Form.NFD).charAt(0));
         return ch >= 'A' && ch <= 'Z' ? String.valueOf(ch) : "#";
     }
 
