@@ -97,9 +97,11 @@ final class Folders {
         String focused = popupDrag.focused();
         int scrolled = popupScroll.getScrollY();
         ScrollView sv = popupScroll; // the same window: only what it holds is made again
+        // first: removing the card under a lifting finger sends its icon ACTION_CANCEL, whose FolderDrag.lifted calls back
+        // here; seeing the new look it returns, instead of adding a second card (ScrollView hosts only one child)
+        popupLook = looks(popupId);
         sv.removeAllViews();
         sv.addView(card(popupId, new Dialog[]{popup}, new boolean[1]), new ScrollView.LayoutParams(-1, -2));
-        popupLook = looks(popupId);
         sv.post(() -> sv.scrollTo(0, scrolled));
         if (focused != null) popupDrag.focus(focused);
     }
