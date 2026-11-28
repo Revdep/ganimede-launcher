@@ -2,6 +2,7 @@ package org.ganimede.launcher.core;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
@@ -32,6 +33,16 @@ public final class Favourites {
 
     /** Whether to say how to fill the column: nothing drawn, and the app list loaded (before that every favourite is dropped). */
     public static boolean showHint(int drawn, boolean appsLoaded) { return drawn == 0 && appsLoaded; }
+
+    /** What the classic favourites migration reads; the same key means the same (already saved) result. */
+    public static String migrationKey(Map<String, ?> prefs) {
+        Map<String, Object> read = new java.util.TreeMap<>();
+        for (Map.Entry<String, ?> e : prefs.entrySet()) {
+            String k = e.getKey();
+            if (k.startsWith("folder:") || k.startsWith("grid") || k.equals("fav") || k.equals("dock") || k.equals("blocks")) read.put(k, e.getValue());
+        }
+        return read.toString();
+    }
 
     private Favourites() {}
 }

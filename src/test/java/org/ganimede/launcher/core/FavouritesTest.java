@@ -31,4 +31,26 @@ public class FavouritesTest {
         eq(false, Favourites.showHint(0, false), "the list is still loading: every favourite was dropped, not missing");
         eq(false, Favourites.showHint(2, true), "something is drawn");
     }
+
+    public static void testMigrationKeyChangesWithEveryInputItReads() {
+        java.util.Map<String, Object> p = new java.util.HashMap<>(java.util.Map.of("fav", "a", "grid", "{}", "dock", "d", "blocks", "[]",
+                "grid_cols", 4, "grid_rows", 5, "grid_pages", 1, "folder:1", "{\"apps\":[\"a\"]}"));
+        String k = Favourites.migrationKey(p);
+        for (String key : List.of("fav", "grid", "dock", "blocks", "grid_cols", "grid_rows", "grid_pages", "folder:1")) {
+            java.util.Map<String, Object> q = new java.util.HashMap<>(p);
+            q.put(key, key.startsWith("grid_") ? 9 : "changed");
+            eq(false, k.equals(Favourites.migrationKey(q)), key + " changes the key");
+        }
+        java.util.Map<String, Object> more = new java.util.HashMap<>(p);
+        more.put("folder:2", "{}");
+        eq(false, k.equals(Favourites.migrationKey(more)), "a new folder changes the key");
+    }
+
+    public static void testMigrationKeyIgnoresOtherPrefsAndOrder() {
+        java.util.Map<String, Object> p = new java.util.LinkedHashMap<>();
+        p.put("fav", "a"); p.put("accent", 1);
+        java.util.Map<String, Object> q = new java.util.LinkedHashMap<>();
+        q.put("accent", 2); q.put("fav", "a");
+        eq(Favourites.migrationKey(p), Favourites.migrationKey(q), "unrelated prefs do not redo the migration");
+    }
 }

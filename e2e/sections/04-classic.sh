@@ -11,10 +11,22 @@ near $((n2x - n1x)) $(((W - $(dp 16)) / 4)) $(dp 6) && ok "4 columns: cells wide
 shot 20-grid-4cols
 
 step "Classic: a favourite added in List shows on the grid in Classic"
-# Layout.ensureFavourites skips its work for unchanged prefs; a changed favourites list must still reach the old grid.
-seed classic
-setp string fav "$SEED_FAV&#10;com.android.settings/com.android.settings.Settings"
-wait_until 8 has "Settings" && ok "the new favourite is on the classic grid" || ko "favourite added to the saved list is missing from the grid"
+# The UI flow only: add a favourite from the List drawer, switch to Classic in Settings, see it on the grid.
+# (The migration's skip rule is proved in core: FavouritesTest.testMigrationKey*.)
+seed classic; wait_until 8 has "Calendar"
+settings_mode() { # $1 Lista|Classica: Settings from the home screen (an empty spot of both modes), mode tile, back home
+  A shell input keyevent KEYCODE_HOME; wait_until 5 focus
+  A shell input swipe 540 1500 540 1500 1500; tap "Impostazioni Ganimede"; tap "Personalizza"
+  stap "$1"; A shell input keyevent KEYCODE_HOME; wait_until 5 focus; }
+settings_mode Lista
+wait_until 8 eval '[ "$(pref mode)" = list ]' && ok "switched to List without a restart" || ko "mode = $(pref mode)"
+open_drawer; typ sett; wait_until 5 has "Settings"
+read -r sx sy <<<"$(cx Settings)"; hold "$sx" "$sy"
+expect "Aggiungi ai preferiti" && tap "Aggiungi ai preferiti"
+wait_until 5 eval '[ -n "$(pref fav | grep com.android.settings)" ]' && ok "Settings is a favourite" || ko "fav = $(pref fav)"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"'
+settings_mode Classica
+wait_until 8 has "Settings" && ok "the new favourite is on the classic grid" || ko "favourite added in List is missing from the Classic grid"
 has "Calendar" && ok "existing placements kept" || ko "Calendar left the grid"
 
 step "Classic: the clock is a block of the grid"
