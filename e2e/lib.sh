@@ -188,7 +188,7 @@ pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | _val "$1"; }
 # unless the file was read whole (it ends with </map>). pref_lacks key regex: the value of the key doesn't match; set_lacks key regex: no item of the set does.
 prefs_read() { PREFS_XML=$(A exec-out run-as $PK cat shared_prefs/ganimede.xml); grep -q '</map>' <<<"$PREFS_XML"; }
 pref_lacks() { prefs_read && ! grep -q "$2" <<<"$(_val "$1" <<<"$PREFS_XML")"; }
-set_lacks() { prefs_read && ! sed -n "\\@name=\"$1\"@,\\@</set>@p" <<<"$PREFS_XML" | grep -q "$2"; }
+set_lacks() { prefs_read && ! awk -v k="name=\"$1\"" 'index($0,k) { if ($0 ~ /\/>[ \t]*$/) next; on=1 } on { print } /<\/set>/ { on=0 }' <<<"$PREFS_XML" | grep -q "$2"; } # a self-closed <set name="x" /> is an empty set
 # bounds of the first node whose text (or content-desc with "desc:") is exactly $1: "x1 y1 x2 y2", empty if none
 bounds() {
   local attr=text v="$1" r; case "$v" in desc:*) attr=content-desc; v="${v#desc:}";; esac

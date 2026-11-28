@@ -62,6 +62,8 @@ t "pref_lacks: whole file, value absent" pref_lacks fav calendar
 n pref_lacks fav a/b;       t "pref_lacks: whole file, value present is false" test $? = 0
 t "set_lacks: whole file, item absent" set_lacks hidden settings
 n set_lacks hidden x;       t "set_lacks: whole file, item present is false" test $? = 0
+printf "<map>\n    <set name=\"hidden\" />\n    <set name=\"other\">\n        <string>settings</string>\n    </set>\n</map>\n" > "$FAKE_PREFS"
+t "set_lacks: a self-closed (empty) set holds nothing, whatever the next set holds" set_lacks hidden settings
 head -2 "$FAKE_PREFS" > "$T/half"; cp "$T/half" "$FAKE_PREFS"
 n pref_lacks fav calendar;  t "pref_lacks: a file cut before </map> is not a pass" test $? = 0
 
