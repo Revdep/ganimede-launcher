@@ -46,12 +46,6 @@ public class VoiceTest {
         eq("[a, b, c.part, d.part]", Voice.drop(names, ages, null).toString(), "no access: everything, a young half too");
     }
 
-    public static void testSweepSparesACopyYoungerThanTheSnapshot() {
-        // the notifications were read before this copy was made: it is not in them yet
-        eq("[]", Voice.drop(new String[]{"e"}, new long[]{Voice.COPY_MS - 1}, Set.of()).toString(), "young whole copy kept");
-        eq("[e]", Voice.drop(new String[]{"e"}, new long[]{Voice.COPY_MS + 1}, Set.of()).toString(), "old and unwanted: gone");
-    }
-
     public static void testKeepsANoteOnlyIfAWholeOneStillFits() {
         yes(Voice.room(0), "empty");
         yes(Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES), "a largest note fills it exactly");

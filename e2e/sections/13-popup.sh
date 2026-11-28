@@ -138,7 +138,7 @@ step "Voice notes after text and links: a player each, each plays (fixture app)"
 # app revoking its earlier notes' grants before each re-post, a link carrying a preview image). Issue 083.
 kept() { A exec-out run-as $PK sh -c 'ls no_backup/voice 2>/dev/null' | grep -c .; } # notes copied on arrival
 kept_is() { [ "$(kept)" = "$1" ]; }
-plays() { # $1: where, $2: which player, $3: its copy's size
+play_note() { # $1: where, $2: which player, $3: its copy's size
   local p; p=$(play_at "$2"); A shell input tap $p
   wait_until 10 copies_are "$3" && ok "$1: note $2 plays" || ko "$1: copies after tapping note $2: $(copies)"
   A shell input tap $p; wait_until 5 copies_are ""
@@ -146,7 +146,7 @@ plays() { # $1: where, $2: which player, $3: its copy's size
 check_voice() { # $1: where, $2: players expected, $3: 1 if the chat has a link
   wait_until 5 nplayers "$2" && ok "$1: $2 players" || ko "$1: players: $(players)"
   [ "$3" = 1 ] && { has "Apri link" && ok "$1: Open link" || ko "$1: no Open link"; }
-  plays "$1" 1 480044; [ "$2" = 2 ] && plays "$1" 2 640044
+  play_note "$1" 1 480044; [ "$2" = 2 ] && play_note "$1" 2 640044
 }
 for shape in a b c d e f; do
   wipe; wait_until 10 kept_is 0
@@ -215,7 +215,7 @@ wait_until 20 eval 'voice; kept_is 2' && ok "re-posted until its open returned: 
 step "Summary holds a chat with voice notes: they are kept before it is snoozed (fixture app)"
 wipe; wait_until 10 kept_is 0
 A shell am force-stop $PK; A exec-out run-as $PK sh -c "sed -i '/name=\"summary_held\" *\/>/d; /name=\"summary_held\">/,/<\/set>/d' shared_prefs/ganimede.xml"
-setp boolean summary true; setp boolean summary_skip_chats false; setset summary_apps $FIX
+setp boolean summary true; setp boolean summary_skip_chats false; setp set summary_apps $FIX
 wait_until 10 listening; wait_until 10 bound
 c0=$(pref summary_count); c0=${c0:-0}
 NID=$((RANDOM + 2)) # a fresh id: Android keeps a snoozed key silent for hours
