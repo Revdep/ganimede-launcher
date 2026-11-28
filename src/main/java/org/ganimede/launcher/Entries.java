@@ -120,7 +120,7 @@ final class Entries {
             for (int k = r * 2; k < Math.min(inside.size(), r * 2 + 2); k++) {
                 ImageView iv = new ImageView(ui.a);
                 Item a = inside.get(k); // drawn in the look of the page the tile is on, the tile as its plate
-                Icons.apply(iv, a.icon, a.fromPack, a.info.getUser(), look.inFolder(), ui.fg, ui.accent, mini);
+                Icons.apply(iv, a.icon, a.fromPack, a.category, a.info.getUser(), look.inFolder(), ui.fg, ui.accent, mini);
                 LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(mini, mini);
                 if (k % 2 == 1) ml.setMarginStart(pad);
                 line.addView(iv, ml);

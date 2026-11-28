@@ -181,8 +181,12 @@ original_kept && ok "choosing the built-in set keeps the icon style Original" ||
 reach "${S}Originale" >/dev/null && ok "with the built-in set the Icons card still offers Original" || ko "no Original tile with the built-in set"
 reach "${C}Colore del testo" >/dev/null && exact "Colore" && exact "Riempimento" \
   && ok "Original over the built-in set: the Fill and Colour rows show (its glyphs use them)" || ko "Original over the built-in set: no Fill or Colour row"
+flag() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<boolean name=\"$1\" value=\"$2\" />"; }
+exact "Icone per categoria" && ok "the built-in set: the Icons card offers Category icons" || ko "the built-in set: no Category icons row"
+tapn "Icone per categoria" 60 && wait_until 5 flag icon_category false && ok "a tap on Category icons saves icon_category = false" || ko "Category icons saved nothing"
 tapn "Nessuno (icone delle app)" 60 && wait_until 5 stored icon_pack "" && original_kept && ok "back to no pack: the icon style is still Original" \
   || ko "back to no pack: the pack did not change, or icon_glyph did"
+valid && ! exact "Icone per categoria" && ok "no pack: no Category icons row" || ko "no pack: the Category icons row is still there"
 
 for mode in list classic; do
   step "Built-in Arcticons pack draws Calendar in the accent: $mode mode"
@@ -414,6 +418,7 @@ for mode in list classic; do
   seed "$mode"
   setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open"
   setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true
+  setp boolean icon_category false # the fixture declares a category (issue 087): these steps are about its silhouette
   if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi # at 80 dp the cell cuts the plate's sides
   look line circle solid accent
   cal="$OUT/icons-$mode-fallback-calendar.png" fix="$OUT/icons-$mode-fallback-fixture.png"
@@ -475,6 +480,7 @@ seed classic
 setp string folder:fb "{\"name\":\"Fb\",\"where\":\"fav\",\"apps\":[\"$FIXTURE/$FIXTURE.Open\",\"com.google.android.calendar/com.android.calendar.AllInOneActivity\"]}"
 setp string fav 'f:fb'
 setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
+setp boolean icon_category false # the fixture declares a category (issue 087): this step is about its silhouette
 look line circle solid accent
 if capture Fb "$OUT/icons-folder-fallback.png"; then
   green=$(colour_pixels "$OUT/icons-folder-fallback.png" "#2E7D32"); red=$(colour_pixels "$OUT/icons-folder-fallback.png" "$RED")
@@ -558,3 +564,28 @@ if folder_cell "$OUT/icons-folder-app-page.png"; then
   [ "${red:-0}" -gt 20 ] && [ "${white:-0}" -eq 0 ] && ok "the folder's Calendar is red as the app page's icons ($red px), not the home's white" \
     || ko "folder on an app page: red $red, white $white px (expected red, no white)"
 else ko "no Cartella X on the app pages"; fi
+
+# Issue 087: an app with no Arcticons entry and no monochrome layer shows the glyph of its category (the fixture declares
+# android:appCategory="news"): the same as Calendar picked to show the newspaper icon by hand; off, the silhouette.
+for mode in list classic; do
+  step "Category glyph for an app without an Arcticons icon: $mode mode"
+  seed "$mode"
+  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open"
+  setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true
+  if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi
+  setp string "icon:$CAL" "$BUILTIN|emoji_newspaper"
+  look line circle solid accent
+  cal="$OUT/icons-$mode-category-calendar.png" fix="$OUT/icons-$mode-category-fixture.png"
+  capture Calendar "$cal" || ko "$mode: no Calendar"
+  capture Fixture "$fix" || ko "$mode: no fixture app"
+  wc=$(colour_pixels "$cal" "#FFFFFF"); wf=$(colour_pixels "$fix" "#FFFFFF"); red=$(colour_pixels "$fix" "$RED")
+  [ "${wc:-0}" -gt 20 ] && [ "${red:-0}" -gt 20 ] && near "${wf:-0}" "${wc:-0}" $((wc / 20 + 3)) \
+    && ok "$mode: the fixture shows the news glyph like Calendar's picked newspaper (white $wf and $wc px, red plate)" \
+    || ko "$mode: fixture white $wf px, Calendar white $wc px, fixture red $red px (expected the same glyph on a red plate)"
+  setp boolean icon_category false
+  capture Fixture "$OUT/icons-$mode-category-off.png" || ko "$mode: no fixture app (category icons off)"
+  wo=$(colour_pixels "$OUT/icons-$mode-category-off.png" "#FFFFFF"); red=$(colour_pixels "$OUT/icons-$mode-category-off.png" "$RED")
+  [ "${red:-0}" -gt 20 ] && ! near "${wo:-0}" "${wc:-0}" $((wc / 20 + 3)) \
+    && ok "$mode: Category icons off: the silhouette, not the newspaper (white $wo px), the plate still red" \
+    || ko "$mode: Category icons off: white $wo px against the newspaper's $wc, red $red px"
+done

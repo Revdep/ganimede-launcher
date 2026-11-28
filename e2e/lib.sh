@@ -153,7 +153,7 @@ setp() { # setp int|boolean|string|set|del key [value] (a set holds the one item
   local f="$OUT/prefs.xml"
   A shell am force-stop $PK
   A exec-out run-as $PK sh -c 'cat shared_prefs/ganimede.xml.bak 2>/dev/null || cat shared_prefs/ganimede.xml' > "$f" # the file Android would load
-  sed -i "/ name=\"$2\"/d" "$f"
+  sed -i "\@ name=\"$2\"@d" "$f" # @: a key may hold a slash (icon:<component>)
   case $1 in
     int|boolean) sed -i "s@</map>@    <$1 name=\"$2\" value=\"$3\" />\n</map>@" "$f" ;;
     string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;

@@ -124,6 +124,8 @@ final class ItSettings {
         it("Hide app names of favourites", "Nascondi i nomi delle app preferite");
         it("None (apps' own icons)", "Nessuno (icone delle app)");
         it("Arcticons (built-in)", "Arcticons (integrato)");
+        it("Category icons", "Icone per categoria");
+        it("A glyph for apps that have no icon in the set", "Un glifo per le app che non hanno un'icona nel set");
         it("Change wallpaper", "Cambia sfondo");
         it("Pick one that suits your theme", "Scegline uno adatto al tuo tema");
 

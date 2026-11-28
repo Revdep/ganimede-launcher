@@ -117,6 +117,7 @@ final class SettingsLook {
 
         c = kit.card("Icons");
         iconChoices(c);
+        categoryIcons(c);
         boolean classic = new Layout(kit.activity(), kit.prefs()).classic();
         // One slider for the icons of the chosen mode: the preview follows the finger.
         kit.slider(c, kit.ui.tr("Icon size"), classic ? "grid_icon" : "icon_size", 32, 80, classic ? 48 : 54);
@@ -223,6 +224,12 @@ final class SettingsLook {
         kit.tiles(c, values.length, Math.max(0, SettingsKit.indexOf(values, selected)), kit.tr(names), described(group, names),
                 i -> samples.sampleIcon(with.apply(values[i]), 44, kit.ui.fg, kit.ui.accent),
                 i -> kit.put(key.apply(homeKey), values[i]));
+    }
+
+    /** "Category icons" (issue 087): only the built-in set has glyphs to use. */
+    void categoryIcons(LinearLayout c) {
+        if (IconSet.PACK.equals(kit.prefs().getString("icon_pack", "")))
+            kit.toggle(c, kit.ui.tr("Category icons"), kit.ui.tr("A glyph for apps that have no icon in the set"), Icons.CATEGORY_KEY, true, kit::render);
     }
 
     void iconPacks(LinearLayout c) {

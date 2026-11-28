@@ -37,7 +37,7 @@ public final class Backup {
             "fav", "s", "dock", "s", "drawer", "b", "widget_below", "b", "hidden", "set", "unsuggested", "set", "custom_shortcuts", "s",
             "clock_style", "s", "clock24", "b", "font", "s", "text_color", "s", "accent", "i", "icon_shape", "s", "themed_shape", "s",
             FolderLook.BACKGROUND_KEY, "i", FolderLook.ALPHA_KEY, "i", FolderLook.COLUMNS_KEY, "i",
-            "icon_size", "i", "icon_pack", "s", "hide_labels", "b", "drawer_follow", "b", "drawer_labels", "b",
+            "icon_size", "i", "icon_pack", "s", "icon_category", "b", "hide_labels", "b", "drawer_follow", "b", "drawer_labels", "b",
             "drawer_font", "s", "drawer_icon_shape", "s", "drawer_icon", "i", "drawer_label_scale", "i",
             "icon_glyph", "s", "icon_container", "s", "icon_fill", "s", "icon_color", "s",
             "drawer_icon_glyph", "s", "drawer_icon_container", "s", "drawer_icon_fill", "s", "drawer_icon_color", "s",

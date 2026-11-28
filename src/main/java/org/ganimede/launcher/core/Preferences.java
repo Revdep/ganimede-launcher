@@ -17,7 +17,7 @@ public final class Preferences {
             "classic_grid_x", "classic_grid_y", "classic_dock_x", "classic_dock_y", "classic_pad_l", "classic_pad_r",
             "classic_pad_t", "classic_pad_b", "grid_cols", "grid_rows", "grid_pages", "grid_icon", "blocks", "grid", "dock",
             "dock_count", "dock_alpha", "drawer", "drawer_cols", "drawer_labels", "hide_status_bar", "rotate", "dim", "dim_home",
-            "font", "text_color", "accent", "icon_glyph", "icon_container", "icon_fill", "icon_color", "icon_pack",
+            "font", "text_color", "accent", "icon_glyph", "icon_container", "icon_fill", "icon_color", "icon_pack", "icon_category",
             FolderLook.BACKGROUND_KEY, FolderLook.ALPHA_KEY, FolderLook.COLUMNS_KEY, "drawer_follow", "drawer_icon",
             "drawer_label_scale", "drawer_font", "drawer_icon_glyph", "drawer_icon_container", "drawer_icon_fill", "drawer_icon_color");
 

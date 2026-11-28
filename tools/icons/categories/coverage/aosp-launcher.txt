@@ -1,0 +1,14 @@
+# Default launchable apps of AOSP (packages as in its repositories; from memory of the tree, 2026-11-28, not re-checked): extend by hand.
+com.android.settings
+com.android.camera2
+com.android.calendar
+com.android.deskclock
+com.android.contacts
+com.android.dialer
+com.android.messaging
+com.android.gallery3d
+com.android.email
+com.android.calculator2
+com.android.music
+com.android.documentsui
+com.android.soundrecorder

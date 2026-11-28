@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:label="Fixture">
+    <application android:label="Fixture" android:appCategory="news"> <!-- issue 087: the category glyph of an app with no Arcticons icon -->
         <!-- A launcher entry only so the e2e can make it a favourite; opening it shows nothing. -->
         <activity android:name=".Open" android:exported="true" android:theme="@android:style/Theme.NoDisplay"
             android:icon="@drawable/square_icon">

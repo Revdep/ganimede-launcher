@@ -1,6 +1,6 @@
 """Packs Arcticons' line icons into Ganimede's built-in icon set (issue 076), read by core/IconSet.
 
-usage, from app/: python3 -I tools/icons/pack.py <Arcticons checkout at ARCTICONS_COMMIT> src/main/assets/icons.bin
+usage, from app/: python3 -I tools/icons/pack.py <Arcticons checkout at ARCTICONS_COMMIT> src/main/assets/icons.bin <android-app-categories checkout at CATEGORIES_COMMIT>
 It reads <checkout>/icons/white/*.svg and <checkout>/app/src/main/assets/appfilter.xml.
 
 Format (little endian), all geometry on Arcticons' 48x48 grid:
@@ -13,6 +13,9 @@ Format (little endian), all geometry on Arcticons' 48x48 grid:
   names    per icon, ids in name order: varint length + UTF-8
   index    indexCount * (u48 low bits of FNV-1a 64 of the key, u16 icon id), sorted by hash; the key is the package
            when every component of it in the appfilter draws one icon, otherwise "package/full.ClassName"
+Format 2 ('ICN2', issue 087) adds the app categories after the icon index: the header grows by u32 categoryKeys, u32 categoryIndexOff,
+u32 categoryTableOff (52 B in all). The category index has the icon index's layout (u48 hash of the package, u16 category id =
+position in the table); the table is u16 n, n * u16 glyph icon id, then n category names (varint length + UTF-8).
 Arcs become cubics, dashes become subpaths (a zero-length dash is a zero-length line, drawn by its cap), transforms,
 CSS classes and the viewBox are applied here, so the reader only draws.
 Whether a subpath is closed (for fills, issue 080) is read from the geometry by the decoder, not stored.
@@ -548,8 +551,81 @@ def index(key_ids, hash48=fnv48):
     return entries
 
 
-def pack(svg_dir, appfilter, commit):
-    """-> (icons.bin bytes, summary line)."""
+# Play Store categories in the order of core/AppCategory, with the built-in icon that stands for each (issue 087)
+GAMES = ["ACTION", "ADVENTURE", "ARCADE", "BOARD", "CARD", "CASINO", "CASUAL", "EDUCATIONAL", "MUSIC", "PUZZLE", "RACING",
+         "ROLE_PLAYING", "SIMULATION", "SPORTS", "STRATEGY", "TRIVIA", "WORD"]
+GLYPHS = dict([
+    ("ART_AND_DESIGN", "emoji_artist_palette"), ("AUTO_AND_VEHICLES", "car"), ("BEAUTY", "emoji_dress"),
+    ("BOOKS_AND_REFERENCE", "books"), ("BUSINESS", "emoji_briefcase"), ("COMICS", "emoji_collision_symbol"),
+    ("COMMUNICATION", "chat"), ("DATING", "emoji_two_hearts"), ("EDUCATION", "school"), ("ENTERTAINMENT", "tv"),
+    ("EVENTS", "emoji_party_popper"), ("FINANCE", "emoji_classical_building"), ("FOOD_AND_DRINK", "emoji_pot_of_food"),
+    ("HEALTH_AND_FITNESS", "workout"), ("HOUSE_AND_HOME", "home"), ("LIBRARIES_AND_DEMO", "emoji_package"),
+    ("LIFESTYLE", "emoji_potted_plant"), ("MAPS_AND_NAVIGATION", "maps"), ("MEDICAL", "pill"), ("MUSIC_AND_AUDIO", "music"),
+    ("NEWS_AND_MAGAZINES", "emoji_newspaper"), ("PARENTING", "emoji_baby_bottle"), ("PERSONALIZATION", "themes"),
+    ("PHOTOGRAPHY", "camera"), ("PRODUCTIVITY", "emoji_clipboard"), ("SHOPPING", "shopping"),
+    ("SOCIAL", "emoji_busts_in_silhouette"), ("SPORTS", "emoji_soccer_ball"), ("TOOLS", "emoji_hammer_and_wrench"),
+    ("TRAVEL_AND_LOCAL", "emoji_airplane"), ("VIDEO_PLAYERS", "emoji_clapper_board"), ("WEATHER", "weather")]
+    + [("GAME_" + g, "games") for g in GAMES])
+CATEGORIES_COMMIT = "05ba4fb166ae3e5dd66ee50645ac8a6186259216"  # heysupratim/android-app-categories (Unlicense)
+# the dataset's 67 `type` values that are not a category's own name once "&" is "AND": typos, old names, games without "GAME_"
+ALIASES = {
+    "Offic": "PRODUCTIVITY", "Office": "PRODUCTIVITY", "Development": "TOOLS", "Utilities": "TOOLS",
+    "Transport": "MAPS_AND_NAVIGATION", "Transportation": "MAPS_AND_NAVIGATION", "Sport": "SPORTS",
+    "Libraries & Demo": "LIBRARIES_AND_DEMO", "Library & Demos": "LIBRARIES_AND_DEMO",
+    "Media & Audio": "MUSIC_AND_AUDIO", "Music & AUdio": "MUSIC_AND_AUDIO",
+    "Media & Video": "VIDEO_PLAYERS", "Media & Videos": "VIDEO_PLAYERS", "Media & Vide0": "VIDEO_PLAYERS",
+    "Video Players & Editors": "VIDEO_PLAYERS", "Travel & Locale": "TRAVEL_AND_LOCAL",
+    "Brain Games": "GAME_PUZZLE", "Puzles": "GAME_PUZZLE", "Puzzle": "GAME_PUZZLE", "Board Games": "GAME_BOARD",
+    "Racing Games": "GAME_RACING", "Quiz": "GAME_TRIVIA", "General Culture": "GAME_TRIVIA", "Music": "GAME_MUSIC",
+    "Educational": "GAME_EDUCATIONAL", "Role Playing": "GAME_ROLE_PLAYING"}
+for _g in ("Action", "Adventure", "Arcade", "Board", "Card", "Casino", "Casual", "Racing", "Simulation", "Strategy", "Trivia", "Word"):
+    ALIASES[_g] = "GAME_" + _g.upper()
+
+
+def category_of(type_):
+    """The Play category of a dataset `type` value, or None for the one empty value (every other value must map)."""
+    if not type_.strip():
+        return None
+    name = ALIASES.get(type_) or type_.upper().replace(" & ", "_AND_").replace(" ", "_")
+    if name not in GLYPHS:
+        sys.exit("dataset type %r maps to no category" % type_)
+    return name
+
+
+def read_curated(path):
+    """{package: category} from curated.tsv: package TAB CATEGORY TAB source and date; blank and # lines skipped."""
+    out = {}
+    for n, line in enumerate(open(path, encoding="utf-8"), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        cols = line.rstrip("\n").split("\t")
+        if len(cols) < 3 or cols[1] not in GLYPHS or not cols[2].strip():
+            sys.exit("%s:%d: want package, a category and its source" % (path, n))
+        out[cols[0]] = cols[1]
+    return out
+
+
+def read_dataset(path):
+    """{package: category} from heysupratim's apps_with_category.txt."""
+    import json
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for app in json.load(f)["apps"]:
+            c = category_of(app["type"])
+            if c:
+                out[app["packagename"]] = c
+    return out
+
+
+def category_keys(curated, dataset, taken):
+    """{package: category}: the curated table beats the dataset; a package that already has an Arcticons icon is dropped."""
+    merged = dict(dataset)
+    merged.update(curated)
+    return {p: c for p, c in merged.items() if p not in taken}
+
+
+def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
+    """-> (icons.bin bytes, summary line). categories = (curated.tsv, dataset or None): format 2, else format 1."""
     names = sorted(n[:-4] for n in os.listdir(svg_dir) if n.endswith(".svg"))
     if len(names) > 0xFFFF:
         sys.exit("%d icons: ids are u16" % len(names))
@@ -559,7 +635,17 @@ def pack(svg_dir, appfilter, commit):
             blobs.append(encode_icon(icon_paths(os.path.join(svg_dir, n + ".svg"))))
         except ET.ParseError as e:
             sys.exit("%s.svg: %s" % (n, e))
-    entries = index(keys(components(appfilter, {n: i for i, n in enumerate(names)})))
+    icon_keys = keys(components(appfilter, {n: i for i, n in enumerate(names)}))
+    entries = index(icon_keys)
+    if categories:
+        glyph_ids = []
+        for c, g in glyphs.items():
+            if g not in names:
+                sys.exit("category %s: glyph %r is not among the icons" % (c, g))
+            glyph_ids.append(names.index(g))
+        cats = list(glyphs)
+        cat_entries = index({p: cats.index(c) for p, c in category_keys(
+            read_curated(categories[0]), read_dataset(categories[1]) if categories[1] else {}, icon_keys).items()})
     offs, data = [0], bytearray()
     for bl in blobs:
         data += bl
@@ -569,29 +655,66 @@ def pack(svg_dir, appfilter, commit):
         e = n.encode()
         varint(namesec, len(e))
         namesec += e
-    head = 40 + 4 * len(offs)
-    out = bytearray(b"ICN1" + bytes.fromhex(commit))
+    fixed = 52 if categories else 40
+    head = fixed + 4 * len(offs)
+    out = bytearray((b"ICN2" if categories else b"ICN1") + bytes.fromhex(commit))
     out += struct.pack("<IIII", len(names), len(entries), head + len(data), head + len(data) + len(namesec))
+    if categories:
+        cat_at = head + len(data) + len(namesec) + 8 * len(entries)
+        out += struct.pack("<III", len(cat_entries), cat_at, cat_at + 8 * len(cat_entries))
     out += struct.pack("<%dI" % len(offs), *offs) + data + namesec
     for h, v in entries:
         out += struct.pack("<Q", h)[:6] + struct.pack("<H", v)
+    if categories:
+        for h, v in cat_entries:
+            out += struct.pack("<Q", h)[:6] + struct.pack("<H", v)
+        out += struct.pack("<H", len(glyph_ids)) + struct.pack("<%dH" % len(glyph_ids), *glyph_ids)
+        for c in glyphs:
+            varint(out, len(c))
+            out += c.encode()
     empty = sum(1 for bl in blobs if bl == b"\x00")
-    return bytes(out), ("icons %d (empty %d), index %d keys, geometry %d B, names %d B, total %d B"
-                        % (len(names), empty, len(entries), len(data), len(namesec), len(out)))
+    return bytes(out), ("icons %d (empty %d), index %d keys, %d category keys, geometry %d B, names %d B, total %d B"
+                        % (len(names), empty, len(entries), len(cat_entries) if categories else 0, len(data), len(namesec), len(out)))
 
 
-def main(checkout, dst):
+HERE = os.path.dirname(os.path.abspath(__file__))
+CURATED = os.path.join(HERE, "categories", "curated.tsv")
+COVERAGE = os.path.join(HERE, "categories", "coverage")
+
+
+def checked_out(checkout, pinned, what):
     head = subprocess.run(["git", "-C", checkout, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    if head != ARCTICONS_COMMIT:
-        sys.exit("Arcticons checkout is at %r, the pinned commit is %s" % (head, ARCTICONS_COMMIT))
-    data, summary = pack(os.path.join(checkout, "icons", "white"),
-                         os.path.join(checkout, "app", "src", "main", "assets", "appfilter.xml"), ARCTICONS_COMMIT)
+    if head != pinned:
+        sys.exit("%s checkout is at %r, the pinned commit is %s" % (what, head, pinned))
+
+
+def coverage(icon_keys, category_packages):
+    """Per public list (tools/icons/categories/coverage/*.txt, one package per line): % with an icon / a category / neither."""
+    for name in sorted(os.listdir(COVERAGE)):
+        pkgs = [l.split()[0] for l in open(os.path.join(COVERAGE, name), encoding="utf-8") if l.strip() and not l.startswith("#")]
+        icon = sum(1 for p in pkgs if p in icon_keys)
+        cat = sum(1 for p in pkgs if p not in icon_keys and p in category_packages)
+        print("%s: %d apps, icon %d%%, category only %d%%, neither %d%%" % (
+            name, len(pkgs), 100 * icon // len(pkgs), 100 * cat // len(pkgs), 100 * (len(pkgs) - icon - cat) // len(pkgs)))
+
+
+def main(checkout, dst, dataset_checkout=None):
+    checked_out(checkout, ARCTICONS_COMMIT, "Arcticons")
+    appfilter = os.path.join(checkout, "app", "src", "main", "assets", "appfilter.xml")
+    dataset = None
+    if dataset_checkout:
+        checked_out(dataset_checkout, CATEGORIES_COMMIT, "Category dataset")
+        dataset = os.path.join(dataset_checkout, "apps_with_category.txt")
+    data, summary = pack(os.path.join(checkout, "icons", "white"), appfilter, ARCTICONS_COMMIT, (CURATED, dataset))
     with open(dst, "wb") as f:
         f.write(data)
     print(summary)
+    names = sorted(n[:-4] for n in os.listdir(os.path.join(checkout, "icons", "white")) if n.endswith(".svg"))
+    coverage(keys(components(appfilter, {n: i for i, n in enumerate(names)})),
+             (read_dataset(dataset) if dataset else {}) | read_curated(CURATED))
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:])
