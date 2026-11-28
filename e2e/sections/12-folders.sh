@@ -33,7 +33,7 @@ shot 121-folder-deleted
 step "Folders: a deleted folder's key is not revived by a drop on its empty grid spot"
 seed classic; setp int grid_cols 4
 g=$(pref grid); g2="${g%\}},&quot;13&quot;:&quot;f:777&quot;}" # cell 13: right of Contacts (cells 10-12), a folder id that no longer exists
-setp string grid "${g2//&/\\&}"
+setp string grid "$g2"
 read -r ax ay <<<"$(cx Calendar)"; read -r _ cy <<<"$(cx Contacts)"
 colw=$(((W - 2 * $(dp 8)) / 4)); tx=$(($(dp 8) + colw + colw / 2)) # column 2 of Contacts' row
 A shell input draganddrop "$ax" "$ay" "$tx" "$cy" 1500
@@ -78,7 +78,7 @@ step "Folders: Settings defaults, one-folder look, then changed defaults"
 seed classic \
   string folder:look '{"name":"Tre","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
   string folder:other '{"name":"Altra","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
-  string fav 'f:look\&#10;f:other'
+  string fav 'f:look&#10;f:other'
 LAVENDER=-4609803 # #FFB9A8F5
 SKY=-7686920      # #FF8AB4F8
 
@@ -203,7 +203,7 @@ n=$(echo "$comps" | grep -c .)
 many=$(echo "$comps" | sed 's/.*/"&"/' | paste -sd, -)
 seed classic string folder:big "{\"name\":\"Grande\",\"where\":\"fav\",\"apps\":[$many]}" \
   string folder:few '{"name":"Pochi","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' \
-  string fav 'f:big\&#10;f:few\&#10;f:two' \
+  string fav 'f:big&#10;f:few&#10;f:two' \
   string folder:two "{\"name\":\"Doppia\",\"where\":\"fav\",\"cols\":2,\"apps\":[$many]}" # same apps, 2 columns: still taller than the screen when n >= 30
 inset() { # inset statusBars|navigationBars: the inset's frame "x1 y1 x2 y2" from the window dump, empty when absent
   A shell dumpsys window | grep -o "type=$1 frame=\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]" | head -1 \
@@ -263,10 +263,7 @@ shown() { # the pop-up's icons in view-tree order (the dump's, TalkBack's), same
 calendar_up() { A shell dumpsys window | grep mCurrentFocus | grep -q calendar; }
 for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and Contacts are on different rows
   mode=${variant%:*}; cols=${variant#*:}; mode="$mode/$cols col"
-  seed ${variant%:*}
-  setp string folder:ord '{"name":"Ordine","where":"fav","cols":'$cols',"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-  setp string fav 'f:ord'
-  setp del grid
+  seed ${variant%:*} string folder:ord '{"name":"Ordine","where":"fav","cols":'$cols',"apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' string fav 'f:ord' del grid
   tap Ordine; expect "Contacts"
   [ "$(order)" = "calendar,deskclock,contacts" ] && ok "$mode: starting order stored" || ko "$mode: start order $(order)"
   read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Contacts)"
@@ -316,9 +313,7 @@ step "Folders: a screen reader's Sposta su/giù reorders the icons in the pop-up
 fixture_install && ok "fixture installed" || ko "fixture not built or installed (./gradlew -Pe2e :fixture:assembleDebug)"
 defer "A uninstall $FIX >/dev/null 2>&1"
 a11y_on
-seed classic
-setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:ord'; setp del grid
+seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' string fav 'f:ord' del grid
 tap Ordine; expect "Contacts"; wait_until 5 settled
 a11y list . Calendar
 { A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Sposta giù' && ! A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Sposta su'; } \
@@ -337,10 +332,7 @@ wait_until 5 settled
 a11y_off; A shell input keyevent KEYCODE_BACK
 
 step "Folders: an icon's menu in the pop-up takes it out with Rimuovi dalla cartella, an app or a pinned shortcut (082)"
-seed classic
-setp string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}'
-setp string fav 'f:sc'
-setp del grid
+seed classic string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}' string fav 'f:sc' del grid
 tap Scorciatoie; expect "Zz Posta"; wait_until 5 settled
 read -r ax ay <<<"$(cx "Zz Posta")"; hold "$ax" "$ay"
 wait_until 5 has "Rimuovi dalla cartella" && ok "the shortcut's menu has Rimuovi dalla cartella" || ko "no Rimuovi dalla cartella in the shortcut's menu"
@@ -380,7 +372,7 @@ read -r ax ay <<<"$(cx Calendar)"; hold "$ax" "$ay"
 tap "Rinomina"; wait_until 5 has "Salva"
 field=$(screen | grep -o 'class="android.widget.EditText"[^>]*bounds="[^"]*"' | tail -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr '[],' '   ')
 read -r fx1 fy1 fx2 fy2 <<<"$field"; A shell input tap $(((fx1 + fx2) / 2)) $(((fy1 + fy2) / 2)) # focus the name field
-clear_text; A shell input text AgendaZz; tap "Salva"
+clear_text; typ AgendaZz; tap "Salva"
 renamed() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="rn:com.google.android.calendar/[^"]*">AgendaZz<'; }
 wait_until 5 renamed && wait_until 5 in_card AgendaZz && ok "renamed from the in-folder menu: the open pop-up shows AgendaZz" || ko "not renamed, or the open pop-up still shows the old name"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "AgendaZz"
@@ -389,19 +381,21 @@ step "Folders: another app's update doesn't rebuild the open pop-up; one of its 
 FIXAPK="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" # e2e/fixture: an app with a launcher activity, ours to reinstall
 fixture_install && ok "fixture app installed" || ko "fixture app not built or installed (./gradlew -Pe2e :fixture:assembleDebug): the checks below can't pass"
 update_other() { cpu0=$(cpu_ticks); A install -r "$FIXAPK" >/dev/null; } # a package event (added/changed): Ganimede reloads its app list
-# The reload (250 ms debounce, then the load thread) leaves nothing on screen to wait for, so the signal is Ganimede's own CPU:
-# it rises above cpu0 (taken before the event) and then stands still for two reads. A check that "nothing changed" runs after it.
+# The reload (250 ms debounce, then the load thread) leaves nothing on screen, in the logs or in dumpsys to wait for (the app
+# logs nothing of it), so the signal is Ganimede's own CPU: its utime+stime must rise by RELOAD_TICKS over cpu0 (taken before
+# the event) and then stand still for two reads. Idle Ganimede with the pop-up open costs 0-1 ticks (10 ms each) a second,
+# a reload (the package list, an icon per app) tens of them: 3 sits between. A rise below it is a ko, not a pass.
+# (3 is an estimate from that reasoning, not yet read off a device: raise or lower it from the ko message's delta.)
+RELOAD_TICKS=3
 cpu_ticks() { A shell "cat /proc/\$(pidof $PK)/stat" | awk '{print $14 + $15}'; }
-reloaded() { local t; t=$(cpu_ticks); [ "${t:-0}" -gt "${cpu0:-0}" ] && [ "$t" = "${cpu_last:-}" ] && return 0; cpu_last=$t; return 1; }
+reloaded() { local t; t=$(cpu_ticks); [ $((${t:-0} - ${cpu0:-0})) -ge $RELOAD_TICKS ] && [ "$t" = "${cpu_last:-}" ] && return 0; cpu_last=$t; return 1; }
+reload_ko() { ko "Ganimede never reloaded its app list after $1 (cpu rose $(($(cpu_ticks) - ${cpu0:-0})) ticks, needs $RELOAD_TICKS)"; }
 popwin() { A shell dumpsys window windows | grep -o "Window{[0-9a-f]* u0 [^}]*$PK[^}]*}" | sort | paste -sd' ' -; } # its windows
-seed classic
-setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
-setp string fav 'f:ord'
-setp del grid
+seed classic string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}' string fav 'f:ord' del grid
 tap Ordine; expect "Contacts"; wait_until 5 settled
 wins=$(popwin) # (not "before": run.sh counts checks in that name)
 cpu_last=; update_other
-wait_until 10 reloaded || ko "Ganimede never reloaded its app list after the update"
+wait_until 10 reloaded || reload_ko "the update"
 [ -n "$wins" ] && [ "$(popwin)" = "$wins" ] && ok "the pop-up is the same window after another app's update" || ko "the pop-up was rebuilt: windows $(popwin), were $wins"
 has "Contacts" && ok "the pop-up is still open" || ko "the pop-up closed"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
@@ -415,7 +409,7 @@ A shell input motionevent MOVE "$ax" $((ay + $(dp 16))) # past the touch slop: t
 cpu0=$(cpu_ticks); cpu_last=; A uninstall org.ganimede.fixture >/dev/null
 fixture_gone() { ! A shell pm path org.ganimede.fixture >/dev/null 2>&1; }
 wait_until 10 fixture_gone || ko "the fixture app is still installed"
-wait_until 10 reloaded || ko "Ganimede never reloaded its app list after the uninstall" # then: under the finger nothing may change
+wait_until 10 reloaded || reload_ko "the uninstall" # then: under the finger nothing may change
 dump | grep -q 'text="Fixture' && ok "while the finger is down the pop-up is not rebuilt (the removed app still shows)" || ko "the pop-up was rebuilt under the finger"
 A shell input motionevent MOVE "$tx" "$ty"; A shell input motionevent UP "$tx" "$ty"
 wait_until 5 reordered && ok "the drag held across the uninstall saved its order" || ko "the drag was lost: order $(order)"
@@ -425,10 +419,7 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
 A install -r "$FIXAPK" >/dev/null || ko "the fixture app could not be reinstalled" # other sections use it
 
 step "Folders: Choose apps lists the folder's pinned shortcuts; unchecking one takes it out, the order stays (082)"
-seed classic
-setp string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}'
-setp string fav 'f:sc'
-setp del grid
+seed classic string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta","com.google.android.calendar/com.android.calendar.AllInOneActivity"]}' string fav 'f:sc' del grid
 tap Scorciatoie; expect "Zz Posta"
 tap "✎ Modifica pop-up"; tap "Scegli app"; wait_until 5 has "Zz Posta"
 tap "Zz Posta"; tap "Salva"

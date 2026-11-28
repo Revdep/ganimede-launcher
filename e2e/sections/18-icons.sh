@@ -18,6 +18,7 @@ capture() { # capture desc out.png: only that accessible cell/row/tile, twice al
     [ -f "$OUT/icons-prev.png" ] && rm -f "$SCR"
     cp "$2" "$OUT/icons-prev.png"; n=$((n + 1))
   done
+  return 1 # never two shots alike: the picture may still be moving, no caller may compare it
 }
 capture_calendar() { capture Calendar "$1"; }
 same() { [ "$(fdiff "$1" "$2")" = 0 ]; } # same pixels (lib.sh fdiff: never cmp on PNGs)
@@ -75,8 +76,8 @@ for mode in list classic; do
   capture_calendar "$OUT/icons-$mode-line-circle.png"
   same "$OUT/icons-$mode-tinted.png" "$OUT/icons-$mode-line-circle.png" \
     && ok "$mode: old Tinted looks as Line + Circle + Solid" || ko "$mode: migrated Tinted differs from Line + Circle + Solid"
-  same "$OUT/icons-$mode-original.png" "$OUT/icons-$mode-line-circle.png" \
-    && ko "$mode: Line leaves the icon unchanged" || ok "$mode: Line changes the icon"
+  differ "$OUT/icons-$mode-original.png" "$OUT/icons-$mode-line-circle.png" \
+    && ok "$mode: Line changes the icon" || ko "$mode: Line leaves the icon unchanged"
   pixels=$(colour_pixels "$OUT/icons-$mode-line-circle.png" "$RED")
   [ "${pixels:-0}" -gt 20 ] && ok "$mode: the plate uses the chosen red accent ($pixels pixels)" \
     || ko "$mode: no chosen accent in the icon (${pixels:-0} pixels)"
@@ -99,8 +100,8 @@ for mode in list classic; do
   [ "${pixels:-0}" -eq 0 ] && ok "$mode: text colour, no red" || ko "$mode: text colour still has $pixels red pixels"
   look line none solid accent
   capture_calendar "$OUT/icons-$mode-accent.png"
-  same "$OUT/icons-$mode-text.png" "$OUT/icons-$mode-accent.png" \
-    && ko "$mode: theme and text colour look the same" || ok "$mode: theme colour differs from text colour"
+  differ "$OUT/icons-$mode-text.png" "$OUT/icons-$mode-accent.png" \
+    && ok "$mode: theme colour differs from text colour" || ko "$mode: theme and text colour look the same"
 done
 
 step "No plate colours: the glyph in the accent, nothing behind it, the fill means nothing"
@@ -223,7 +224,7 @@ read -r px py <<<"$(cx "desc:Calendar")"
 hold "$px" "$py"
 tap "Icona dell'app…"; tap "Arcticons (integrato)"
 wait_until 5 has "calendar" && tap "calendar" # the field starts with the app's name
-clear_text; A shell input text okay
+clear_text; typ okay
 wait_until 10 hasd okay && ok "searching okay shows the okay icon, far past the 4000th name" || ko "searching okay finds no okay icon"
 read -r ox oy <<<"$(cx "desc:okay")"
 [ -n "$oy" ] && A shell input tap "$ox" "$oy"
@@ -367,7 +368,7 @@ same "$OUT/icons-fixture-none.png" "$OUT/icons-fixture-circle.png" \
   && ok "a square icon is not cut to the circle" || ko "a square icon changed with the circle shape"
 
 step "Built-in set with Original: covered apps get the accent glyph, the others keep their own colours"
-look original none solid accent string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open" int accent -2093040 string icon_pack "$BUILTIN"
+look original none solid accent string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Open" int accent -2093040 string icon_pack "$BUILTIN"
 capture Calendar "$OUT/icons-original-builtin-calendar.png" || ko "no Calendar with the built-in set"
 capture Fixture "$OUT/icons-original-builtin-fixture.png" || ko "no fixture app with the built-in set"
 red=$(colour_pixels "$OUT/icons-original-builtin-calendar.png" "$RED")
@@ -391,12 +392,10 @@ centre_box() { # png: "x y w h" of the white glyph, centred on the red plate wit
 }
 for mode in list classic; do
   step "Fallback glyph matches Arcticons on the plate: $mode mode"
-  seed "$mode"
-  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open"
-  setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true
-  setp boolean icon_category false # the fixture declares a category (issue 087): these steps are about its silhouette
-  if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi # at 80 dp the cell cuts the plate's sides
-  look line circle solid accent
+  # icon_category false: the fixture declares a category (issue 087), these steps are about its silhouette; 64 dp: at 80 the cell cuts the plate's sides
+  sz=icon_size; [ "$mode" = classic ] && sz=grid_icon
+  seed "$mode" string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Open" int accent -2093040 \
+    string icon_pack "$BUILTIN" boolean hide_labels true boolean icon_category false int $sz 64 $(model line circle solid accent)
   cal="$OUT/icons-$mode-fallback-calendar.png" fix="$OUT/icons-$mode-fallback-fixture.png"
   capture Calendar "$cal" || ko "$mode: no Calendar"
   capture Fixture "$fix" || ko "$mode: no fixture app"
@@ -438,7 +437,7 @@ for mode in list classic; do
     || ko "$mode: no plate: fixture red $red px, middle #$(pixel "$f" $((w / 2)) $((h / 2))) against its own icon's #$(pixel "$o" $((w / 2)) $((h / 2)))"
 
   step "Monochrome-layer fallback matches Arcticons on the plate: $mode mode"
-  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Mono"
+  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Mono"
   look line circle solid accent
   mono="$OUT/icons-$mode-fallback-mono.png"
   capture "Fixture mono" "$mono" || ko "$mode: no Fixture mono"
@@ -452,12 +451,9 @@ for mode in list classic; do
 done
 
 step "Folder thumbnails draw a fallback app's glyph, not its own colours (Classic)"
-seed classic
-setp string folder:fb "{\"name\":\"Fb\",\"where\":\"fav\",\"apps\":[\"$FIXTURE/$FIXTURE.Open\",\"com.google.android.calendar/com.android.calendar.AllInOneActivity\"]}"
-setp string fav 'f:fb'
-setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
-setp boolean icon_category false # the fixture declares a category (issue 087): this step is about its silhouette
-look line circle solid accent
+# icon_category false: the fixture declares a category (issue 087), this step is about its silhouette
+seed classic string folder:fb "{\"name\":\"Fb\",\"where\":\"fav\",\"apps\":[\"$FIXTURE/$FIXTURE.Open\",\"com.google.android.calendar/com.android.calendar.AllInOneActivity\"]}" string fav 'f:fb' \
+  int accent -2093040 string icon_pack "$BUILTIN" int grid_icon 80 boolean hide_labels true boolean icon_category false $(model line circle solid accent)
 if capture Fb "$OUT/icons-folder-fallback.png"; then
   green=$(colour_pixels "$OUT/icons-folder-fallback.png" "#2E7D32"); red=$(colour_pixels "$OUT/icons-folder-fallback.png" "$RED")
   [ "${green:-0}" -eq 0 ] && [ "${red:-0}" -gt 20 ] && ok "folder: the fixture is a red glyph as Calendar ($red px), not its green" \
@@ -481,12 +477,11 @@ if emu_only "icons: a work profile is created on the emulator"; then
     rest() { magick "$1" -gravity NorthWest -crop "50%x50%+0+0" +repage "$2"; } # where a badge at the icon's scale never reaches
     badge_of() { # badge_of label component pack look...: the cell as the user's own app and as the work copy; only the work copy's corner differs
       local label="$1" comp="$2" pack="$3"; shift 3
-      seed classic; setp int accent -2093040; setp string icon_pack "$pack"; setp int grid_icon 64; setp boolean hide_labels true
-      look "$@"
-      setp string fav "$comp"; capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
+      seed classic int accent -2093040 string icon_pack "$pack" int grid_icon 64 boolean hide_labels true $(model "$@") string fav "$comp"
+      capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
       setp string fav "$comp#$serial"; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
       corner "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-c.png"; corner "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-c.png"
-      ! same "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
+      differ "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
         && ok "badge: the work $label has a badge in its corner ($*)" || ko "badge: the work $label has no badge ($*)"
       # a badge drawn smaller than the icon (Fable c1-icons 1) lands in its top-left quarter: that quarter stays as the own app's
       rest "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-r.png"; rest "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-r.png"
@@ -502,14 +497,13 @@ if emu_only "icons: a work profile is created on the emulator"; then
     # original without a container: the badge is drawn once into the cache, not on every bind (Fable c2-icons P2-1)
     badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" "" original none solid accent
     # a folder thumbnail goes through the same render: the folder with the work copy differs from the one with the own app
-    seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
-    look line circle solid accent
+    seed classic int accent -2093040 string icon_pack "$BUILTIN" int grid_icon 80 boolean hide_labels true $(model line circle solid accent)
     for who in own work; do
       k="$FIXTURE/$FIXTURE.Open"; [ $who = work ] && k="$k#$serial"
-      setp string folder:bw "{\"name\":\"Bw\",\"where\":\"fav\",\"apps\":[\"$k\"]}"; setp string fav 'f:bw'
+      setp string folder:bw "{\"name\":\"Bw\",\"where\":\"fav\",\"apps\":[\"$k\"]}" string fav 'f:bw'
       capture Bw "$OUT/icons-badge-folder-$who.png" || ko "badge: no folder Bw ($who)"
     done
-    [ -f "$OUT/icons-badge-folder-own.png" ] && [ -f "$OUT/icons-badge-folder-work.png" ] && ! same "$OUT/icons-badge-folder-own.png" "$OUT/icons-badge-folder-work.png" \
+    [ -f "$OUT/icons-badge-folder-own.png" ] && [ -f "$OUT/icons-badge-folder-work.png" ] && differ "$OUT/icons-badge-folder-own.png" "$OUT/icons-badge-folder-work.png" \
       && ok "badge: the folder thumbnail of the work copy differs from the own app's (its badge)" || ko "badge: folder thumbnails of the own and the work app look alike"
   fi
 fi
@@ -525,14 +519,14 @@ chrome_cell() { # chrome_cell out.png: the Chrome cell on the app pages
 chrome_cell "$OUT/icons-chrome-home-look.png" || ko "no Chrome on the app pages"
 setp string drawer_icon_glyph original string drawer_icon_container square boolean drawer_follow false
 chrome_cell "$OUT/icons-chrome-own-look.png" || ko "no Chrome on the app pages (own look)"
-same "$OUT/icons-chrome-home-look.png" "$OUT/icons-chrome-own-look.png" \
-  && ko "the app pages' own plate changes nothing" || ok "the app pages draw their own plate (square, home circle)"
+differ "$OUT/icons-chrome-home-look.png" "$OUT/icons-chrome-own-look.png" \
+  && ok "the app pages draw their own plate (square, home circle)" || ko "the app pages' own plate changes nothing"
 
 step "A folder on an app page shows its apps in the app pages' own look (Classic, drawer off)"
 # cell 20: page two's first; drawer_labels: no white name under the tile; home: white glyphs, app pages: red
 seed classic boolean drawer false int grid_cols 4 int grid_rows 5 int grid_pages 2 \
-  string folder:x "{\&quot;name\&quot;:\&quot;Cartella X\&quot;,\&quot;where\&quot;:\&quot;grid\&quot;,\&quot;apps\&quot;:[\&quot;com.google.android.calendar/com.android.calendar.AllInOneActivity\&quot;]}" \
-  string grid "{\&quot;20\&quot;:\&quot;f:x\&quot;}" int accent -2093040 string icon_pack "builtin:arcticons" \
+  string folder:x "{&quot;name&quot;:&quot;Cartella X&quot;,&quot;where&quot;:&quot;grid&quot;,&quot;apps&quot;:[&quot;com.google.android.calendar/com.android.calendar.AllInOneActivity&quot;]}" \
+  string grid "{&quot;20&quot;:&quot;f:x&quot;}" int accent -2093040 string icon_pack "builtin:arcticons" \
   boolean drawer_follow false boolean drawer_labels false $(model original none solid text) string drawer_icon_color accent
 folder_cell() { # folder_cell out.png: the folder on page two
   local n=0
@@ -566,7 +560,7 @@ tap "Annulla"
 for mode in list classic; do
   step "Category glyph for an app without an Arcticons icon: $mode mode"
   size=icon_size; [ "$mode" = classic ] && size=grid_icon
-  seed "$mode" string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open" \
+  seed "$mode" string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;$FIXTURE/$FIXTURE.Open" \
     int accent -2093040 string icon_pack "$BUILTIN" boolean hide_labels true int $size 64 \
     string "icon:$CAL" "$BUILTIN|emoji_newspaper" $(model line circle solid accent)
   cal="$OUT/icons-$mode-category-calendar.png" fix="$OUT/icons-$mode-category-fixture.png"

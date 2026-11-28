@@ -71,7 +71,7 @@ if [ "${ANIM:-0}" = 1 ]; then
   # the enter animation is 250 ms + stagger: within 1 s the icons must be at rest again
   differs() { # differs <reference png> <new png>: sets d, succeeds when the favourites are as in the reference
     A exec-out screencap -p > "$2"
-    d=$(FUZZ=5% fdiff "$1" "$2" "$c"); [ "${d:-1}" -lt 300 ]
+    d=$(FUZZ=5% fdiff "$1" "$2" "$c"); [ "${d:-999999}" -lt 300 ]
   }
   wait_until 1 differs "$OUT/anim-enter-rest.png" "$OUT/anim-enter-1s.png" && ok "icons at rest within 1 s after home ($d px differ from the settled screen)" || ko "icons still moving/faded 1 s after home ($d px differ)"
 

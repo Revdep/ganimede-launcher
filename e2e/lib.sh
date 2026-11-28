@@ -5,6 +5,8 @@
 # making Ganimede the Home app on a listed test phone
 # (emu_only, setting); every setting changed is put back on exit, also on Ctrl-C or a failure (keep, defer).
 case "$SERIAL" in emulator-*) ;; *) case " ${E2E_DEVICES:-} " in *" $SERIAL "*) ;; *) echo "emulators only: $SERIAL (or list it in E2E_DEVICES)" >&2; exit 2;; esac;; esac
+ADB=$(command -v adb || echo "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb")
+"$ADB" start-server >/dev/null 2>&1 # before fd 9 exists: a server started by our first adb call would inherit the lock and keep it after the run
 exec 9>"/tmp/ganimede-e2e-$SERIAL.lock"; flock 9
 OUT="$HERE/out/$SERIAL"; mkdir -p "$OUT"; rm -f "$OUT"/fail-* # per device: two runs from one checkout keep apart; fail-N is this run's
 SCR="$OUT/screen.xml" # the last screen read, a file so that subshells share it
@@ -14,7 +16,6 @@ A() {
   case "$*" in "exec-out run-as $PK cat "*|"exec-out screencap "*|"exec-out uiautomator "*|"shell dumpsys "*|"shell settings get "*) ;; *) rm -f "$SCR";; esac
   "$ADB" -s "$SERIAL" "$@"
 }
-ADB=$(command -v adb || echo "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb")
 command -v magick >/dev/null && command -v compare >/dev/null || { echo "ImageMagick (magick, compare) is missing: the wallpaper and pixel checks need it." >&2; exit 2; }
 # The fixture app (e2e/fixture), built only when its APK is missing or older than its sources (CI builds it once, in the build job), then installed.
 fixture_install() {
@@ -103,9 +104,23 @@ expect() { wait_until 10 has "$1" && { ok "sees “$1”"; return 0; }; ko "does
 tap() { tapn "$1" 0; }
 stap() { tapn "$1" 3; } # in a scrolling page: scrolls down up to three times to find it
 kbd() { A shell dumpsys input_method | grep -q 'mInputShown=true'; } # the keyboard is up
-# typ text: types once the keyboard is up. Keys sent while it is still coming up arrive out of order ("cal" typed as
-# "cla", run 46083578007, drawer).
-typ() { wait_until 5 kbd; A shell input text "${1// /%s}"; } # %s is the space of "input text": a bare space cuts the text there
+# typ text: types once the keyboard is up, then checks the focused field holds what it held plus the text. Keys sent while the
+# keyboard is still coming up arrive out of order ("cal" typed as "cla", run 46083578007, drawer), and Gboard reorders keys
+# with the keyboard up too ("pro pro" came out "por pro", run 46107202244, shard 9). A wrong field is emptied (what it held
+# before is lost then) and typed again, 3 tries, then a ko with the text found. The text is the precondition of the check
+# that follows, not a gesture to retry.
+field() { screen | grep -o '<node [^>]*class="android.widget.EditText"[^>]*focused="true"[^>]*>' | head -1 | sed -n 's/.* text="\([^"]*\)".*/\1/p'; }
+typ() { # %s is the space of "input text": a bare space cuts the text there
+  local want="$1" before got n=0
+  wait_until 5 kbd; before=$(field)
+  while :; do
+    A shell input text "${want// /%s}"
+    got=$(field)
+    [ "$got" = "$before$want" ] || [ "$got" = "$want" ] && return 0
+    n=$((n + 1)); [ $n -lt 3 ] || { ko "typ: the field holds “$got”, not “$want” after 3 tries"; return 1; }
+    A shell input keyevent KEYCODE_MOVE_END $(printf 'KEYCODE_DEL %.0s' $(seq $((${#got} + 1)))); before=
+  done
+}
 _tb() { TB=$(screen | grep -o "text=\"$1\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]'); [ -n "$TB" ]; }
 _scroll() {
   local from=2120 to=1520 ime top # 600 px a step: a third of the screen, so nothing is skipped
@@ -207,14 +222,15 @@ put_prefs() {
 # edit_prefs file int|boolean|string|set|del key [value] ...: the settings written into the file the way the app stores
 # them (del takes no value; a set holds the one item value).
 edit_prefs() {
-  local f="$1"; shift
+  local f="$1" v; shift
   while [ $# -ge 2 ]; do
+    v=${3//&/\\&} # a & in the value is the whole match to sed: the callers write it plain
     # @: keys hold "/" (use:package/class). A set is deleted whole: its items sit on lines of their own up to </set>
     sed -i -e "\\@^ *<set name=\"$2\">\$@,\\@</set>@d" -e "\\@ name=\"$2\"@d" "$f"
     case $1 in
       int|boolean) sed -i "s@</map>@    <$1 name=\"$2\" value=\"$3\" />\n</map>@" "$f" ;;
-      string) sed -i "s@</map>@    <string name=\"$2\">$3</string>\n</map>@" "$f" ;;
-      set) sed -i "s@</map>@    <set name=\"$2\"><string>$3</string></set>\n</map>@" "$f" ;;
+      string) sed -i "s@</map>@    <string name=\"$2\">$v</string>\n</map>@" "$f" ;;
+      set) sed -i "s@</map>@    <set name=\"$2\"><string>$v</string></set>\n</map>@" "$f" ;;
     esac
     if [ "$1" = del ]; then shift 2; elif [ $# -ge 3 ]; then shift 3; else ko "edit_prefs: no value for $2"; return 1; fi
   done
@@ -303,6 +319,9 @@ noshows() { ! shows "$@"; }
 # written by magick carries its dates, so cmp calls two identical pictures different (issue 086).
 # compare prints a big count as 1.04858e+06: awk turns it into an integer
 fdiff() { compare -metric AE ${FUZZ:+-fuzz "$FUZZ"} "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | awk 'match($0, /^[0-9.]+(e[+-]?[0-9]+)?/) { printf "%d\n", substr($0, RSTART, RLENGTH); exit }'; }
+# differ a.png b.png [crop]: they differ by at least one pixel. An fdiff that fails (a missing file, no number) is "no", never "differ"
+# and never "same": `! same` passed on it, `same && ko || ok` too. Use differ wherever a check wants a difference.
+differ() { [ "$(fdiff "$@")" -gt 0 ] 2>/dev/null; }
 hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu (home or pop-up)
 clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
 # seed classic|list [setp's settings ...]: a configured app without the wizard: onboarded, mode, favourites, Italian, the
