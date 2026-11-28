@@ -118,6 +118,8 @@ public final class Search {
         String saved = digits(number), typed = digits(query), q = query.trim();
         if (saved.contains(typed)) return true;
         if (!q.startsWith("+") && !q.startsWith("00")) return false;
+        // 0039 typed, +39 saved (its plus is gone from the digits): the saved number begins with what follows the 00
+        if (q.startsWith("00") && typed.length() >= 5 && saved.startsWith(typed.substring(2))) return true;
         // typed with a prefix the saved number may lack: the country code is 1 to 3 digits, the rest must still be 3+
         // and begin the saved number (its leading zeros dropped), not sit anywhere in it
         String local = saved.replaceFirst("^0+", "");
