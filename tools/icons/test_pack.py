@@ -200,6 +200,12 @@ class PackTest(unittest.TestCase):
             pack.index({"pkgA": 0, "pkgB": 1}, hash48=lambda key: 42)
         self.assertIn("collision", str(e.exception.code))
 
+    def test_keys_are_listed_components_only(self):
+        # Fable c3 m6: a package-wide key would hand a glyph to an activity the appfilter never listed
+        names = sorted(n[:-4] for n in os.listdir(FIXTURE) if n.endswith(".svg"))
+        keys = pack.keys(pack.components(os.path.join(FIXTURE, "appfilter.xml"), {n: i for i, n in enumerate(names)}))
+        self.assertEqual({"pkgA/pkgA.X", "pkgA/pkgA.Y", "pkgB/pkgB.X", "pkgB/pkgB.Y"}, set(keys))
+
     def test_dash_across_the_closing_point_is_one_dash(self):
         # a closed outline's last dash runs on into its first: one subpath with a corner, not two ends at the start
         square = pack.parse_d("M4 4 L44 4 L44 44 L4 44 Z")  # 160 units, "10 10" from 5 in: 9 ranges, 8 dashes

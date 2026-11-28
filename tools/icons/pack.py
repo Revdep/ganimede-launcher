@@ -10,8 +10,8 @@ Format (little endian), all geometry on Arcticons' 48x48 grid:
            varint opCount, then ops: u8 op (0 M, 1 L, 2 C, 3 Z, 4 OVAL x0 y0 x1 y1) followed by its points, each
            x and y a zigzag varint delta from the previous point of the icon, in 1/32 of a unit
   names    per icon, ids in name order: varint length + UTF-8
-  index    indexCount * (u48 low bits of FNV-1a 64 of the key, u16 icon id), sorted by hash; the key is the package
-           when every component of it in the appfilter draws one icon, otherwise "package/full.ClassName"
+  index    indexCount * (u48 low bits of FNV-1a 64 of the key, u16 icon id), sorted by hash; the key is
+           "package/full.ClassName" of each component the appfilter lists (an unlisted activity has no icon in the set)
 Format 2 ('ICN2', issue 087) adds the app categories after the icon index: the header grows by u32 categoryKeys, u32 categoryIndexOff,
 u32 categoryTableOff (52 B in all). The category index has the icon index's layout (u48 hash of the package, u16 category id =
 position in the table); the table is u16 n, n * u16 glyph icon id, in the order of core/AppCategory.
@@ -546,13 +546,10 @@ def components(appfilter, ids):
 
 
 def keys(comps):
-    """One key per package that draws one icon everywhere, else one per component (core/IconIndex.find)."""
+    """One key per component the appfilter lists ("package/full.Class"): an activity it does not list keeps the app's own icon."""
     out = {}
-    for pkg, cs in comps.items():
-        if len(set(cs.values())) == 1:
-            out[pkg] = next(iter(cs.values()))
-        else:
-            out.update(cs)
+    for cs in comps.values():
+        out.update(cs)
     return out
 
 
@@ -622,10 +619,10 @@ def read_dataset(path):
 
 
 def category_keys(curated, dataset, taken):
-    """{package: category}: the curated table beats the dataset; a package that already has an Arcticons icon is dropped."""
+    """{package: category}: the curated table beats the dataset; a package with an Arcticons component is dropped."""
     merged = dict(dataset)
     merged.update(curated)
-    return {p: c for p, c in merged.items() if p not in taken}
+    return {p: c for p, c in merged.items() if p not in {k.split("/")[0] for k in taken}}
 
 
 def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
@@ -695,8 +692,9 @@ def coverage(icon_keys, category_packages):
     """Per public list (tools/icons/categories/coverage/*.txt, one package per line): % with an icon / a category / neither."""
     for name in sorted(os.listdir(COVERAGE)):
         pkgs = [l.split()[0] for l in open(os.path.join(COVERAGE, name), encoding="utf-8") if l.strip() and not l.startswith("#")]
-        icon = sum(1 for p in pkgs if p in icon_keys)
-        cat = sum(1 for p in pkgs if p not in icon_keys and p in category_packages)
+        have = {k.split("/")[0] for k in icon_keys}
+        icon = sum(1 for p in pkgs if p in have)
+        cat = sum(1 for p in pkgs if p not in have and p in category_packages)
         print("%s: %d apps, icon %d%%, category only %d%%, neither %d%%" % (
             name, len(pkgs), 100 * icon // len(pkgs), 100 * cat // len(pkgs), 100 * (len(pkgs) - icon - cat) // len(pkgs)))
 
