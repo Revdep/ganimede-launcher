@@ -793,40 +793,24 @@ final class ClassicHome {
         String[] slots = layout.dockSlots();
         String savedOccupant = target.startsWith("g:") ? g.getOrDefault(at(target), "") : target.startsWith("d:") ? slots[at(target)] : "";
         final String occupant = !savedOccupant.isEmpty() && entries.exists(savedOccupant) ? savedOccupant : "";
-        // take it out of where it came from
-        if (d.from.startsWith("g:")) g.remove(at(d.from));
-        if (d.from.startsWith("d:")) slots[at(d.from)] = "";
         if (target.equals("uninstall")) {
             Item it = apps.find(d.entry);
             if (it != null) launcher.uninstall(it);
             build();
             return;
         }
-        if (!target.equals("remove")) { // "remove": nothing else, it's off the home screen
-            String put = d.entry, back = "";
-            if (!occupant.isEmpty()) {
-                if (occupant.startsWith("f:") && !d.entry.startsWith("f:")) { // into an existing folder
-                    layout.editFolderApps(occupant.substring(2), a -> { if (!a.contains(d.entry)) a.add(d.entry); });
-                    put = occupant;
-                } else if (!d.entry.startsWith("f:") && target.startsWith("g:")) { // two apps make a folder
-                    String id = layout.newFolder(ui.tr("Folder"), List.of(occupant, d.entry));
-                    if (id == null) return;
-                    put = "f:" + id;
-                    ui.toast(ui.tr("Folder created: tap it to open, long-press to rename"));
-                } else {
-                    back = occupant; // swap places
-                }
-            }
-            if (target.startsWith("g:")) g.put(at(target), put);
-            else slots[at(target)] = put;
-            if (!back.isEmpty()) {
-                if (d.from.startsWith("g:")) g.put(at(d.from), back);
-                else if (d.from.startsWith("d:")) slots[at(d.from)] = back;
-            }
+        Grid.Drop drop = Grid.drop(g, slots, d.from, target, d.entry, occupant);
+        if (drop.kind == Grid.Kind.JOIN_FOLDER)
+            layout.editFolderApps(occupant.substring(2), a -> { if (!a.contains(d.entry)) a.add(d.entry); });
+        else if (drop.kind == Grid.Kind.NEW_FOLDER) {
+            String id = layout.newFolder(ui.tr("Folder"), List.of(occupant, d.entry));
+            if (id == null) return;
+            drop.fill("f:" + id);
+            ui.toast(ui.tr("Folder created: tap it to open, long-press to rename"));
         }
-        layout.saveGrid(g);
-        layout.saveDock(slots);
-        if (target.equals("remove")) {
+        layout.saveGrid(drop.cells);
+        layout.saveDock(drop.dock);
+        if (drop.kind == Grid.Kind.REMOVE) {
             List<String> fav = layout.favourites();
             if (fav.remove(d.entry)) layout.saveFavourites(fav);
         }

@@ -114,6 +114,59 @@ public final class Grid {
         return Math.max(pages, (at + per - 1) / per);
     }
 
+    public enum Kind { NONE, MOVE, SWAP, NEW_FOLDER, JOIN_FOLDER, REMOVE }
+
+    /** What a drop does: the rule that applies and the grid and dock as they become. */
+    public static final class Drop {
+        public final Kind kind;
+        public final Map<Integer, String> cells;
+        public final String[] dock;
+        private final String target;
+
+        private Drop(Kind kind, Map<Integer, String> cells, String[] dock, String target) {
+            this.kind = kind;
+            this.cells = cells;
+            this.dock = dock;
+            this.target = target;
+        }
+
+        /** NEW_FOLDER: the folder, once made, takes the dropped-on spot. */
+        public void fill(String entry) {
+            put(cells, dock, target, entry);
+        }
+    }
+
+    /**
+     * What dropping `entry`, dragged from `from` ("g:cell" or "d:slot"), on `target` ("g:cell", "d:slot" or "remove")
+     * does; `occupant` is what's there ("" when empty). Onto itself: nothing. An empty spot: it moves. A folder
+     * receives an app. Onto an app on the grid an app makes a folder of the two. Anything else swaps. The inputs
+     * stay as they are.
+     */
+    public static Drop drop(Map<Integer, String> cells, String[] dock, String from, String target, String entry,
+                            String occupant) {
+        Map<Integer, String> g = new TreeMap<>(cells);
+        String[] d = dock.clone();
+        if (target.equals(from)) return new Drop(Kind.NONE, g, d, target);
+        put(g, d, from, "");
+        if (target.equals("remove")) return new Drop(Kind.REMOVE, g, d, target);
+        Kind kind = Kind.MOVE;
+        String at = entry;
+        if (!occupant.isEmpty()) {
+            boolean folder = entry.startsWith("f:");
+            if (occupant.startsWith("f:") && !folder) { kind = Kind.JOIN_FOLDER; at = occupant; }
+            else if (!folder && target.startsWith("g:")) kind = Kind.NEW_FOLDER;
+            else { kind = Kind.SWAP; put(g, d, from, occupant); }
+        }
+        put(g, d, target, at);
+        return new Drop(kind, g, d, target);
+    }
+
+    private static void put(Map<Integer, String> cells, String[] dock, String where, String entry) {
+        int i = Integer.parseInt(where.substring(2));
+        if (where.startsWith("g:")) { if (entry.isEmpty()) cells.remove(i); else cells.put(i, entry); }
+        else dock[i] = entry;
+    }
+
     private static boolean empty(Map<Integer, String> cells, int i) {
         String e = cells.get(i);
         return e == null || e.isEmpty();
