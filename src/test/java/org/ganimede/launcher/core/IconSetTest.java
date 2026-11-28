@@ -193,7 +193,11 @@ public class IconSetTest {
         IconSet set = load("src/main/assets/icons.bin");
         eq(15459, set.count(), "one icon per SVG in Arcticons icons/white at the pinned commit");
         int paths = 0;
-        for (int i = 0; i < set.count(); i++) paths += set.icon(i).size();
+        for (int i = 0; i < set.count(); i++) {
+            int n = set.icon(i).size();
+            yes(n > 0, "icon " + set.name(i) + " has no path: it would draw nothing");
+            paths += n;
+        }
         yes(paths > set.count(), "every icon decodes, most into several paths: " + paths);
     }
 
@@ -239,6 +243,7 @@ public class IconSetTest {
             set.name(i);
         }
         set.index().find("com.example", "com.example.Main");
+        set.categoryGlyph("com.example.bank", 5);
     }
 
     /** Only IllegalArgumentException may come out of a damaged set: the caller falls back to the app's own icon. */
@@ -258,7 +263,15 @@ public class IconSetTest {
     }
 
     public static void testFlippedByteIsRefusedOrRead() throws IOException {
-        byte[] whole = Files.readAllBytes(Path.of("src/test/resources/icons/icons-fixture.bin"));
+        flipEveryByte("src/test/resources/icons/icons-fixture.bin");
+    }
+
+    public static void testFlippedByteInFormatTwoIsRefusedOrRead() throws IOException {
+        flipEveryByte("src/test/resources/icons/icons-fixture2.bin");
+    }
+
+    private static void flipEveryByte(String file) throws IOException {
+        byte[] whole = Files.readAllBytes(Path.of(file));
         for (int i = 0; i < whole.length; i++) {
             for (int flip : new int[]{0xFF, 0x80, 0x01}) {
                 byte[] bad = whole.clone();
