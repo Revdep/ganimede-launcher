@@ -113,6 +113,11 @@ final class Motion extends Dialog {
         });
     }
 
+    /** Its close animation has started: on its way out, though still showing until the animation ends. */
+    boolean closing() {
+        return closing;
+    }
+
     @Override
     public void dismiss() {
         if (closing) return;

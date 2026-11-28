@@ -99,6 +99,16 @@ public final class Blocks {
         return new Item(b.id, b.page, Math.min(b.col, cols - w), Math.min(b.row, rows - h), w, h);
     }
 
+    /** The block with one edge moved by cells: positive grows it, negative shrinks it (edge: left, right, top, bottom). */
+    public static Item edgeStep(Item b, String edge, int cells) {
+        switch (edge) {
+            case "left": return new Item(b.id, b.page, b.col - cells, b.row, b.colSpan + cells, b.rowSpan);
+            case "right": return new Item(b.id, b.page, b.col, b.row, b.colSpan + cells, b.rowSpan);
+            case "top": return new Item(b.id, b.page, b.col, b.row - cells, b.colSpan, b.rowSpan + cells);
+            default: return new Item(b.id, b.page, b.col, b.row, b.colSpan, b.rowSpan + cells);
+        }
+    }
+
     public static Result put(Item at, int pages, int cols, int rows, List<Item> blocks, Map<Integer, String> cells) {
         List<Item> out = new ArrayList<>();
         Item old = null;

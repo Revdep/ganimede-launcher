@@ -201,6 +201,36 @@ public class IconSetTest {
                 "the asset says which Arcticons commit it was packed from (README, pack.py)");
     }
 
+    /** Issue 081: the picker searches the names section; a key may carry its pack ("pack|name"). */
+    public static void testSearchSubstring() {
+        List<String> names = List.of("calendar_31", "calendar_google_31", "okay");
+        eq(List.of("calendar_google_31"), IconSet.search(names, "google"), "google: only the Google calendar");
+        eq(List.of("calendar_31", "calendar_google_31"), IconSet.search(names, "cal"), "cal: both calendars, best first");
+        eq(List.of(), IconSet.search(names, "zzz"), "zzz: nothing");
+        eq(names, IconSet.search(names, " "), "an empty search lists every icon, in order");
+        eq(List.of("builtin:arcticons|okay"), IconSet.search(List.of("p|calendar_31", "builtin:arcticons|okay"), "okay"),
+                "only the name after the pack is searched");
+    }
+
+    /** Issue 081: every icon of the real set is offered (no 4000 cap), found by search and by name. */
+    public static void testSearchHasNoCap() {
+        IconSet set = load("src/main/assets/icons.bin");
+        List<String> names = set.names();
+        eq(15459, names.size(), "every name the packer wrote (one per SVG), not 4000");
+        yes(IconSet.search(names, "okay").contains("okay"), "okay, far past the 4000th name, is found");
+        eq("okay", set.name(set.id("okay").getAsInt()), "a picked icon is found again by its name");
+        yes(set.id("zzz_not_an_icon").isEmpty(), "a name this version of the set lacks finds no icon");
+    }
+
+    /** Issue 081: the set is read in the background when an entry's picked icon comes from it, not on the main thread. */
+    public static void testNeededForPickedIcon() {
+        yes(IconSet.needed(java.util.Map.of("icon:f:12", "builtin:arcticons|okay", "mode", "classic")), "a folder's icon picked from the set");
+        yes(!IconSet.needed(java.util.Map.of("icon:f:12", "com.pack.icons|ic_phone", "icon_pack", "com.pack.icons")),
+                "icons from an installed pack only");
+        yes(!IconSet.needed(java.util.Map.of("rn:x", "builtin:arcticons|okay")), "only picked icons count");
+        yes(!IconSet.needed(java.util.Map.of()), "nothing picked");
+    }
+
     /** Reads everything a set offers, as the launcher does: every icon and name, and an index lookup. */
     private static void readAll(IconSet set) {
         for (int i = 0; i < set.count(); i++) {

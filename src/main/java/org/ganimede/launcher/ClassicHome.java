@@ -12,6 +12,7 @@ import android.appwidget.AppWidgetProviderInfo;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Bundle;
 import android.os.Handler;
 import android.view.DragEvent;
 import android.view.Gravity;
@@ -19,6 +20,7 @@ import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
@@ -373,6 +375,29 @@ final class ClassicHome {
         pager.post(() -> snapPage(added.page));
     }
 
+    /** One cell on one edge for a screen reader, by the same rules as the drag; resizing stays on so it can repeat. */
+    private void stepEdge(String id, String edge, int cells) {
+        for (Blocks.Item b : layout.blocks()) {
+            if (!b.id.equals(id)) continue;
+            Blocks.Result r = Blocks.put(Blocks.edgeStep(b, edge, cells), layout.pages(), layout.cols(), layout.rows(), layout.blocks(), layout.grid());
+            if (!r.changed) {
+                pager.announceForAccessibility(ui.tr("Limit reached"));
+                return;
+            }
+            save(r);
+            Blocks.Item saved = r.blocks.stream().filter(x -> x.id.equals(id)).findFirst().orElse(b);
+            // the refresh built the handles again and TalkBack lost its focus: it goes back to the same edge
+            pager.post(() -> {
+                ArrayList<View> found = new ArrayList<>();
+                pager.findViewsWithText(found, ui.tr("Resize " + edge + " edge"), View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+                //noinspection AccessibilityFocus: the focus the user had before the handles were rebuilt, on the same edge
+                for (View h : found) h.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+                pager.announceForAccessibility(ui.f("Width %d, height %d", saved.colSpan, saved.rowSpan));
+            });
+            return;
+        }
+    }
+
     private void addHandles(FrameLayout box, Blocks.Item original) {
         String[] edges = {"left", "right", "top", "bottom"};
         int[] gravity = {Gravity.START, Gravity.END, Gravity.TOP, Gravity.BOTTOM};
@@ -400,11 +425,9 @@ final class ClassicHome {
                 if (action == MotionEvent.ACTION_MOVE) {
                     int dc = Math.round((e.getRawX() - down[0]) * layout.cols() / Math.max(1f, pager.getWidth()));
                     int dr = Math.round((e.getRawY() - down[1]) * layout.rows() / Math.max(1f, pager.getHeight()));
-                    Blocks.Item b = original;
-                    if (edge.equals("left")) b = new Blocks.Item(b.id, b.page, b.col + dc, b.row, b.colSpan - dc, b.rowSpan);
-                    if (edge.equals("right")) b = new Blocks.Item(b.id, b.page, b.col, b.row, b.colSpan + dc, b.rowSpan);
-                    if (edge.equals("top")) b = new Blocks.Item(b.id, b.page, b.col, b.row + dr, b.colSpan, b.rowSpan - dr);
-                    if (edge.equals("bottom")) b = new Blocks.Item(b.id, b.page, b.col, b.row, b.colSpan, b.rowSpan + dr);
+                    boolean start = edge.equals("left") || edge.equals("top");
+                    int d = edge.equals("left") || edge.equals("right") ? dc : dr;
+                    Blocks.Item b = Blocks.edgeStep(original, edge, start ? -d : d);
                     Blocks.Result test = Blocks.put(b, pageCount, cols, rows, blocks, cells);
                     if (b.equals(original) || test.changed) {
                         latest[0] = b;
@@ -421,6 +444,20 @@ final class ClassicHome {
                     return true;
                 }
                 return true;
+            });
+            handle.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+                @Override public void onInitializeAccessibilityNodeInfo(View host, AccessibilityNodeInfo info) {
+                    super.onInitializeAccessibilityNodeInfo(host, info);
+                    info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.action_grow, ui.tr("Grow")));
+                    info.addAction(new AccessibilityNodeInfo.AccessibilityAction(R.id.action_shrink, ui.tr("Shrink")));
+                }
+
+                @Override public boolean performAccessibilityAction(View host, int action, Bundle args) {
+                    if (action != R.id.action_grow && action != R.id.action_shrink)
+                        return super.performAccessibilityAction(host, action, args);
+                    stepEdge(original.id, edge, action == R.id.action_grow ? 1 : -1);
+                    return true;
+                }
             });
             box.addView(handle, lp);
         }

@@ -17,14 +17,18 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.IconSet;
+
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
 /**
- * "Icon…" for any entry (app, folder, shortcut): every icon of every installed icon pack in one searchable grid
+ * "Icon…" for any entry (app, folder, shortcut): every icon of the built-in set and of every installed icon pack in one searchable grid
  * (loaded in the background so it opens at once), each pack on its own, or back to the original icon.
  */
 final class IconPicker {
@@ -44,12 +48,13 @@ final class IconPicker {
     }
 
     void choose(String entry) {
-        Map<String, String> packs = Icons.packs(ui.a);
+        Map<String, String> packs = new LinkedHashMap<>(); // the built-in set first: it is always there (issue 081)
+        packs.put(IconSet.PACK, ui.tr("Arcticons (built-in)"));
+        packs.putAll(Icons.packs(ui.a));
         List<Sheets.Row> rows = new ArrayList<>();
         boolean picked = ui.prefs.contains("icon:" + entry);
         rows.add(item(picked ? "reset" : "check", ui.tr("Original icon"), () -> apply(entry, null)));
-        if (packs.isEmpty()) rows.add(item("info", ui.tr("No icon packs installed. Install one (for example from F-Droid) and it shows up here."), () -> {}));
-        else rows.add(item("search", ui.tr("All icon packs"), () -> grid(entry, new ArrayList<>(packs.keySet()), ui.tr("All icon packs"))));
+        rows.add(item("search", ui.tr("All icon packs"), () -> grid(entry, new ArrayList<>(packs.keySet()), ui.tr("All icon packs"))));
         for (Map.Entry<String, String> e : packs.entrySet())
             rows.add(item("image", e.getValue(), () -> grid(entry, List.of(e.getKey()), e.getValue())));
         sheets.show(ui.f("Icon for %s", entryName.apply(entry)), rows);
@@ -83,14 +88,19 @@ final class IconPicker {
             public Object getItem(int i) { return shown.get(i); }
             public long getItemId(int i) { return i; }
             public View getView(int i, View old, ViewGroup parent) {
-                ImageView iv = old instanceof ImageView ? (ImageView) old : new ImageView(ui.a);
-                iv.setLayoutParams(new AbsListView.LayoutParams(-1, ui.dp(52)));
-                iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                ImageView iv = old instanceof ImageView ? (ImageView) old : null;
+                if (iv == null) {
+                    iv = new ImageView(ui.a);
+                    // Only on a new cell: new params on a reused one drop GridView's own flags, and the cell GridView
+                    // measured first is then attached without a window, unseen by accessibility (TalkBack, uiautomator).
+                    iv.setLayoutParams(new AbsListView.LayoutParams(-1, ui.dp(52)));
+                    iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                }
                 String k = shown.get(i);
                 Drawable d = loaded.get(k);
                 if (d == null) {
                     d = Icons.named(ui.a, k);
-                    if (d != null) loaded.put(k, d);
+                    if (d != null) loaded.put(k, d = Icons.plain(d, Colors.lineIcon(ui.accent, Colors.WHITE))); // built-in ones on the dark dialog
                 }
                 iv.setImageDrawable(d);
                 iv.setContentDescription(k.substring(k.indexOf('|') + 1).replace('_', ' '));
@@ -99,9 +109,8 @@ final class IconPicker {
         };
         grid.setAdapter(ad);
         Runnable filter = () -> {
-            String q = find.getText().toString().trim().toLowerCase(Locale.ROOT).replace(' ', '_');
             shown.clear();
-            for (String k : all) if (q.isEmpty() || k.substring(k.indexOf('|') + 1).toLowerCase(Locale.ROOT).contains(q)) shown.add(k);
+            shown.addAll(IconSet.search(all, find.getText().toString()));
             ad.notifyDataSetChanged();
         };
         find.addTextChangedListener(new TextWatcher() {

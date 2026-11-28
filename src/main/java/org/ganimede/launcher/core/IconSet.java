@@ -5,12 +5,17 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.OptionalInt;
 
 /**
  * The built-in icon set (assets/icons.bin, packed from Arcticons by tools/icons/pack.py, which documents the format):
  * per icon a list of paths on a 48x48 grid, ready to draw; a name per icon; an index from apps to icons.
  */
 public final class IconSet {
+    /** The built-in set's id where an icon pack's package name goes (icon_pack, picked icons): a colon can't be in one. */
+    public static final String PACK = "builtin:arcticons";
+
     /** The file's op codes are the ordinals of the first five; MOVE_CLOSED is a MOVE whose subpath closes. */
     public enum Op { MOVE, LINE, CUBIC, CLOSE, OVAL, MOVE_CLOSED }
 
@@ -88,6 +93,42 @@ public final class IconSet {
         Reader r = new Reader(nameAt[id], data.capacity());
         int length = r.varint();
         return new String(data.array(), r.pos, length, StandardCharsets.UTF_8); // the constructor checked the length
+    }
+
+    /** Every icon's name, in id order (the packer sorts them). */
+    public List<String> names() {
+        List<String> out = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) out.add(name(i));
+        return out;
+    }
+
+    /**
+     * The id of the icon with this name (a binary search: the packer sorts the names); picked icons are stored by name,
+     * as ids change between versions of the set.
+     */
+    public OptionalInt id(String name) {
+        int lo = 0, hi = count - 1;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1, c = name(mid).compareTo(name);
+            if (c == 0) return OptionalInt.of(mid);
+            if (c < 0) lo = mid + 1; else hi = mid - 1;
+        }
+        return OptionalInt.empty();
+    }
+
+    /**
+     * The icon picker's search over keys that are names or "pack|name": the name matches as an app name does
+     * ({@link Search#rank}), best first; a blank query keeps every key, in order.
+     */
+    public static List<String> search(List<String> keys, String query) {
+        return query.isBlank() ? keys : Search.rank(keys, k -> k.substring(k.indexOf('|') + 1), k -> 0, query);
+    }
+
+    /** Whether any entry's picked icon ("icon:<entry>" = "builtin:arcticons|name") comes from this set. */
+    public static boolean needed(Map<String, ?> prefs) {
+        for (Map.Entry<String, ?> e : prefs.entrySet())
+            if (e.getKey().startsWith("icon:") && e.getValue() instanceof String v && v.startsWith(PACK + "|")) return true;
+        return false;
     }
 
     public IconIndex index() {

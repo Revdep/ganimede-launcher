@@ -142,7 +142,7 @@ public class MainActivity extends Activity implements Actions.Home {
                 v -> menus.home((String) v.getTag()), id -> menus.block(id));
         widgets.setClassic(classic);
         folders = new Folders(ui, sheets, layout, apps, entries, launcher, widgets, icons, classic, this::refreshAll,
-                (entry, folder) -> menus.shortcut(entry, folder));
+                (entry, folder) -> menus.forEntry(entry, folder));
         menus = new Menus(ui, sheets, layout, apps, launcher, launcherApps, folders, icons, classic, widgets, notices, this::refreshAll);
         media = new MediaRows(ui, apps, launcher, handler);
         list = new AppList(ui, apps, layout, entries, launcher, handler, () -> listMode);
@@ -276,6 +276,7 @@ public class MainActivity extends Activity implements Actions.Home {
         if (isDestroyed()) return; // a background job finishing after the screen closed
         applyLook();
         list.clearCache(); // labels, icons or notifications may have changed
+        folders.reshowIfChanged();
         landing.clear();
         boolean cl = layout.classic();
         if (cl) classic.build();

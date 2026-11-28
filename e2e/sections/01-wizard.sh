@@ -52,9 +52,14 @@ else
 fi
 tap "Avanti"
 expect "Stile delle icone" && shot 05-icons
+# The selected tile's "✓ Originale" and the two-line "Quadrato arrotondato" are drawn whole, not cut after the tick (issue 088)
+label_whole "✓ Originale" 80 60 && ok "tile “✓ Originale” shows its whole label" || ko "tile “✓ Originale” is cut"
 stap "Squircle" # the Plate row, under the Style row (issue 078)
 squircle() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<string name=\"icon_container\">squircle</string>"; }
 wait_until 5 squircle && ok "the wizard saves the Squircle plate" || ko "the wizard saved no Squircle plate"
+# "Quadrato arrotondato" is a Plate tile (issue 078), so it is in the row of the selected "✓ Squircle", not in the Style row
+hsee "Quadrato arrotondato" "✓ Squircle" && tap "Quadrato arrotondato"
+wait_until 5 has "✓ Quadrato arrotondato" && label_whole "✓ Quadrato arrotondato" 80 70 && ok "tile “Quadrato arrotondato” shows its whole label" || ko "tile “✓ Quadrato arrotondato” is cut"
 tap "Avanti"
 expect "Ognuno è mostrato" && shot 06-font; tap "Avanti"
 expect "Nove stili" && shot 07-clock; tap "Avanti"

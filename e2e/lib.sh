@@ -110,7 +110,8 @@ tapn() { # tapn text max-scrolls: waits for the text (or scrolls to it), then ta
 }
 shot() { A exec-out screencap -p > "$OUT/$1.png"; }
 dp() { echo $(($1 * DENS / 160)); }
-pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -o "name=\"$1\" value=\"-*[0-9]*" | grep -o '\-*[0-9]*$'; }
+# the stored value of a pref, int or string (empty when unset)
+pref() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | sed -n "s|.*name=\"$1\" value=\"\([^\"]*\)\".*|\1|p; s|.*name=\"$1\">\([^<]*\)<.*|\1|p"; } # "|" not "/": keys such as use:pkg/Activity hold slashes
 # bounds of the first node whose text (or content-desc with "desc:") is exactly $1: "x1 y1 x2 y2", empty if none
 bounds() {
   local attr=text v="$1" r; case "$v" in desc:*) attr=content-desc; v="${v#desc:}";; esac
@@ -118,6 +119,22 @@ bounds() {
   _bounds_try() { r=$(screen | grep -o "$attr=\"$v\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' | tr -d '[' | tr ']' ' ' | tr ',' ' '); [ -n "$r" ]; }
   wait_until 3 _bounds_try && echo "$r"
   return 0
+}
+# hsee text row-text: swipes the sideways row holding row-text until the node "text" is whole inside the card (at most 6 times)
+hsee() {
+  local n=0 y b x1 y1 x2 y2; b=$(bounds "$2"); [ -n "$b" ] || return 1; read -r x1 y1 x2 y2 <<<"$b"; y=$(((y1 + y2) / 2))
+  while [ $n -lt 6 ]; do
+    b=$(bounds "$1"); [ -n "$b" ] && { read -r x1 y1 x2 y2 <<<"$b"; [ "$x2" -le $((W - $(dp 24))) ] && return 0; }
+    A shell input swipe $((W - 100)) $y 200 $y 300; rm -f "$SCR"; n=$((n + 1))
+  done
+  ko "no “$1” in the row of “$2”"; return 1
+}
+# label_whole text min-width% [min-height%]: the node's label is drawn whole (issue 088): its crop, trimmed, covers that much of the node
+label_whole() {
+  local b x1 y1 x2 y2 w h tw th; b=$(bounds "$1"); [ -n "$b" ] || return 1; read -r x1 y1 x2 y2 <<<"$b"
+  w=$((x2 - x1)); h=$((y2 - y1))
+  read -r tw th <<<"$(A exec-out screencap -p | magick png:- -crop "${w}x${h}+${x1}+${y1}" +repage -fuzz 12% -trim -format '%w %h' info: 2>/dev/null)"
+  [ -n "$th" ] && [ $((tw * 100)) -ge $(($2 * w)) ] && [ $((th * 100)) -ge $((${3:-0} * h)) ]
 }
 # Center of a node with this content-desc, scrolling a settings page until it is stable and visible.
 find_desc() {
@@ -251,6 +268,8 @@ shows() { local f re='text=["'"'"'][^>]*'; for f in "$@"; do re="$re$f[^>]*"; do
 noshows() { ! shows "$@"; }
 # fdiff a.png b.png [WxH+X+Y]: how many pixels differ (inside the crop, if given). Pixels, never file bytes: a PNG
 # written by magick carries its dates, so cmp calls two identical pictures different (issue 086).
+hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu (home or pop-up)
+clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
 fdiff() { compare -metric AE "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
 # seed classic|list [setp's settings ...]: a configured app without the wizard: onboarded, mode, favourites, Italian, the
 # home role, and the settings given, all in one start (the APK must be installed). Leaves the home screen in front.

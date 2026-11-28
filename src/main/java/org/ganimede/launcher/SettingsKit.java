@@ -12,6 +12,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewTreeObserver;
@@ -391,10 +392,13 @@ final class SettingsKit {
             if (v != null) tile.addView(v);
             TextView name = text((i == sel ? "✓ " : "") + names[i], 13, i == sel ? Colors.WHITE : SUB);
             name.setGravity(Gravity.CENTER);
+            // WRAP_CONTENT up to a cap, like any label: the tile grows to fit it, two rows at most (issue 088). addView(name) alone would
+            // give a vertical LinearLayout's default MATCH_PARENT width, so the label was laid out at the tile's width, not its own.
             name.setMaxWidth(ui.dp(120));
             name.setMaxLines(2);
+            name.setEllipsize(TextUtils.TruncateAt.END);
             name.setPadding(0, v == null ? ui.dp(4) : ui.dp(6), 0, v == null ? ui.dp(4) : 0);
-            tile.addView(name);
+            tile.addView(name, new LinearLayout.LayoutParams(-2, -2));
             tile.setContentDescription(descriptions[i]);
             selectable(tile, i == sel);
             int k = i;
