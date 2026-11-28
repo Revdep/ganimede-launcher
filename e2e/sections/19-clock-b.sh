@@ -141,8 +141,9 @@ tap "Ridimensiona"; wait_until 5 hasd "$BOTTOM_HANDLE"
 handle_focused() { screen | grep -q "content-desc=\"$BOTTOM_HANDLE\"[^>]*focused=\"true\"\|focused=\"true\"[^>]*content-desc=\"$BOTTOM_HANDLE\""; }
 for _ in $(seq 20); do handle_focused && break; A shell input keyevent KEYCODE_TAB; rm -f "$SCR"; done
 handle_focused && ok "il Tab arriva alla maniglia inferiore" || ko "la maniglia inferiore non prende il focus con il Tab"
+one_row() { pref blocks | grep -q 'rowSpan&quot;:1'; } # a function: wait_until must re-read the pref each try
 A shell input keyevent KEYCODE_DPAD_UP # the bottom edge up: one row less
-wait_until 5 test -n "$(pref blocks | grep -o 'rowSpan&quot;:1')" \
+wait_until 5 one_row \
   && ok "freccia su sulla maniglia inferiore accorcia il blocco di una cella" || ko "la freccia non ha cambiato la misura (blocks: $(pref blocks))"
 A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 

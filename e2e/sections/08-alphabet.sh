@@ -38,9 +38,11 @@ open_browsing_at_start() {
   # has Calendar is true with the row half off the top: in list mode keep pulling until G stops moving, i.e. the list is at its top
   # (the 29 dp tap lands on a letter, which scrolls the list to it; G0 read mid-list was 123 px above the real top, 28 Nov z-home)
   local prev=x
-  while [ $n -lt 6 ] && { ! has Calendar || { [ "$mode" = list ] && [ "$(gy)" != "$prev" ]; }; }; do
+  while [ $n -lt 8 ] && { ! has Calendar || { [ "$mode" = list ] && [ "$(gy)" != "$prev" ]; }; }; do
     prev=$(gy)
-    A shell input swipe $((W / 2)) $((H * 3 / 10)) $((W / 2)) $((H * 8 / 10)) 500
+    # A drag that stops before the release: a swipe's fling at the list's top closes the list (HomeScreen.onFling), and the
+    # confirming pull that sees G no longer move is made at the top (28 Nov, run 46112177069: list closed, shade open).
+    A shell "input motionevent DOWN $((W / 2)) $((H * 2 / 10)); input motionevent MOVE $((W / 2)) $((H * 9 / 10)); sleep 0.3; input motionevent UP $((W / 2)) $((H * 9 / 10))"
     wait_until 10 settled
     n=$((n + 1))
   done
