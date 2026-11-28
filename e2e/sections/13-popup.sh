@@ -108,14 +108,18 @@ play_at() { screen | grep -o 'content-desc="Riproduci il messaggio vocale"[^>]*b
 # (WAV header 44 + 16000 bytes a second), which also shows one copy at a time, deleted when playback stops.
 copies() { A exec-out run-as $PK sh -c 'ls -l cache/voice 2>/dev/null' | awk '/note/{print $5}' | paste -sd' '; }
 copies_are() { [ "$(copies)" = "$1" ]; }
+# The copy is whole before its player is ready, and a tap meanwhile does nothing ("Loading…", run 46083578007): a note
+# plays once its copy is there and the app's player is started in the audio service's list.
+uid=$(A shell cmd package list packages -U $PK | grep -o 'uid:[0-9]*' | head -1 | cut -d: -f2)
+plays() { copies_are "$1" && A shell dumpsys audio | grep -q "u/pid:$uid/.*state:started"; }
 voice; expect_popup "FIXTURE"
 wait_until 5 eval '[ "$(players)" = "Messaggio vocale|Messaggio vocale" ]' && ok "pop-up: two players" || ko "pop-up players: $(players)"
 shot 41-popup-voice
 p1=$(play_at 1); p2=$(play_at 2)
 A shell input tap $p2
-wait_until 10 copies_are 640044 && ok "the second note (40 s) plays, alone" || ko "copies after tapping the second: $(copies)"
+wait_until 10 plays 640044 && ok "the second note (40 s) plays, alone" || ko "copies after tapping the second: $(copies)"
 A shell input tap $p1
-wait_until 10 copies_are 480044 && ok "the first (30 s) plays instead, the second's copy is gone" || ko "copies after tapping the first: $(copies)"
+wait_until 10 plays 480044 && ok "the first (30 s) plays instead, the second's copy is gone" || ko "copies after tapping the first: $(copies)"
 A shell input tap $p1
 wait_until 5 copies_are "" && ok "paused: no copy left" || ko "copies after pausing: $(copies)"
 read -r ax ay <<<"$(cx Anna)"; A shell input swipe "$ax" "$ay" "$ax" "$ay" 1500   # long-press the card: the message on its own
@@ -141,9 +145,9 @@ p2b=$(screen | grep -o 'content-desc="Riproduci il messaggio vocale"[^>]*bounds=
   || ko "overlap: fixture row $ft-$fb, players $p1t-$p2b, Calendar row $ct-$cb"
 p1=$(play_at 1); p2=$(play_at 2)
 A shell input tap $p2
-wait_until 10 copies_are 640044 && ok "bubble: the second note plays" || ko "bubble, copies after tapping the second: $(copies)"
+wait_until 10 plays 640044 && ok "bubble: the second note plays" || ko "bubble, copies after tapping the second: $(copies)"
 A shell input tap $p1
-wait_until 10 copies_are 480044 && ok "bubble: the first plays instead" || ko "bubble, copies after tapping the first: $(copies)"
+wait_until 10 plays 480044 && ok "bubble: the first plays instead" || ko "bubble, copies after tapping the first: $(copies)"
 A shell input tap $p1
 wait_until 5 copies_are "" && ok "bubble: paused, no copy left" || ko "bubble, copies after pausing: $(copies)"
 has "Notifiche" && ko "a tap on a player opened the pop-up" || ok "the player's taps stay in the player"
