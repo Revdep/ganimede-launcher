@@ -5,6 +5,9 @@ package org.ganimede.launcher.core;
  * hands (left-hand use mirrors the rest of the home, not the pages: their grid is in screen coordinates).
  */
 public final class Paging {
+    /** The most home pages: what a backup keeps (Backup's grid_pages) and every place that adds a page stops at. */
+    public static final int MAX_PAGES = 100;
+
     /**
      * A flick faster than {@code flick} (px/s) turns the page its way, or cancels a drag it goes against; otherwise
      * a drag of a sixth of the width turns the page. dx and vx are the finger's travel and speed (negative = left).

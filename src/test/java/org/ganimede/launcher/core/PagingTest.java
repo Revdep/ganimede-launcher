@@ -49,11 +49,15 @@ public class PagingTest {
         eq("[2]", focus(2, 3, 1), "no page after the last");
     }
 
-    // Finding c1-2: left-hand use mirrors the home, but the pages stay left to right (page 1 leftmost, as the grid's
-    // cells): a swipe and the focus go the same way for both hands.
-    public static void testOneDirectionForBothHands() {
-        eq(1, Paging.target(0, 3, -200, 0, W, FLICK), "dragging left goes forward");
-        eq(0, Paging.target(0, 3, 200, 0, W, FLICK), "dragging right from page 1 stays");
+    // Finding c1-2: left-hand use mirrors the home, but the pages stay left to right: the focus goes right for both
+    // hands (the swipe's own direction is covered above, it takes no hand).
+    public static void testFocusGoesRight() {
         eq("[0, 1]", focus(0, 2, 1), "right: the next page");
+    }
+
+    // Finding c3 M5: one page limit, the one a backup accepts.
+    public static void testMaxPagesIsWhatABackupKeeps() {
+        org.ganimede.launcher.Expect.yes(Backup.fits("grid_pages", Paging.MAX_PAGES), "the last page count a backup keeps");
+        org.ganimede.launcher.Expect.yes(!Backup.fits("grid_pages", Paging.MAX_PAGES + 1), "one more is out");
     }
 }

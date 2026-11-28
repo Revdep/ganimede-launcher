@@ -346,7 +346,7 @@ final class ClassicHome {
         if (hasBlock("clock")) return;
         Blocks.Result r = Blocks.add("clock", layout.cols(), Math.min(2, layout.rows()), currentPage(),
                 layout.pages(), layout.cols(), layout.rows(), layout.blocks(), layout.grid());
-        if (r.pages > 100) { ui.toast(ui.tr("The home screen is full")); return; }
+        if (r.pages > Paging.MAX_PAGES) { ui.toast(ui.tr("The home screen is full")); return; }
         save(r);
     }
 
@@ -355,7 +355,7 @@ final class ClassicHome {
         int cols = Math.max(1, Math.min(layout.cols(), (Math.max(1, info.minWidth) + cw - 1) / cw));
         int rows = Math.max(1, Math.min(layout.rows(), (Math.max(1, info.minHeight) + ch - 1) / ch));
         Blocks.Result r = layout.placeBlock(String.valueOf(id), cols, rows, page);
-        if (r.pages > 100) { widgets.delete(String.valueOf(id)); ui.toast(ui.tr("The home screen is full")); return; }
+        if (r.pages > Paging.MAX_PAGES) { widgets.delete(String.valueOf(id)); ui.toast(ui.tr("The home screen is full")); return; }
         save(r);
     }
 
@@ -509,7 +509,7 @@ final class ClassicHome {
     // ---- pages
 
     void createPage() {
-        layout.setPages(Math.min(100, layout.pages() + 1)); // the backup keeps up to 100
+        layout.setPages(Math.min(Paging.MAX_PAGES, layout.pages() + 1));
         refresh.run();
         pager.post(() -> snapPage(layout.pages() - 1));
     }
@@ -641,7 +641,7 @@ final class ClassicHome {
             add.setImageDrawable(new Glyph("plus", Colors.WHITE));
             add.setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10));
             add.setContentDescription(ui.tr("New page"));
-            add.setOnClickListener(v -> { layout.setPages(Math.min(100, layout.pages() + 1)); refresh.run(); add.post(fill[0]); });
+            add.setOnClickListener(v -> { createPage(); add.post(fill[0]); });
             LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(ui.dp(52), ui.dp(52));
             alp.setMargins(ui.dp(8), 0, ui.dp(8), 0);
             row.addView(add, alp);

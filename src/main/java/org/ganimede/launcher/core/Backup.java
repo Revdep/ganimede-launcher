@@ -16,7 +16,7 @@ public final class Backup {
     private static final Map<String, String> TYPES = new HashMap<>();
 
     static {
-        int[][] r = {{3, 8}, {2, 10}, {0, 8}, {2, 8}, {32, 80}, {60, 150}, {1, 100}, {16, 160}, {16, 160}, {8, 40}, {25, 300}, {20, 300},
+        int[][] r = {{3, 8}, {2, 10}, {0, 8}, {2, 8}, {32, 80}, {60, 150}, {1, Paging.MAX_PAGES}, {16, 160}, {16, 160}, {8, 40}, {25, 300}, {20, 300},
                 {0, 2000}, {5, 100}, {0, 95}, {0, 95}, {0, 100}, {-20, 40}, {-160, 160}, {4, 240}, {4, 240}, {4, 240}, {4, 420},
                 {4, 80}, {4, 80}, {4, 200}, {4, 200}, {0, 32}};
         String[] k = {"grid_cols", "grid_rows", "dock_count", "drawer_cols", "drawer_icon", "drawer_label_scale",
@@ -89,12 +89,12 @@ public final class Backup {
         return !k.equals("fab_icon") || v.equals("default") || v.equals("gray") || v.equals("colour") || v.equals("custom");
     }
 
-    /** A home grid's cell keys: numbers only, inside 100 pages of the largest grid. */
+    /** A home grid's cell keys: numbers only, inside MAX_PAGES pages of the largest grid. */
     public static boolean cellsFit(Iterator<String> cells) {
         try {
             while (cells.hasNext()) {
                 int cell = Integer.parseInt(cells.next());
-                if (cell < 0 || cell >= 100 * 10 * 8) return false;
+                if (cell < 0 || cell >= Paging.MAX_PAGES * 10 * 8) return false;
             }
             return true;
         } catch (NumberFormatException e) {
