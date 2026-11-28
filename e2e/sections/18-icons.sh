@@ -171,9 +171,8 @@ original_kept && ok "choosing the built-in set keeps the icon style Original" ||
 reach "${S}Originale" >/dev/null && ok "with the built-in set the Icons card still offers Original" || ko "no Original tile with the built-in set"
 reach "${C}Colore del testo" >/dev/null && exact "Colore" && exact "Riempimento" \
   && ok "Original over the built-in set: the Fill and Colour rows show (its glyphs use them)" || ko "Original over the built-in set: no Fill or Colour row"
-flag() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<boolean name=\"$1\" value=\"$2\" />"; }
 exact "Icone per categoria" && ok "the built-in set: the Icons card offers Category icons" || ko "the built-in set: no Category icons row"
-tapn "Icone per categoria" 60 && wait_until 5 flag icon_category false && ok "a tap on Category icons saves icon_category = false" || ko "Category icons saved nothing"
+tapn "Icone per categoria" 60 && wait_until 5 bpref icon_category false && ok "a tap on Category icons saves icon_category = false" || ko "Category icons saved nothing"
 tapn "Nessuno (icone delle app)" 60 && wait_until 5 stored icon_pack "" && original_kept && ok "back to no pack: the icon style is still Original" \
   || ko "back to no pack: the pack did not change, or icon_glyph did"
 valid && ! exact "Icone per categoria" && ok "no pack: no Category icons row" || ko "no pack: the Category icons row is still there"
