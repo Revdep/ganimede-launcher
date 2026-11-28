@@ -90,13 +90,13 @@ final class Apps {
      */
     static void resolveIcon(Context c, SharedPreferences prefs, Item it) {
         String picked = prefs.getString(IconSet.pickedKey(it.key), "");
-        String stamp = picked + "|" + Icons.resolveStamp(prefs);
+        String stamp = picked + "|" + IconPacks.resolveStamp(prefs);
         if (stamp.equals(it.resolvedFor)) return;
-        Drawable packed = Icons.picked(c, prefs, it.key);
+        Drawable packed = IconPacks.picked(c, prefs, it.key);
         it.picked = picked;
-        if (packed == null) packed = Icons.fromPack(it.info.getComponentName());
+        if (packed == null) packed = IconPacks.fromPack(it.info.getComponentName());
         it.fromPack = packed != null;
-        it.category = packed == null ? Icons.category(prefs, it.info) : null;
+        it.category = packed == null ? IconPacks.category(prefs, it.info) : null;
         it.icon = packed != null ? packed : it.info.getIcon(0);
         it.resolvedFor = stamp; // last: the preview resolves on a thread, and a reader that sees the stamp must see the icon
     }
@@ -164,9 +164,9 @@ final class Apps {
             List<Item> out = new ArrayList<>();
             List<UserHandle> users;
             try { users = launcherApps.getProfiles(); } catch (RuntimeException e) { users = List.of(Process.myUserHandle()); }
-            Icons.load(c, pack);
+            IconPacks.load(c, pack);
             long t1 = SystemClock.elapsedRealtime();
-            Icons.preload(c, prefs); // a folder's or shortcut's picked built-in icon: drawn on the main thread at refreshAll
+            IconPacks.preload(c, prefs); // a folder's or shortcut's picked built-in icon: drawn on the main thread at refreshAll
             for (UserHandle user : users) {
                     // Paused work profiles and a locked private space stay out of the list.
                     List<LauncherActivityInfo> list;

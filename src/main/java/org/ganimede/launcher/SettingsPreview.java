@@ -267,8 +267,8 @@ final class SettingsPreview extends FrameLayout {
         pack = want;
         Context c = getContext();
         new Thread(() -> {
-            Icons.load(c, want);
-            Icons.preload(c, p); // a picked built-in icon needs the set read, or the preview shows the original
+            IconPacks.load(c, want);
+            IconPacks.preload(c, p); // a picked built-in icon needs the set read, or the preview shows the original
             for (Apps.Item a : items) Apps.resolveIcon(c, p, a); // the icons (a disk read each) off the main thread
             post(() -> {
                 if (!want.equals(pack)) return;
@@ -510,7 +510,7 @@ final class SettingsPreview extends FrameLayout {
 
     /** A folder's or shortcut's icon: a soft tile with its mark. */
     private View tile(String entry, int icon, int fg, int accent, IconLook look) {
-        Drawable picked = Icons.picked(getContext(), p, entry); // the icon chosen for it, as the home shows it
+        Drawable picked = IconPacks.picked(getContext(), p, entry); // the icon chosen for it, as the home shows it
         if (picked != null) {
             ImageView iv = new ImageView(getContext());
             iv.setScaleType(ImageView.ScaleType.FIT_CENTER);

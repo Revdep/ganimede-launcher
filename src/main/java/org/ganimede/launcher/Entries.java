@@ -89,7 +89,7 @@ final class Entries {
             Item it = apps.find(entry);
             return it == null ? null : ui.icon(it, size, look); // Apps.load already applied a picked icon
         }
-        Drawable picked = Icons.picked(ui.a, ui.prefs, entry);
+        Drawable picked = IconPacks.picked(ui.a, ui.prefs, entry);
         if (picked != null) return ui.icon(picked, true, size, look);
         if (kind == Entry.Kind.FOLDER) return folderTile(ui.a, layout, apps::find, Entry.folderId(entry), size, look, ui.fg, ui.accent);
         String[] p = Entry.shortcut(entry);
