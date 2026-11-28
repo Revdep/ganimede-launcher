@@ -280,8 +280,8 @@ for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and 
   # the moved icons still answer: in 2 columns Calendar changed row, and a view moved only by translation can't be touched
   read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Clock)"
   A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 1500
-  back() { [ "$(order)" = "calendar,deskclock,contacts" ]; }
-  wait_until 5 back && ok "$mode: the moved Calendar answers a long-press: dragged back first" || ko "$mode: the moved Calendar ignored the long-press drag, order $(order)"
+  order_back() { [ "$(order)" = "calendar,deskclock,contacts" ]; }
+  wait_until 5 order_back && ok "$mode: the moved Calendar answers a long-press: dragged back first" || ko "$mode: the moved Calendar ignored the long-press drag, order $(order)"
   wait_until 5 settled
   [ "$(shown)" = "$(order)" ] && ok "$mode: views follow the saved order again" || ko "$mode: views in the order $(shown), saved $(order)"
   tap Calendar
