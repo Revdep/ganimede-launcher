@@ -12,7 +12,7 @@ import org.ganimede.launcher.core.IconSet.PathData;
  * stroke. Without a container it stays on its own grid. A bitmap glyph (issue 079) fits the same way: its pixels' bounds
  * in px for a grid of px, stroke 0.
  */
-public record GlyphFit(float scale, float dx, float dy, float strokePx) {
+public record GlyphFit(float scale, float dx, float dy) {
     private static final float GRID = 48, SHARE = 26 / GRID;
     /** The alpha from which a pixel is part of a glyph or logo: below it, anti-aliasing noise (IconMask uses it too). */
     static final int SEEN = 0x20;
@@ -22,11 +22,11 @@ public record GlyphFit(float scale, float dx, float dy, float strokePx) {
         float strokePx = stroke * px / GRID;
         float scale = (px * SHARE - strokePx) / Math.max(bounds[2] - bounds[0], bounds[3] - bounds[1]);
         return new GlyphFit(scale, px / 2f - (bounds[0] + bounds[2]) / 2 * scale,
-                px / 2f - (bounds[1] + bounds[3]) / 2 * scale, strokePx);
+                px / 2f - (bounds[1] + bounds[3]) / 2 * scale);
     }
 
-    public static GlyphFit grid(float stroke, int px) {
-        return new GlyphFit(px / GRID, 0, 0, stroke * px / GRID);
+    public static GlyphFit grid(int px) {
+        return new GlyphFit(px / GRID, 0, 0);
     }
 
     /** The box around every point of the paths (control points included, ovals by their box), as Path.computeBounds. */
