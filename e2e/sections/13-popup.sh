@@ -138,8 +138,10 @@ kept() { A exec-out run-as $PK sh -c 'ls no_backup/voice 2>/dev/null' | grep -c 
 kept_is() { [ "$(kept)" = "$1" ]; }
 play_note() { # $1: where, $2: which player, $3: its copy's size
   local p; p=$(play_at "$2"); A shell input tap $p
-  wait_until 10 copies_are "$3" && ok "$1: note $2 plays" || ko "$1: copies after tapping note $2: $(copies)"
-  A shell input tap $p; wait_until 5 copies_are ""
+  # "plays", not copies_are: the copy is whole while the player still loads, and a pause tap then does nothing, so
+  # the note kept playing and note 2's button was not there to tap (run 46105280536: "copies after tapping note 2")
+  wait_until 10 plays "$3" && ok "$1: note $2 plays" || ko "$1: copies after tapping note $2: $(copies)"
+  A shell input tap $p; wait_until 5 copies_are "" || ko "$1: note $2 did not pause: $(copies)"
 }
 check_voice() { # $1: where, $2: players expected, $3: 1 if the chat has a link
   wait_until 5 nplayers "$2" && ok "$1: $2 players" || ko "$1: players: $(players)"
