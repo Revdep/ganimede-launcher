@@ -297,7 +297,7 @@ for variant in classic:1 list:1 classic:2; do # a 2-column pop-up: Calendar and 
   # a drag cut short (the pop-up closed under the finger) saves nothing and leaves no floating icon behind
   stored=$(order); read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Clock)"
   A shell input draganddrop "$ax" "$ay" "$tx" "$ty" 5000 &
-  sleep 3; A shell input keyevent KEYCODE_BACK; wait # mid-gesture: input holds still for the long-press timeout, then moves for 5 s; there is no screen state to wait on (a dump takes ~2 s)
+  sleep 3; A shell input keyevent KEYCODE_BACK; wait # a gesture hold, not a wait: mid-gesture, input holds still for the long-press timeout, then moves for 5 s; there is no screen state to wait on (a dump takes ~2 s)
   wait_until 5 hasnt "Calendar"
   [ "$(order)" = "$stored" ] && ok "$mode: a cancelled drag keeps the stored order ($stored)" || ko "$mode: order after cancel $(order), was $stored"
   tap Ordine; wait_until 5 has "Calendar"; wait_until 5 settled # the pop-up opens with an animation
@@ -364,7 +364,11 @@ step "Folders: another app's update doesn't rebuild the open pop-up; one of its 
 FIXAPK="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk" # e2e/fixture: an app with a launcher activity, ours to reinstall
 "$HERE/../gradlew" -p "$HERE/.." -q -Pe2e :fixture:assembleDebug >/dev/null 2>&1 && [ -s "$FIXAPK" ] \
   && ok "fixture app built" || ko "fixture app not built (./gradlew -Pe2e :fixture:assembleDebug): the checks below can't pass"
-update_other() { A install -r "$FIXAPK" >/dev/null; } # a package event (added/changed): Ganimede reloads its app list
+update_other() { cpu0=$(cpu_ticks); A install -r "$FIXAPK" >/dev/null; } # a package event (added/changed): Ganimede reloads its app list
+# The reload (250 ms debounce, then the load thread) leaves nothing on screen to wait for, so the signal is Ganimede's own CPU:
+# it rises above cpu0 (taken before the event) and then stands still for two reads. A check that "nothing changed" runs after it.
+cpu_ticks() { A shell "cat /proc/\$(pidof $PK)/stat" | awk '{print $14 + $15}'; }
+reloaded() { local t; t=$(cpu_ticks); [ "${t:-0}" -gt "${cpu0:-0}" ] && [ "$t" = "${cpu_last:-}" ] && return 0; cpu_last=$t; return 1; }
 popwin() { A shell dumpsys window windows | grep -o "Window{[0-9a-f]* u0 [^}]*$PK[^}]*}" | sort | paste -sd' ' -; } # its windows
 seed classic
 setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity"]}'
@@ -372,8 +376,8 @@ setp string fav 'f:ord'
 setp del grid
 tap Ordine; expect "Contacts"; wait_until 5 settled
 wins=$(popwin) # (not "before": run.sh counts checks in that name)
-update_other
-sleep 2 # the reload: 250 ms debounce, then the load thread; nothing on screen marks its end, the point is that nothing changes
+cpu_last=; update_other
+wait_until 10 reloaded || ko "Ganimede never reloaded its app list after the update"
 [ -n "$wins" ] && [ "$(popwin)" = "$wins" ] && ok "the pop-up is the same window after another app's update" || ko "the pop-up was rebuilt: windows $(popwin), were $wins"
 has "Contacts" && ok "the pop-up is still open" || ko "the pop-up closed"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
@@ -382,12 +386,12 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"
 setp string folder:ord '{"name":"Ordine","where":"fav","apps":["com.google.android.calendar/com.android.calendar.AllInOneActivity","com.google.android.deskclock/com.android.deskclock.DeskClock","com.google.android.contacts/com.android.contacts.activities.PeopleActivity","org.ganimede.fixture/org.ganimede.fixture.Open"]}'
 tap Ordine; expect "Fixture"; wait_until 5 settled
 read -r ax ay <<<"$(cx Calendar)"; read -r tx ty <<<"$(cx Contacts)"
-A shell input motionevent DOWN "$ax" "$ay"; sleep 0.9 # past the long-press timeout: the menu opens, the icon is held
+A shell input motionevent DOWN "$ax" "$ay"; sleep 0.9 # a gesture hold, not a wait: past the long-press timeout the menu opens and the icon is held
 A shell input motionevent MOVE "$ax" $((ay + $(dp 16))) # past the touch slop: the menu closes, the drag starts
-A uninstall org.ganimede.fixture >/dev/null
+cpu0=$(cpu_ticks); cpu_last=; A uninstall org.ganimede.fixture >/dev/null
 fixture_gone() { ! A shell pm path org.ganimede.fixture >/dev/null 2>&1; }
 wait_until 10 fixture_gone || ko "the fixture app is still installed"
-sleep 1 # Ganimede's reload: 250 ms debounce, then the load thread; under the finger nothing may change, so nothing to wait on
+wait_until 10 reloaded || ko "Ganimede never reloaded its app list after the uninstall" # then: under the finger nothing may change
 dump | grep -q 'text="Fixture' && ok "while the finger is down the pop-up is not rebuilt (the removed app still shows)" || ko "the pop-up was rebuilt under the finger"
 A shell input motionevent MOVE "$tx" "$ty"; A shell input motionevent UP "$tx" "$ty"
 wait_until 5 reordered && ok "the drag held across the uninstall saved its order" || ko "the drag was lost: order $(order)"

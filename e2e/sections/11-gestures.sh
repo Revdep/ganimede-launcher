@@ -10,10 +10,10 @@ swipe_h() { A shell input swipe "$1" "$((H / 2))" "$2" "$((H / 2))" 250; wait_un
 # stay there $5 s, lift (input draganddrop cannot hold at the end)
 hold_drag() {
   local x1=$1 y1=$2 x2=$3 y2=$4 hold=$5 drift=${6:-0} i
-  A shell input motionevent DOWN "$x1" "$y1"; sleep 0.9
+  A shell input motionevent DOWN "$x1" "$y1"; sleep 0.9 # a gesture hold, not a wait: past the long-press timeout
   for i in 1 2 3 4 5 6 7 8; do A shell input motionevent MOVE $((x1 + (x2 - x1) * i / 8)) $((y1 + (y2 - y1) * i / 8)); done
   for i in 1 2 3 4; do [ "$drift" = 0 ] || A shell input motionevent MOVE "$x2" $((y2 + drift * i / 4)); done
-  sleep "$hold"
+  sleep "$hold" # a gesture hold, not a wait: the finger stays down
   A shell input motionevent MOVE "$x2" $((y2 + drift)); A shell input motionevent UP "$x2" $((y2 + drift))
 }
 # the app list (drawer) is open: its search field is on screen
