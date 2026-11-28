@@ -12,7 +12,7 @@ public final class Pins {
     public static List<String> ids(List<String> entries, String pkg) {
         List<String> out = new ArrayList<>();
         for (String e : entries) {
-            String[] p = parts(e);
+            String[] p = Entry.shortcut(e);
             if (p.length == 3 && p[0].equals(pkg)) out.add(p[1]);
         }
         return out;
@@ -22,7 +22,7 @@ public final class Pins {
     public static List<String> packages(List<String> entries) {
         Set<String> out = new LinkedHashSet<>();
         for (String e : entries) {
-            String[] p = parts(e);
+            String[] p = Entry.shortcut(e);
             if (p.length == 3) out.add(p[0]);
         }
         return new ArrayList<>(out);
@@ -42,10 +42,6 @@ public final class Pins {
         List<String> out = new ArrayList<>();
         for (String pkg : pkgs) if (!ids(before, pkg).equals(ids(after, pkg))) out.add(pkg);
         return out;
-    }
-
-    private static String[] parts(String entry) {
-        return entry.startsWith("s:") ? entry.substring(2).split("\\|", 3) : new String[0];
     }
 
     private Pins() {}
