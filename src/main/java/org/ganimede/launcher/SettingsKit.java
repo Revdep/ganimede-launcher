@@ -12,6 +12,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewTreeObserver;
@@ -394,6 +395,8 @@ final class SettingsKit {
             // One exact width, so the measure that sizes the tile and the layout that draws the label agree: it wraps at spaces
             // into two rows that make the tile taller. A max width left it to wrap at whatever width the tile ended up with (issue 088).
             name.setWidth(Math.min((int) Math.ceil(name.getPaint().measureText(name.getText().toString())), ui.dp(120)));
+            name.setMaxLines(2);
+            name.setEllipsize(TextUtils.TruncateAt.END);
             name.setPadding(0, v == null ? ui.dp(4) : ui.dp(6), 0, v == null ? ui.dp(4) : 0);
             tile.addView(name);
             tile.setContentDescription(descriptions[i]);
