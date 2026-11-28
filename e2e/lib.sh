@@ -79,7 +79,7 @@ stap() { tapn "$1" 3; } # in a scrolling page: scrolls down up to three times to
 kbd() { A shell dumpsys input_method | grep -q 'mInputShown=true'; } # the keyboard is up
 # typ text: types once the keyboard is up. Keys sent while it is still coming up arrive out of order ("cal" typed as
 # "cla", run 46083578007, drawer).
-typ() { wait_until 5 kbd; A shell input text "$1"; }
+typ() { wait_until 5 kbd; A shell input text "${1// /%s}"; } # %s is the space of "input text": a bare space cuts the text there
 _tb() { TB=$(screen | grep -o "text=\"$1\"[^>]*bounds=\"[^\"]*\"" | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]'); [ -n "$TB" ]; }
 _scroll() {
   local from=2120 to=1520 ime top # 600 px a step: a third of the screen, so nothing is skipped
