@@ -82,8 +82,10 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: false # run.sh sets them, and puts them back
+          # vmstat: the runner's load and CPU steal through the run (UTC times), beside the clock on the fail-N screenshots
           script: |
             adb shell cat /proc/loadavg
+            bash -c 'vmstat -t -w 10 > e2e/out/emulator-5554/vmstat.log 2>&1 &'
             bash -o pipefail -c 'bash e2e/run.sh emulator-5554 2>&1 | tee e2e/out/emulator-5554/run.log'
       - if: always()
         run: cp ~/.cache/ganimede/e2e-times e2e/out/emulator-5554/times || true
