@@ -7,10 +7,13 @@ pages_ge2() { [ "$(pages_n)" -ge 2 ] 2>/dev/null; }
 # horizontal swipe in the empty middle of the grid, then wait for the pager to stop
 swipe_h() { A shell input swipe "$1" "$((H / 2))" "$2" "$((H / 2))" 250; wait_until 5 settled; }
 # a held drag by hand: long-press at x1,y1, glide to x2,y2, (drift: then straight on down by $6 px, as a real finger)
-# stay there $5 s, lift (input draganddrop cannot hold at the end)
+# stay there $5 s, lift (input draganddrop cannot hold at the end). The glide starts once the long-press menu shows (the
+# icon is armed): after a restart a loaded emulator can run the long-press late, and moves sent before it make a page
+# swipe instead of a drag (rel1/6: Calendar unmoved, no menu, page 1; lib.sh home_menu, issue 067)
 hold_drag() {
   local x1=$1 y1=$2 x2=$3 y2=$4 hold=$5 drift=${6:-0} i
-  A shell input motionevent DOWN "$x1" "$y1"; sleep 0.9
+  A shell input motionevent DOWN "$x1" "$y1"; rm -f "$SCR"
+  wait_until 5 has "Rinomina" || echo "  WARN: long press lost (hold_drag): no menu before the glide"
   for i in 1 2 3 4 5 6 7 8; do A shell input motionevent MOVE $((x1 + (x2 - x1) * i / 8)) $((y1 + (y2 - y1) * i / 8)); done
   for i in 1 2 3 4; do [ "$drift" = 0 ] || A shell input motionevent MOVE "$x2" $((y2 + drift * i / 4)); done
   sleep "$hold"
