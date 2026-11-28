@@ -424,12 +424,22 @@ final class ClassicHome {
             // the refresh built the handles again and TalkBack lost its focus: it goes back to the same edge
             pager.post(() -> {
                 ArrayList<View> found = new ArrayList<>();
-                pager.findViewsWithText(found, ui.tr("Resize " + edge + " edge"), View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
+                pager.findViewsWithText(found, edgeLabel(edge), View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION);
                 //noinspection AccessibilityFocus: the focus the user had before the handles were rebuilt, on the same edge
                 for (View h : found) h.performAccessibilityAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
                 pager.announceForAccessibility(ui.f("Width %d, height %d", saved.colSpan, saved.rowSpan));
             });
             return;
+        }
+    }
+
+    /** A handle's name for a screen reader; literal texts, so the translation check finds them. */
+    private String edgeLabel(String edge) {
+        switch (edge) {
+            case "left": return ui.tr("Resize left edge");
+            case "right": return ui.tr("Resize right edge");
+            case "top": return ui.tr("Resize top edge");
+            default: return ui.tr("Resize bottom edge");
         }
     }
 
@@ -443,7 +453,7 @@ final class ClassicHome {
             String edge = edges[i];
             View handle = new View(ui.a);
             handle.setBackground(drag.outline(true));
-            handle.setContentDescription(ui.tr("Resize " + edge + " edge"));
+            handle.setContentDescription(edgeLabel(edge));
             FrameLayout.LayoutParams lp = edge.equals("left") || edge.equals("right")
                     ? new FrameLayout.LayoutParams(ui.dp(18), -1, gravity[i])
                     : new FrameLayout.LayoutParams(-1, ui.dp(18), gravity[i]);
