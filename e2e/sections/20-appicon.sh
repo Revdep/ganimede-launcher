@@ -204,10 +204,14 @@ elif ! A install -r -d "$LEGACY_APK" >/dev/null; then
 else
   up=0
   setp int list_apps_y -8 # in main's build: it restarts the home, which takes the HOME role
-  A shell "run-as $PK sh -c 'echo kept > files/upgrade-marker'"
-  if choose_icon "Icona del pulsante" "Grigia" && wait_until 5 main_gray \
-     && [ "$(pref list_apps_y)" = -8 ] && [ "$(A shell run-as "$PK" cat files/upgrade-marker | tr -d '\r')" = kept ] \
-     && A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK"; then
+  # files/ exists only once the app wrote a file there (ButtonIcon's custom image): make it, as the app would
+  A shell "run-as $PK sh -c 'mkdir -p files && echo kept > files/upgrade-marker'"
+  missing=""
+  { choose_icon "Icona del pulsante" "Grigia" && wait_until 5 main_gray; } || missing="$missing gray button (fab_icon '$(fab_icon)');"
+  [ "$(pref list_apps_y)" = -8 ] || missing="$missing list_apps_y -8 (it is '$(pref list_apps_y)');"
+  [ "$(A shell run-as "$PK" cat files/upgrade-marker | tr -d '\r')" = kept ] || missing="$missing the private file files/upgrade-marker;"
+  A shell cmd role get-role-holders android.app.role.HOME | grep -q "$PK" || missing="$missing the HOME role;"
+  if [ -z "$missing" ]; then
     # The user is not on Ganimede's home during an upgrade: no HOME press, no start. The package itself must put the entry right.
     A install -r -d "$APK" >/dev/null && up=1 || ko "this build did not install over main's"
     kept_prefs \
@@ -232,7 +236,7 @@ else
       && ok "this build starts on main's prefs and keeps them" \
       || ko "after the first start of this build fab_icon is '$(fab_icon)' and list_apps_y '$(pref list_apps_y)', expected gray and -8"
   else
-    ko "setup: main's build did not keep what the test chose in it (gray button, list_apps_y -8, a private file, the HOME role)"
+    ko "setup: main's build did not keep what the test chose in it, missing:$missing"
   fi
   A shell run-as "$PK" rm -f files/upgrade-marker
   # Whatever happened above, the rest of the section tests this build, not main's.
