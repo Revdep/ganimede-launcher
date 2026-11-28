@@ -329,6 +329,7 @@ final class Icons {
         Drawable mono = Build.VERSION.SDK_INT >= 33 && icon instanceof AdaptiveIconDrawable ? ((AdaptiveIconDrawable) icon).getMonochrome() : null;
         // the silhouette is judged once drawn, on the render thread: until then ALPHA stands for "silhouette or greys"
         IconSource source = IconSource.pick(fromPack, s -> s == IconSource.ARCTICONS ? icon instanceof BuiltinIcon
+                : s == IconSource.CATEGORY ? false // not wired yet (issue 087): needs the app's category glyph
                 : s != IconSource.MONOCHROME || mono != null);
         if (source == IconSource.ARCTICONS) { // built-in geometry, with the treatment's stroke (original draws as Line)
             BuiltinIcon fresh = (BuiltinIcon) copy(icon); // its own tint, alpha and look: the shared one stays as it is

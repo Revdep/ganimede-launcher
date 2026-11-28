@@ -4,6 +4,7 @@ import static org.ganimede.launcher.Expect.eq;
 import static org.ganimede.launcher.Expect.yes;
 import static org.ganimede.launcher.core.IconSource.ALPHA;
 import static org.ganimede.launcher.core.IconSource.ARCTICONS;
+import static org.ganimede.launcher.core.IconSource.CATEGORY;
 import static org.ganimede.launcher.core.IconSource.GREYS;
 import static org.ganimede.launcher.core.IconSource.MONOCHROME;
 
@@ -29,5 +30,14 @@ public class IconSourceTest {
             return src == MONOCHROME;
         });
         eq(MONOCHROME, s, "monochrome found before alpha");
+    }
+
+    /** Issue 087, order B: the category glyph replaces the alpha silhouette, not the monochrome layer. */
+    public static void testCategoryOrder() {
+        eq(MONOCHROME, IconSource.pick(false, Set.of(MONOCHROME, CATEGORY, ALPHA)::contains), "monochrome beats the category");
+        eq(CATEGORY, IconSource.pick(false, Set.of(CATEGORY, ALPHA)::contains), "no monochrome, a category: its glyph");
+        eq(ALPHA, IconSource.pick(false, Set.of(ALPHA)::contains), "no category (or the setting off): silhouette");
+        eq(ARCTICONS, IconSource.pick(false, Set.of(ARCTICONS, CATEGORY)::contains), "the set's own entry beats the category");
+        eq(CATEGORY, IconSource.pick(true, Set.of(MONOCHROME, CATEGORY, ALPHA)::contains), "an installed pack's icon skips monochrome, takes the category");
     }
 }

@@ -8,7 +8,7 @@ import java.util.function.Predicate;
  * place in the list; pick does not change.
  */
 public enum IconSource {
-    ARCTICONS, MONOCHROME, ALPHA, GREYS;
+    ARCTICONS, MONOCHROME, CATEGORY, ALPHA, GREYS;
 
     /**
      * The first source the icon has. {@code has} is asked in order and only until one answers yes (the silhouette needs

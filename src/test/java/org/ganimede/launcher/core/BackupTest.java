@@ -220,4 +220,12 @@ public class BackupTest {
         for (String n : IconSetTest.load("src/main/assets/icons.bin").names())
             yes(Backup.fits("icon:f:12", "builtin:arcticons|" + n), "built-in icon name: " + n);
     }
+
+    /** Issue 087: "Category icons" is a switch that travels with the backup. */
+    public static void testCategoryIconsSwitchTravels() {
+        eq("b", Backup.typeOf("icon_category"), "a switch");
+        yes(Backup.travels("icon_category") && Backup.fits("icon_category", false) && !Backup.fits("icon_category", "x"),
+                "false restores, a non-boolean is dropped");
+        yes(Preferences.UNDO_KEYS.contains("icon_category"), "Customize's Undo takes it back like icon_pack");
+    }
 }
