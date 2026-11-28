@@ -114,9 +114,11 @@ tapn "Arcticons (integrato)" 60 && wait_until 5 pv_now && ok "choosing it stores
 original_kept() { ! A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q 'name="icon_glyph">[a-z]' || stored icon_glyph original; }
 original_kept && ok "choosing the built-in set keeps the icon style Original" || ko "choosing the built-in set changed icon_glyph"
 reach "${S}Originale" >/dev/null && ok "with the built-in set the Icons card still offers Original" || ko "no Original tile with the built-in set"
-reach "${C}Colore del testo" >/dev/null && exact "Colore" && exact "Riempimento" \
+# each row by its own tile, looked for on its own: a heading sits above its tiles and the next row may be below the screen,
+# so whether two of them share the screen depends on where the scroll stops (the Category row of 087 moved it: run 46109393420)
+reach "Riempimento: Pieno" >/dev/null && reach "${C}Colore del testo" >/dev/null \
   && ok "Original over the built-in set: the Fill and Colour rows show (its glyphs use them)" || ko "Original over the built-in set: no Fill or Colour row"
-exact "Icone per categoria" && ok "the built-in set: the Icons card offers Category icons" || ko "the built-in set: no Category icons row"
+scroll_find exact "Icone per categoria" && ok "the built-in set: the Icons card offers Category icons" || ko "the built-in set: no Category icons row"
 tapn "Icone per categoria" 60 && wait_until 5 bpref icon_category false && ok "a tap on Category icons saves icon_category = false" || ko "Category icons saved nothing"
 tapn "Nessuno (icone delle app)" 60 && wait_until 5 stored icon_pack "" && original_kept && ok "back to no pack: the icon style is still Original" \
   || ko "back to no pack: the pack did not change, or icon_glyph did"
