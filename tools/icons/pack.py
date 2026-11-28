@@ -191,102 +191,115 @@ def arc_to_cubics(x1, y1, rx, ry, phi, large, sweep, x2, y2):
     return out
 
 
-TOK = re.compile(r"[MmLlHhVvCcSsQqTtAaZz]|-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+COMMAND = re.compile(r"[MmLlHhVvCcSsQqTtAaZz]")
+SEPARATORS = re.compile(r"[\s,]*")
+PATH_NUMBER = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+FLAG = re.compile(r"[01]")  # an arc flag is one digit: SVGO writes "a1 1 0 00.5.5", flags and next number touching
+ARC_FLAGS = (3, 4)
 
 
 def parse_d(d):
     """SVG path data -> absolute ops ('M',x,y) ('L',x,y) ('C',x1,y1,x2,y2,x,y) ('Z',).
 
     Every subpath starts with M: a drawing command right after Z gets the M that SVG implies (back to the start).
+    Malformed data (not starting with M, an unknown letter, a short or non-numeric argument, a number after Z) is a
+    ValueError: a browser would draw up to there, but a packed icon that silently loses its tail is a bug to fix in the SVG.
     """
-    toks = TOK.findall(d)
-    ops, i, cmd = [], 0, None
+    ops, pos, cmd = [], 0, None
     x = y = sx = sy = 0.0
     lc = lq = None  # last control points, for S and T
     after_z = False
 
-    def nums(n):
-        nonlocal i
-        v = [float(t) for t in toks[i:i + n]]
-        if len(v) < n:
-            raise ValueError("short")
-        i += n
-        return v
-    while i < len(toks):
-        if toks[i].isalpha():
-            cmd = toks[i]
-            i += 1
+    def skip():
+        nonlocal pos
+        pos = SEPARATORS.match(d, pos).end()
+
+    def nums(n, flags=()):
+        nonlocal pos
+        out = []
+        for k in range(n):
+            skip()
+            m = (FLAG if k in flags else PATH_NUMBER).match(d, pos)
+            if not m:
+                raise ValueError("path %r: argument %d of %s at offset %d" % (d, k + 1, cmd, pos))
+            out.append(float(m.group(0)))
+            pos = m.end()
+        return out
+    while True:
+        skip()
+        if pos >= len(d):
+            return ops
+        m = COMMAND.match(d, pos)
+        if m:
+            cmd = m.group(0)
+            pos += 1
+            if not ops and cmd not in "Mm":
+                raise ValueError("path %r: starts with %s, not M" % (d, cmd))
             if cmd in "Zz":
                 ops.append(("Z",))
                 x, y = sx, sy
                 lc = lq = None
                 after_z = True
                 continue
-        elif cmd is None:
-            break
+        elif cmd is None or cmd in "Zz":
+            raise ValueError("path %r: a number at offset %d with no command to take it" % (d, pos))
         rel = cmd.islower()
         C = cmd.upper()
         if after_z and C != "M":
             ops.append(("M", x, y))
         after_z = False
         ox, oy = (x, y) if rel else (0, 0)
-        try:
-            if C == "M":
-                a = nums(2)
-                x, y = a[0] + ox, a[1] + oy
-                sx, sy = x, y
-                ops.append(("M", x, y))
-                cmd = "l" if rel else "L"
-                lc = lq = None
-            elif C == "L":
-                a = nums(2)
-                x, y = a[0] + ox, a[1] + oy
-                ops.append(("L", x, y))
-                lc = lq = None
-            elif C == "H":
-                x = nums(1)[0] + ox
-                ops.append(("L", x, y))
-                lc = lq = None
-            elif C == "V":
-                y = nums(1)[0] + oy
-                ops.append(("L", x, y))
-                lc = lq = None
-            elif C in "CS":
-                if C == "C":
-                    a = nums(6)
-                    c1 = (a[0] + ox, a[1] + oy)
-                    c2, e = (a[2] + ox, a[3] + oy), (a[4] + ox, a[5] + oy)
-                else:
-                    a = nums(4)
-                    c1 = (2 * x - lc[0], 2 * y - lc[1]) if lc else (x, y)
-                    c2, e = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
-                ops.append(("C",) + c1 + c2 + e)
-                lc, lq = c2, None
-                x, y = e
-            elif C in "QT":
-                if C == "Q":
-                    a = nums(4)
-                    q, e = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
-                else:
-                    a = nums(2)
-                    q = (2 * x - lq[0], 2 * y - lq[1]) if lq else (x, y)
-                    e = (a[0] + ox, a[1] + oy)
-                ops.append(("C", x + 2 / 3 * (q[0] - x), y + 2 / 3 * (q[1] - y),
-                            e[0] + 2 / 3 * (q[0] - e[0]), e[1] + 2 / 3 * (q[1] - e[1]), e[0], e[1]))
-                lq, lc = q, None
-                x, y = e
-            elif C == "A":
-                a = nums(7)
-                ex, ey = a[5] + ox, a[6] + oy
-                for cu in arc_to_cubics(x, y, a[0], a[1], a[2], int(a[3]), int(a[4]), ex, ey):
-                    ops.append(("C",) + cu)
-                x, y = ex, ey
-                lc = lq = None
+        if C == "M":
+            a = nums(2)
+            x, y = a[0] + ox, a[1] + oy
+            sx, sy = x, y
+            ops.append(("M", x, y))
+            cmd = "l" if rel else "L"
+            lc = lq = None
+        elif C == "L":
+            a = nums(2)
+            x, y = a[0] + ox, a[1] + oy
+            ops.append(("L", x, y))
+            lc = lq = None
+        elif C == "H":
+            x = nums(1)[0] + ox
+            ops.append(("L", x, y))
+            lc = lq = None
+        elif C == "V":
+            y = nums(1)[0] + oy
+            ops.append(("L", x, y))
+            lc = lq = None
+        elif C in "CS":
+            if C == "C":
+                a = nums(6)
+                c1 = (a[0] + ox, a[1] + oy)
+                c2, e = (a[2] + ox, a[3] + oy), (a[4] + ox, a[5] + oy)
             else:
-                i += 1
-        except ValueError:
-            break  # SVG: render up to the first error
-    return ops
+                a = nums(4)
+                c1 = (2 * x - lc[0], 2 * y - lc[1]) if lc else (x, y)
+                c2, e = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
+            ops.append(("C",) + c1 + c2 + e)
+            lc, lq = c2, None
+            x, y = e
+        elif C in "QT":
+            if C == "Q":
+                a = nums(4)
+                q, e = (a[0] + ox, a[1] + oy), (a[2] + ox, a[3] + oy)
+            else:
+                a = nums(2)
+                q = (2 * x - lq[0], 2 * y - lq[1]) if lq else (x, y)
+                e = (a[0] + ox, a[1] + oy)
+            ops.append(("C", x + 2 / 3 * (q[0] - x), y + 2 / 3 * (q[1] - y),
+                        e[0] + 2 / 3 * (q[0] - e[0]), e[1] + 2 / 3 * (q[1] - e[1]), e[0], e[1]))
+            lq, lc = q, None
+            x, y = e
+        else:  # A
+            a = nums(7, ARC_FLAGS)
+            ex, ey = a[5] + ox, a[6] + oy
+            for cu in arc_to_cubics(x, y, a[0], a[1], a[2], int(a[3]), int(a[4]), ex, ey):
+                ops.append(("C",) + cu)
+            x, y = ex, ey
+            lc = lq = None
 
 
 def dash_pattern(st):
@@ -622,9 +635,12 @@ def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
     blobs = []
     for n in names:
         try:
-            blobs.append(encode_icon(icon_paths(os.path.join(svg_dir, n + ".svg"))))
-        except ET.ParseError as e:
+            paths = icon_paths(os.path.join(svg_dir, n + ".svg"))
+        except (ET.ParseError, ValueError) as e:
             sys.exit("%s.svg: %s" % (n, e))
+        if not paths:
+            sys.exit("%s.svg: no painted path" % n)
+        blobs.append(encode_icon(paths))
     icon_keys = keys(components(appfilter, {n: i for i, n in enumerate(names)}))
     entries = index(icon_keys)
     if categories:
@@ -662,9 +678,8 @@ def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
         for c in glyphs:
             varint(out, len(c))
             out += c.encode()
-    empty = sum(1 for bl in blobs if bl == b"\x00")
-    return bytes(out), ("icons %d (empty %d), index %d keys, %d category keys, geometry %d B, names %d B, total %d B"
-                        % (len(names), empty, len(entries), len(cat_entries) if categories else 0, len(data), len(namesec), len(out)))
+    return bytes(out), ("icons %d, index %d keys, %d category keys, geometry %d B, names %d B, total %d B"
+                        % (len(names), len(entries), len(cat_entries) if categories else 0, len(data), len(namesec), len(out)))
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
