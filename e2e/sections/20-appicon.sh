@@ -1,5 +1,5 @@
 # Issues 043/050: the Ganimede button image is chosen from Settings → Pulsante Ganimede; there is no app icon choice.
-# The only launcher entry is .IconDefault (an upgrade from a build that offered Grigia/Colori must land on it); MainActivity is HOME only.
+# The only launcher entry is .IconDefault (an upgrade from main's build must keep it so); MainActivity is HOME only.
 
 button_page() {
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus || return 1
@@ -182,17 +182,18 @@ app_chooser_gone \
   && ok "the page has no Icona dell'app chooser" \
   || ko "the Pulsante Ganimede page still offers Icona dell'app"
 
-step "App icon: upgrading from a build with Grigia selected leaves the default launcher entry; MainActivity stays HOME"
-if [ ! -f "$HERE/legacy/ganimede-with-app-icon.apk" ]; then
-  echo "  SKIP: no legacy APK (run e2e/build-legacy.sh <repository> <commit>)"
+# No public build ever offered the app icon chooser (the public history starts after issue 050 removed it), so the
+# upgrade users can make is from main's build: e2e/build-legacy.sh makes it (the CI build job does), missing is a fail.
+step "Upgrade from main's build: the chosen button icon is drawn, one launcher entry (.IconDefault), MainActivity stays HOME"
+LEGACY_APK="$HERE/legacy/ganimede-main.apk"
+if [ ! -f "$LEGACY_APK" ]; then
+  ko "no $LEGACY_APK: run e2e/build-legacy.sh"
+elif ! A install -r -d "$LEGACY_APK" >/dev/null; then
+  ko "setup: main's build did not install"
 else
-  # The shell cannot flip component states, so reach the state the way a user did: the previous build's chooser.
-  A install -r -d "$HERE/legacy/ganimede-with-app-icon.apk" >/dev/null
-  seed classic
-  choose_icon "Icona dell'app" "Grigia"
-  wait_until 5 launcher_is IconGray || ko "setup: the previous build did not switch to .IconGray"
+  setp string fab_icon gray # main's build starts on it and draws it before the upgrade
   # The user is not on Ganimede's home during an upgrade: no HOME press, no start. The package itself must put the entry right.
-  A install -r -d "$APK" >/dev/null
+  A install -r -d "$APK" >/dev/null || ko "this build did not install over main's"
   wait_until 10 launcher_is IconDefault \
     && ok "LAUNCHER resolves to .IconDefault right after the upgrade" \
     || ko "LAUNCHER resolves to '$(launcher_component)' right after the upgrade, expected .IconDefault"
@@ -202,6 +203,11 @@ else
   home_is_ganimede \
     && ok "HOME still resolves to Ganimede MainActivity" \
     || ko "HOME resolves to '$(home_component)', expected Ganimede MainActivity"
+  start_home
+  pixel=$(centre_pixel "$OUT/appicon-upgrade-gray.png")
+  grey_pixel "$pixel" \
+    && ok "the gray button chosen in main's build is drawn after the upgrade (#$pixel)" \
+    || ko "after the upgrade the button centre is #${pixel:-missing}, expected the gray image chosen in main's build"
 fi
 
 step "Ganimede button icon: gray image replaces the star; default restores it"

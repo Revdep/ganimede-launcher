@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Builds an older APK that still offered the app icon chooser, signed with the same debug key, into
-# e2e/legacy/ganimede-with-app-icon.apk. The e2e upgrade step needs it: the shell cannot enable a launcher alias itself.
-# Usage: e2e/build-legacy.sh <repository> <commit>   (a git URL or path, and a commit of it that has the chooser)
+# Builds the APK users already have, main's (the merge-base of HEAD with origin/main, or the commit given), signed with the
+# same debug key, into e2e/legacy/ganimede-main.apk. 20-appicon's upgrade step installs it, then this build over it.
+# The CI build job runs it beside the other APKs; locally run it once before the suite.
+# Usage: e2e/build-legacy.sh [commit]   (a commit of this repository, whose history it needs: CI checks out with fetch-depth 0)
 set -euo pipefail
-[ $# -eq 2 ] || { echo "usage: $0 <repository> <commit>" >&2; exit 2; }
-REPO="$1"; COMMIT="$2"
 HERE="$(cd "$(dirname "$0")" && pwd)"
+COMMIT="${1:-$(git -C "$HERE/.." merge-base origin/main HEAD)}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-git clone --quiet "$REPO" "$TMP/src" >&2
-git -C "$TMP/src" checkout --quiet --detach "$COMMIT" >&2
-(cd "$TMP/src" && ./gradlew --offline -q assembleDebug >&2)
+mkdir "$TMP/src"
+git -C "$HERE/.." archive "$COMMIT" | tar -x -C "$TMP/src"
+(cd "$TMP/src" && ./gradlew -q assembleDebug >&2)
 mkdir -p "$HERE/legacy"
-cp "$TMP/src/Ganimede-Launcher-debug.apk" "$HERE/legacy/ganimede-with-app-icon.apk"
+cp "$TMP/src/Ganimede-Launcher-debug.apk" "$HERE/legacy/ganimede-main.apk"
+echo "e2e/legacy/ganimede-main.apk: main at $(git -C "$HERE/.." rev-parse --short "$COMMIT")"
