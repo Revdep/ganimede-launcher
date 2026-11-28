@@ -178,9 +178,13 @@ a11y_off() { # gives back the device's own accessibility settings (a test phone 
 }
 a11y_done() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed='; }
 a11y() { # a11y list|click|label [regex] [desc]: asks the service to act on the node whose description starts with desc (default the clock) and waits for its answer
-  A logcat -b main -c
-  A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "${3:-Orologio}" --es mode "$1" --es label "'${2:-.}'" >/dev/null # quoted again for the device shell, where | is a pipe
-  wait_until 5 a11y_done
+  local _ # the service binds some seconds after the setting (or after the install): no answer means not listening yet, ask again
+  for _ in 1 2 3 4; do
+    A logcat -b main -c
+    A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "${3:-Orologio}" --es mode "$1" --es label "'${2:-.}'" >/dev/null # quoted again for the device shell, where | is a pipe
+    wait_until 5 a11y_done && return 0
+  done
+  return 1
 }
 a11y_performed() { A logcat -d -s $A11Y_TAG:I | grep -q 'done performed=true'; }
 a11y_date_action() { A logcat -d -s $A11Y_TAG:I | grep -iEq 'action label=.*(data|agenda|calendario)'; }
