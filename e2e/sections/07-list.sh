@@ -108,11 +108,11 @@ r=$(fdiff "$OUT/font-row-def.png" "$OUT/font-row-mono.png"); [ "${r:-0}" -gt 300
 r=$(fdiff "$OUT/font-row-def.png" "$OUT/font-row-thin.png"); [ "${r:-0}" -gt 300 ] && ok "thin is not the default bold ($r px differ)" || ko "thin favourite looks like the default bold (${r:-0} px differ)"
 a=$(fdiff "$OUT/font-alpha-def.png" "$OUT/font-alpha-mono.png")
 [ "${a:-0}" -gt 300 ] && ok "the alphabet follows the font ($a px differ)" || ko "the alphabet ignores the font"
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "Zz%sProva%sZz%sProva"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "Zz Prova Zz Prova"
 read -r sx1 sy1 sx2 sy2 <<<"$(bounds "Zz Prova Zz Prova")"; sgeo="$(dp 170)x$((sy2 - sy1))+$((sx1 + $(dp 18)))+$sy1" # the typed text only: the rows under it change with the font too
 fcrop "$sgeo" "$OUT/font-search-mono.png"
 setp string font sans-serif
-A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "Zz%sProva%sZz%sProva"
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "Zz Prova Zz Prova"
 fcrop "$sgeo" "$OUT/font-search-def.png"
 s=$(fdiff "$OUT/font-search-def.png" "$OUT/font-search-mono.png")
 [ "${s:-0}" -gt 300 ] && ok "the search text follows the font ($s px differ)" || ko "the search text ignores the font"

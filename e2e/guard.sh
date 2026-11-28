@@ -15,6 +15,7 @@ check() { # check regex message
   [ -z "$hits" ] || { echo "$hits" | sed "s|\$|  <- $2|"; bad=1; }
 }
 check 'input text' 'use typ (lib.sh)'
+check 'typ "[^"]*%s' 'typ takes plain text and writes the spaces itself'
 check 'exec-in' 'use put_prefs (lib.sh)'
 check 'sed +(-[a-zA-Z]*i|--in-place)' 'use edit_prefs (lib.sh), or comment guard-ok'
 check 'sleep[^;&|]*[;&] *(hasnt|noshows|! *has)' 'wait for a positive signal, then check the negative (wait_until)'
