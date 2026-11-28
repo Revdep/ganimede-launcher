@@ -181,7 +181,7 @@ a11y() { # a11y list|click|label [regex] [desc]: asks the service to act on the 
   local _ # the service binds some seconds after the setting (or after the install): no answer means not listening yet, ask again
   for _ in 1 2 3 4; do
     A logcat -b main -c
-    A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "${3:-Orologio}" --es mode "$1" --es label "'${2:-.}'" >/dev/null # quoted again for the device shell, where | is a pipe
+    A shell am broadcast -a org.ganimede.fixture.A11Y -p $FIX --es desc "'${3:-Orologio}'" --es mode "$1" --es label "'${2:-.}'" >/dev/null # desc and label quoted again for the device shell: a space splits, a | is a pipe
     wait_until 5 a11y_done && return 0
   done
   return 1
