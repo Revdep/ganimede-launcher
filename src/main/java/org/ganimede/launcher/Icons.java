@@ -193,7 +193,7 @@ final class Icons {
                     sample = glyph(set, set.index().find("com.google.android.calendar",
                             "com.android.calendar.AllInOneActivity").orElse(0));
                 }
-                MAIN.post(() -> apply(v, sample, false, null, null, look, fg, accent, size));
+                MAIN.post(() -> { if (v.getDrawable() == placeholder) apply(v, sample, false, null, null, look, fg, accent, size); }); // the tile may show another icon by now
             } catch (IOException | RuntimeException e) {
                 // an unreadable set: the placeholder stays
             }
