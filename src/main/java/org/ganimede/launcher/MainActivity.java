@@ -25,6 +25,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.window.OnBackInvokedDispatcher;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -123,6 +124,8 @@ public class MainActivity extends Activity implements Actions.Home {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = Prefs.of(this);
+        if (Build.VERSION.SDK_INT >= 33)
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::back);
         launcherApps = getSystemService(LauncherApps.class);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
@@ -443,8 +446,13 @@ public class MainActivity extends Activity implements Actions.Home {
         landing.answer(i);
     }
 
+    /** Back before Android 13 (from 13 the callback below gets it, with the system's predictive back). */
     @Override
     public void onBackPressed() {
+        back();
+    }
+
+    private void back() {
         if (classic.stopResizing()) return;
         if (listMode) closeList();
     }
