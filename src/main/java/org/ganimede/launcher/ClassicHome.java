@@ -102,6 +102,7 @@ final class ClassicHome {
                 return scrolled;
             }
         };
+        pager.setOnScrollChangeListener((v, x, y, ox, oy) -> lightDots(currentPage())); // a swipe, a scroll by TalkBack, a page deleted
         pager.setHorizontalScrollBarEnabled(false);
         pager.setFillViewport(true);
         // Left to right for both hands (Paging): page i at i * width, cells at their left margin, edges as on screen.
@@ -201,11 +202,11 @@ final class ClassicHome {
         dots.setVisibility(View.VISIBLE);
         for (int i = 0; i < count; i++) {
             View dot = new View(ui.a);
-            dot.setBackground(dot(i == currentPage()));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ui.dp(7), ui.dp(7));
             lp.setMargins(ui.dp(4), 0, ui.dp(4), 0);
             dots.addView(dot, lp);
         }
+        lightDots(currentPage());
         dock.removeAllViews();
         String[] slots = layout.dockSlots();
         dock.setVisibility(slots.length == 0 ? View.GONE : View.VISIBLE);
@@ -311,8 +312,14 @@ final class ClassicHome {
         int w = Math.max(1, pager.getWidth());
         handler.post(() -> {
             if (Anim.on()) pager.smoothScrollTo(page * w, 0); else pager.scrollTo(page * w, 0);
-            for (int i = 0; i < dots.getChildCount(); i++) dots.getChildAt(i).setBackground(dot(i == page));
+            lightDots(page);
         });
+    }
+
+    /** The dot of this page is lit; one past the last (a page just deleted, the scroll not yet pulled back) lights the last. */
+    private void lightDots(int page) {
+        int on = Math.min(page, dots.getChildCount() - 1);
+        for (int i = 0; i < dots.getChildCount(); i++) dots.getChildAt(i).setBackground(dot(i == on));
     }
 
     /**
