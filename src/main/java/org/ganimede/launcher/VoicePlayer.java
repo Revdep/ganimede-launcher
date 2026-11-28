@@ -1,6 +1,7 @@
 package org.ganimede.launcher;
 
 import org.ganimede.launcher.core.Colors;
+import org.ganimede.launcher.core.Latest;
 import org.ganimede.launcher.core.Safe;
 import org.ganimede.launcher.core.Voice;
 
@@ -49,7 +50,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Voice notes in notifications, heard privately: the audio a chat app attaches to its notification is copied into
@@ -64,7 +65,9 @@ final class VoicePlayer {
     private static final Handler WATCHDOG = watchdog(); // off the main thread: a busy screen must not delay a cut
     private static final Set<String> BUSY = ConcurrentHashMap.newKeySet(); // apps with a kept copy whose thread has not returned
     private static final int BUSY_MAX = 2;
-    private static final AtomicInteger WAITING = new AtomicInteger(); // copy tasks queued or running; deletions and holds are never counted
+    // Notifications with notes waiting for a copy, the latest per key; one copy task drains them (SCHEDULED).
+    private static final Latest<StatusBarNotification> WAITING = new Latest<>(Voice.QUEUE_MAX);
+    private static final AtomicBoolean SCHEDULED = new AtomicBoolean();
     private static final AudioAttributes SPEECH = new AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();
 
@@ -110,13 +113,13 @@ final class VoicePlayer {
      * chat app did not share: those it withdraws before this app ever saw them get no row.
      */
     static void keep(Context c, StatusBarNotification... all) {
-        if (!Voice.admits(WAITING.getAndIncrement())) { // full: this arrival is not kept; the sweep and the holds still queue
-            WAITING.decrementAndGet();
-            return;
-        }
+        boolean queued = false;
+        for (StatusBarNotification s : all) if (!notes(s).isEmpty()) queued |= WAITING.offer(s.getKey(), s); // full: not kept; the sweep and the holds still queue
+        if (!queued || !SCHEDULED.compareAndSet(false, true)) return;
         KEEPER.execute(() -> {
+            SCHEDULED.set(false); // an arrival from now on schedules the next drain
             try {
-                for (StatusBarNotification s : all) for (Uri uri : notes(s)) {
+                for (StatusBarNotification s : WAITING.drain()) for (Uri uri : notes(s)) {
                     File f = kept(c, s, uri);
                     if (f.isFile() || !granted(c, uri) || !Voice.room(used(f.getParentFile()))) continue;
                     File part = copyAside(c.getContentResolver(), s.getPackageName(), uri, new File(f.getPath() + ".part")); // never half a note
@@ -124,8 +127,6 @@ final class VoicePlayer {
                 }
             } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
                 Log.w("Ganimede", "Voice note not kept: " + e.getClass().getName());
-            } finally {
-                WAITING.decrementAndGet();
             }
         });
     }

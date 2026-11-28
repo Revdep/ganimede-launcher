@@ -36,12 +36,8 @@ public final class Voice {
     /** The largest note copied, all kept notes together, and the longest a copy may take before it is cut off. */
     public static final long NOTE_BYTES = 25L << 20, KEPT_BYTES = 50L << 20, COPY_MS = 10_000;
 
-    /** The most copy tasks waiting at once: each holds its notifications, so a hostile flood must not grow the queue without end. */
+    /** The most notifications waiting to be copied at once: a hostile flood must not grow the queue without end. */
     public static final int QUEUE_MAX = 32;
-
-    public static boolean admits(int waiting) {
-        return waiting < QUEUE_MAX;
-    }
 
     /** Whether one more note, at its largest, still fits with the kept ones: nothing is ever written past the cap. */
     public static boolean room(long used) {

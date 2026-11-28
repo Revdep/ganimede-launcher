@@ -61,12 +61,6 @@ public class VoiceTest {
         eq("[old]", Voice.drop(new String[]{"old"}, new long[]{999_000}, Set.of(), snap, snap + 20).toString(), "an earlier second goes");
     }
 
-    public static void testQueueOfCopiesHasARoof() {
-        yes(Voice.admits(0), "empty");
-        yes(Voice.admits(Voice.QUEUE_MAX - 1), "one place left");
-        yes(!Voice.admits(Voice.QUEUE_MAX), "full: no more copies queued");
-    }
-
     public static void testKeepsANoteOnlyIfAWholeOneStillFits() {
         yes(Voice.room(0), "empty");
         yes(Voice.room(Voice.KEPT_BYTES - Voice.NOTE_BYTES), "a largest note fills it exactly");
