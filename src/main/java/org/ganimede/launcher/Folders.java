@@ -353,8 +353,11 @@ final class Folders {
             lp.setMargins(m, m, m, m);
             sv.setLayoutParams(lp);
         }
-        popup = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
-        dlg[0] = popup;
+        Motion shown = Motion.pop(ui, sv, null); // out of the folder's icon, back into it
+        dlg[0] = popup = shown;
+        shown.setOnDismissListener(x -> { // an older pop-up ending after its rebuild must not clear the new one
+            if (popup == shown) { popup = null; popupId = null; popupLook = null; popupDrag = null; }
+        });
         dlg[0].show();
         popupId = id;
         popupLook = looks(id);
