@@ -388,8 +388,7 @@ final class SettingsKit {
             if (v != null) tile.addView(v);
             TextView name = text((i == sel ? "✓ " : "") + names[i], 13, i == sel ? Colors.WHITE : SUB);
             name.setGravity(Gravity.CENTER);
-            name.setMaxWidth(ui.dp(120));
-            name.setMaxLines(2);
+            name.setSingleLine(); // a wrapped label was measured at one width and laid out at another: the tile kept one row's height (issue 088)
             name.setPadding(0, v == null ? ui.dp(4) : ui.dp(6), 0, v == null ? ui.dp(4) : 0);
             tile.addView(name);
             tile.setContentDescription(descriptions[i]);
