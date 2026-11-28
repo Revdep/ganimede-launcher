@@ -10,6 +10,13 @@ read -r n1x _ <<<"$(cx Calendar)"; read -r n2x _ <<<"$(cx Clock)"
 near $((n2x - n1x)) $(((W - $(dp 16)) / 4)) $(dp 6) && ok "4 columns: cells widen" || ko "4 columns: cell width $((n2x - n1x))"
 shot 20-grid-4cols
 
+step "Classic: a favourite added in List shows on the grid in Classic"
+# Layout.ensureFavourites skips its work for unchanged prefs; a changed favourites list must still reach the old grid.
+seed classic
+setp string fav "$SEED_FAV&#10;com.android.settings/com.android.settings.Settings"
+wait_until 8 has "Settings" && ok "the new favourite is on the classic grid" || ko "favourite added to the saved list is missing from the grid"
+has "Calendar" && ok "existing placements kept" || ko "Calendar left the grid"
+
 step "Classic: the clock is a block of the grid"
 # The grid fills the space between the status bar and the dock; the clock is a block that can be resized or removed.
 b=$(bounds "desc:Orologio, tocca per le sveglie")

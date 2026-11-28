@@ -170,8 +170,20 @@ final class Layout {
         }
     }
 
+    /** The inputs of the last {@link #ensureFavourites} run: the same inputs give the same (already saved) result. */
+    private String ensured;
+
+    private String ensureKey() {
+        return String.join("\u0000", prefs.getString("fav", ""), prefs.getString("grid", ""),
+                prefs.getString("dock", ""), prefs.getString("blocks", ""), String.valueOf(per()));
+    }
+
     /** Adds favourites missing from an older classic grid without changing any existing placement. */
-    void ensureFavourites() { if (classic()) saveFavourites(favourites()); }
+    void ensureFavourites() {
+        if (!classic() || ensureKey().equals(ensured)) return;
+        saveFavourites(favourites());
+        ensured = ensureKey();
+    }
 
     private List<String> lines(String key) {
         String s = prefs.getString(key, "");
