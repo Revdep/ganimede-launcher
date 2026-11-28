@@ -38,7 +38,6 @@ final class Folders {
     private final Layout layout;
     private final Apps apps;
     private final Entries entries;
-    private final Launcher launcher;
     private final Widgets widgets;
     private final IconPicker icons;
     private final ClassicHome classic;
@@ -51,14 +50,13 @@ final class Folders {
     private Set<String> popupLook; // what it shows of each entry (see looks)
     private FolderDrag popupDrag;  // its icons' touch handling: no rebuild under a finger
 
-    Folders(Ui ui, Sheets sheets, Layout layout, Apps apps, Entries entries, Launcher launcher, Widgets widgets,
+    Folders(Ui ui, Sheets sheets, Layout layout, Apps apps, Entries entries, Widgets widgets,
             IconPicker icons, ClassicHome classic, Runnable refresh, BiConsumer<String, String> entryMenu) {
         this.ui = ui;
         this.sheets = sheets;
         this.layout = layout;
         this.apps = apps;
         this.entries = entries;
-        this.launcher = launcher;
         this.widgets = widgets;
         this.icons = icons;
         this.classic = classic;

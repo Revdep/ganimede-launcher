@@ -141,7 +141,7 @@ public class MainActivity extends Activity implements Actions.Home {
         classic = new ClassicHome(ui, layout, apps, entries, widgets, drag, launcher, landing, handler, this::refreshAll,
                 v -> menus.home((String) v.getTag()), id -> menus.block(id));
         widgets.setClassic(classic);
-        folders = new Folders(ui, sheets, layout, apps, entries, launcher, widgets, icons, classic, this::refreshAll,
+        folders = new Folders(ui, sheets, layout, apps, entries, widgets, icons, classic, this::refreshAll,
                 (entry, folder) -> menus.forEntry(entry, folder));
         menus = new Menus(ui, sheets, layout, apps, launcher, launcherApps, folders, icons, classic, widgets, notices, this::refreshAll);
         media = new MediaRows(ui, apps, launcher, handler);
