@@ -39,7 +39,7 @@ open_browsing_at_start() {
     A shell input swipe $((W / 2)) $((H * 3 / 10)) $((W / 2)) $((H * 8 / 10)) 500
     n=$((n + 1))
   done
-  wait_until 10 alphabet_at_start
+  wait_until 10 alphabet_at_start && wait_until 10 settled # G0 is read from here: a list still moving gives a wrong start
 }
 
 seed list
@@ -66,7 +66,7 @@ for mode in list classic; do
       || ko "$mode, left-handed=$handed: a vertical drag over an icon didn't scroll the list"
     # A pull down from the top would close classic's drawer: judge each fling only once it has settled.
     for _ in 1 2 3; do A shell input swipe "$icon" $((H * 3 / 10)) "$icon" $((H * 8 / 10)) 500; wait_until 10 settled; at_g0 && break; done
-    at_g0 || ko "$mode, left-handed=$handed: the list didn't come back to the start" # a fling may stop short of the top
+    at_g0 || ko "$mode, left-handed=$handed: the list didn't come back to the start (G at $(gy), start $G0)" # a fling may stop short of the top
     # The opposite edge owns a fixed 32 dp strip, independent of where the rows begin.
     if [ "$handed" = true ]; then edge=$((W - $(dp 20))); side=right
     else edge=$(dp 20); side=left; fi
