@@ -316,7 +316,7 @@ public class IconSetTest {
             eq(set.name(set.categoryGlyphIds().get(c.ordinal())), c.glyph(), c + ": the glyph the packer chose is the one Java names");
         }
         eq("emoji_classical_building", set.name(set.categoryGlyph("it.bnl.apps.banking").orElseThrow()), "from the curated table");
-            }
+    }
 
     /** The category of an app: the tables first (dated, but the curated one is checked), then what the app declares. */
     public static void testManifestCategoryIsTheLastResort() {
