@@ -75,8 +75,8 @@ for mode in list classic; do
   capture_calendar "$OUT/icons-$mode-line-circle.png"
   same "$OUT/icons-$mode-tinted.png" "$OUT/icons-$mode-line-circle.png" \
     && ok "$mode: old Tinted looks as Line + Circle + Solid" || ko "$mode: migrated Tinted differs from Line + Circle + Solid"
-  same "$OUT/icons-$mode-original.png" "$OUT/icons-$mode-line-circle.png" \
-    && ko "$mode: Line leaves the icon unchanged" || ok "$mode: Line changes the icon"
+  differ "$OUT/icons-$mode-original.png" "$OUT/icons-$mode-line-circle.png" \
+    && ok "$mode: Line changes the icon" || ko "$mode: Line leaves the icon unchanged"
   pixels=$(colour_pixels "$OUT/icons-$mode-line-circle.png" "$RED")
   [ "${pixels:-0}" -gt 20 ] && ok "$mode: the plate uses the chosen red accent ($pixels pixels)" \
     || ko "$mode: no chosen accent in the icon (${pixels:-0} pixels)"
@@ -99,8 +99,8 @@ for mode in list classic; do
   [ "${pixels:-0}" -eq 0 ] && ok "$mode: text colour, no red" || ko "$mode: text colour still has $pixels red pixels"
   look line none solid accent
   capture_calendar "$OUT/icons-$mode-accent.png"
-  same "$OUT/icons-$mode-text.png" "$OUT/icons-$mode-accent.png" \
-    && ko "$mode: theme and text colour look the same" || ok "$mode: theme colour differs from text colour"
+  differ "$OUT/icons-$mode-text.png" "$OUT/icons-$mode-accent.png" \
+    && ok "$mode: theme colour differs from text colour" || ko "$mode: theme and text colour look the same"
 done
 
 step "No plate colours: the glyph in the accent, nothing behind it, the fill means nothing"
@@ -486,7 +486,7 @@ if emu_only "icons: a work profile is created on the emulator"; then
       setp string fav "$comp"; capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
       setp string fav "$comp#$serial"; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
       corner "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-c.png"; corner "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-c.png"
-      ! same "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
+      differ "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
         && ok "badge: the work $label has a badge in its corner ($*)" || ko "badge: the work $label has no badge ($*)"
       # a badge drawn smaller than the icon (Fable c1-icons 1) lands in its top-left quarter: that quarter stays as the own app's
       rest "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-r.png"; rest "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-r.png"
@@ -507,7 +507,7 @@ if emu_only "icons: a work profile is created on the emulator"; then
       setp string folder:bw "{\"name\":\"Bw\",\"where\":\"fav\",\"apps\":[\"$k\"]}"; setp string fav 'f:bw'
       capture Bw "$OUT/icons-badge-folder-$who.png" || ko "badge: no folder Bw ($who)"
     done
-    [ -f "$OUT/icons-badge-folder-own.png" ] && [ -f "$OUT/icons-badge-folder-work.png" ] && ! same "$OUT/icons-badge-folder-own.png" "$OUT/icons-badge-folder-work.png" \
+    [ -f "$OUT/icons-badge-folder-own.png" ] && [ -f "$OUT/icons-badge-folder-work.png" ] && differ "$OUT/icons-badge-folder-own.png" "$OUT/icons-badge-folder-work.png" \
       && ok "badge: the folder thumbnail of the work copy differs from the own app's (its badge)" || ko "badge: folder thumbnails of the own and the work app look alike"
   fi
 fi
@@ -523,8 +523,8 @@ chrome_cell() { # chrome_cell out.png: the Chrome cell on the app pages
 chrome_cell "$OUT/icons-chrome-home-look.png" || ko "no Chrome on the app pages"
 setp string drawer_icon_glyph original string drawer_icon_container square boolean drawer_follow false
 chrome_cell "$OUT/icons-chrome-own-look.png" || ko "no Chrome on the app pages (own look)"
-same "$OUT/icons-chrome-home-look.png" "$OUT/icons-chrome-own-look.png" \
-  && ko "the app pages' own plate changes nothing" || ok "the app pages draw their own plate (square, home circle)"
+differ "$OUT/icons-chrome-home-look.png" "$OUT/icons-chrome-own-look.png" \
+  && ok "the app pages draw their own plate (square, home circle)" || ko "the app pages' own plate changes nothing"
 
 step "A folder on an app page shows its apps in the app pages' own look (Classic, drawer off)"
 # cell 20: page two's first; drawer_labels: no white name under the tile; home: white glyphs, app pages: red

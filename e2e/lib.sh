@@ -303,6 +303,9 @@ noshows() { ! shows "$@"; }
 # written by magick carries its dates, so cmp calls two identical pictures different (issue 086).
 # compare prints a big count as 1.04858e+06: awk turns it into an integer
 fdiff() { compare -metric AE ${FUZZ:+-fuzz "$FUZZ"} "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | awk 'match($0, /^[0-9.]+(e[+-]?[0-9]+)?/) { printf "%d\n", substr($0, RSTART, RLENGTH); exit }'; }
+# differ a.png b.png [crop]: they differ by at least one pixel. An fdiff that fails (a missing file, no number) is "no", never "differ"
+# and never "same": `! same` passed on it, `same && ko || ok` too. Use differ wherever a check wants a difference.
+differ() { [ "$(fdiff "$@")" -gt 0 ] 2>/dev/null; }
 hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu (home or pop-up)
 clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
 # seed classic|list [setp's settings ...]: a configured app without the wizard: onboarded, mode, favourites, Italian, the
