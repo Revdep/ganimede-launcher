@@ -117,6 +117,7 @@ final class T {
         it("Resize bottom edge", "Ridimensiona bordo inferiore");
         it("Grow", "Allarga");
         it("Shrink", "Restringi");
+        it("Limit reached", "Limite raggiunto");
         it("Width %d, height %d", "Larghezza %d, altezza %d");
         it("Remove a widget", "Rimuovi un widget");
         it("Create pop-up folder", "Crea cartella pop-up");
