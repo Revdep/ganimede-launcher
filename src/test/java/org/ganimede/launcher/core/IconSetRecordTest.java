@@ -11,7 +11,7 @@ public class IconSetRecordTest {
     /** An ICN1 set of one icon whose one path claims {@code ops} ops, each a LINE with no points: it ends early. */
     private static byte[] claimingOps(int ops) {
         ByteBuffer rec = ByteBuffer.allocate(16 + ops);
-        rec.put((byte) 1).put((byte) 1).put((byte) 16).put((byte) 255); // one path: stroke, width 1, opaque
+        rec.put((byte) 1).put((byte) 1).put((byte) 255); // one path: stroke, opaque
         for (int v = ops; ; v >>>= 7) { // the op count, LEB128
             if (v < 0x80) { rec.put((byte) v); break; }
             rec.put((byte) (v & 0x7F | 0x80));
