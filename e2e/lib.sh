@@ -156,6 +156,9 @@ expect() { wait_until 10 has "$1" && { ok "sees “$1”"; return 0; }; ko "does
 tap() { tapn "$1" 0; }
 stap() { tapn "$1" 3; } # in a scrolling page: scrolls down up to three times to find it
 kbd() { A shell dumpsys input_method | grep -q 'mInputShown=true'; } # the keyboard is up
+# Back from a search with text: the first Back hides the keyboard, the second closes the search. The second waits for the keyboard to be
+# gone: sent while it is still going down, the keyboard takes it too and the search stays open (run 46112177069, shard 10, slow machine).
+close_search() { A shell input keyevent KEYCODE_BACK; wait_until 5 eval '! kbd'; A shell input keyevent KEYCODE_BACK; }
 # typ text: types once the keyboard is up, then checks the focused field holds what it held plus the text. Keys sent while the
 # keyboard is still coming up arrive out of order ("cal" typed as "cla", run 46083578007, drawer), and Gboard reorders keys
 # with the keyboard up too ("pro pro" came out "por pro", run 46107202244, shard 9). A wrong field is emptied (what it held

@@ -275,7 +275,7 @@ wait_until 5 has "Nascoste" && ok "after Hide a search shows the “Nascoste” 
 has "Settings" && ok "…and it still finds Settings" || ko "Settings not found in search once hidden"
 pref_lacks fav 'com.android.settings' && ok "Hide also took it out of the favourites" || ko "hidden app stayed in the favourites (or prefs unreadable)"
 shot 123-hidden
-A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'sett"' # keyboard, then search
+close_search; wait_until 5 hasnt 'sett"' # keyboard, then search
 hasnt "Settings" && ok "Settings left the home screen" || ko "hidden app still on the home screen"
 
 step "App menu: Unhide from Settings"
@@ -287,7 +287,7 @@ wait_until 5 hasnt "Mostra di nuovo"
 set_lacks hidden settings && ok "the hidden set is empty again" || ko "hidden set still holds Settings (or prefs unreadable)"
 start_home; drawer_find sett
 hasnt "Nascoste" && ok "after Unhide a search lists it normally" || ko "still under Nascoste after Unhide"
-A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK
+close_search
 
 step "Classic: Remove from favourites takes the icon off the grid"
 seed classic
