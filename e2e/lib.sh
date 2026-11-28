@@ -224,7 +224,7 @@ put_prefs() {
 edit_prefs() {
   local f="$1" v; shift
   while [ $# -ge 2 ]; do
-    v=${3//&/\\&} # a & in the value is the whole match to sed: the callers write it plain
+    v=${3-}; v=${v//&/\\&} # a & in the value is the whole match to sed: the callers write it plain
     # @: keys hold "/" (use:package/class). A set is deleted whole: its items sit on lines of their own up to </set>
     sed -i -e "\\@^ *<set name=\"$2\">\$@,\\@</set>@d" -e "\\@ name=\"$2\"@d" "$f"
     case $1 in
