@@ -76,6 +76,17 @@ tapn "Settings" 30; tap "Salva"
 wait_until 5 hasnt "Settings" && ok "unchecked favourite is neither a favourite nor a suggestion" \
   || ko "unchecked favourite came back as a suggestion"
 
+step "List mode: a cold start never shows the \"no favourites\" hint while the apps load"
+seed list                                                  # favourites saved; the process starts cold with an empty app list
+A logcat -b main -c; A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME
+hint_seen=; end=$((SECONDS + 15))
+until A logcat -d -b main -s Ganimede:I | grep -q 'apps loaded' || [ $SECONDS -ge $end ]; do
+  rm -f "$SCR"; has "Tieni premuta un'app nell'elenco" && hint_seen=1
+done
+[ $SECONDS -lt $end ] || ko "Ganimede never logged \"apps loaded\""
+[ -z "$hint_seen" ] && ok "no hint before the apps are loaded" || ko "the hint showed while the app list was still empty"
+expect "Calendar"
+
 step "List mode: hidden alphabet keeps its touch column clear"
 alpha_offset=12
 seed list boolean alpha_home false int alpha_offset "$alpha_offset" boolean left_handed false
