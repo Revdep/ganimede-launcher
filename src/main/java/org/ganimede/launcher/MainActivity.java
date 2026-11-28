@@ -73,7 +73,10 @@ public class MainActivity extends Activity implements Actions.Home {
             updateClock();
         }
     };
+    /** Settings written so far, and how many (and which dark/light mode) the screen was last built for: onResume rebuilds only if they differ. */
+    private int prefChanges, builtAtChanges = -1, builtAtUiMode = -1;
     private final SharedPreferences.OnSharedPreferenceChangeListener prefWatch = (p, key) -> {
+        prefChanges++;
         if (WeatherStore.KEY.equals(key)) handler.post(this::updateWeather);
         else if ("fab_icon".equals(key)) handler.post(() -> fab.style(!listMode)); // a late import, restore or fallback
     };
@@ -281,6 +284,8 @@ public class MainActivity extends Activity implements Actions.Home {
 
     private void refreshAll() {
         if (isDestroyed()) return; // a background job finishing after the screen closed
+        builtAtChanges = prefChanges;
+        builtAtUiMode = getResources().getConfiguration().uiMode;
         applyLook();
         list.clearCache(); // labels, icons or notifications may have changed
         folders.reshowIfChanged();
@@ -318,11 +323,16 @@ public class MainActivity extends Activity implements Actions.Home {
         }
         screen.alpha.setLetters(Search.sections(visible.stream().map(apps::label).collect(java.util.stream.Collectors.toList())));
         widgets.rebuild();
+        refreshLive();
+        list.rebuild();
+    }
+
+    /** What changes with time alone: the player, the next event, the clock and date. */
+    private void refreshLive() {
         media.updateMedia();
         media.updateMusic();
         screen.outlook.updateEvent();
         updateClock();
-        list.rebuild();
     }
 
     private void refreshNotifications() {
@@ -503,7 +513,10 @@ public class MainActivity extends Activity implements Actions.Home {
             loadApps();
         }
         updateWeather();
-        refreshAll();
+        // Back from an app: rebuilding everything is for a setting, the system's dark mode or the apps having changed
+        // (Apps.load calls refreshAll itself); otherwise only what moves with time.
+        if (builtAtChanges == prefChanges && builtAtUiMode == getResources().getConfiguration().uiMode) refreshLive();
+        else refreshAll();
         isResumed = true;
         enterAnim();
     }
