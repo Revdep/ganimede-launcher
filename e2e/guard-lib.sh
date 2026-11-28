@@ -17,6 +17,9 @@ case "$*" in
   "shell settings get "*) echo null ;;
   "exec-out run-as org.ganimede.launcher cat shared_prefs/ganimede.xml") cat "$FAKE_PREFS" ;;
   "shell dumpsys input_method") echo "mInputShown=true" ;;
+  "shell pidof system_server") echo "${FAKE_SS:-}" ;;
+  "shell service check "*) echo "Service $4: found" ;;
+  "shell ps -o STIME -p "*) printf 'STIME\n04:30:08\n' ;;
   "shell input text "*) printf %s "${4//%s/ }" >> "$FAKE_FIELD" ;;
   "exec-out uiautomator dump /dev/tty") printf '<hierarchy><node class="android.widget.EditText" text="%s" focused="true" bounds="[0,0][1,1]" /></hierarchy>\n' "$(cat "$FAKE_FIELD")" ;;
 esac
@@ -78,5 +81,17 @@ magick -size 4x4 xc:red "$T/r.png"; magick -size 4x4 xc:blue "$T/b.png"; cp "$T/
 t "differ: red and blue differ" differ "$T/r.png" "$T/b.png"
 t "differ: red and red don't" n differ "$T/r.png" "$T/r2.png"
 t "differ: a missing file is no difference" n differ "$T/r.png" "$T/none.png"
+
+# system_check: no ko while the system server is the one the run started with; one ko, with its evidence file, when it changed
+SS_PID=562; export FAKE_SS=562; FAIL=0
+t "system_check: the same system server is no ko" system_check
+t "system_check: nothing counted while it runs" test "$FAIL" = 0
+FAKE_SS=11563; said=$(system_check); r=$?; FAIL=0; system_check >/dev/null # once for its words, once for its count
+t "system_check: a new system server is a ko" test "$r" = 1 -a "$FAIL" = 1
+t "system_check: the ko says when and which pids" grep -q 'system_server restarted at 04:30:08 (pid 562 -> 11563)' <<<"$said"
+t "system_check: the evidence is kept" test -s "$OUT/system-restart-1.txt"
+FAIL=0
+t "system_check: the restart counts once" system_check
+t "system_check: no second ko" test "$FAIL" = 0
 
 [ $fails = 0 ] || { echo "guard-lib: $fails helper check(s) failed under set -u (lib.sh)" >&2; exit 1; }
