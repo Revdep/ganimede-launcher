@@ -203,7 +203,7 @@ final class Entries {
                 v.addView(col, new LinearLayout.LayoutParams(0, -2, 1));
             }
         }
-        if (it != null && NotifService.connected) {
+        if (it != null) { // tracked even before the listener binds: onResume no longer rebuilds, the callback's refresh must reach it
             iconBox.setTag(new NotificationView(it, name, messages));
             notificationViews.add(new WeakReference<>(iconBox));
         }
