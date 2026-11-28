@@ -52,12 +52,13 @@ public final class Voice {
      * The kept copies to delete: those of notes no longer in any notification, and halves (".part") older than a copy
      * may take, left by a copy cut off or a crash; a younger half is being written now. No wanted set (no notification
      * access): every one, halves too. A copy modified after snapshot (when the notifications were read) is spared: its
-     * note may have arrived since, so the set cannot know it.
+     * note may have arrived since, so the set cannot know it. Compared in whole seconds: File.lastModified() is truncated
+     * to the second on Android, so a copy made later in the snapshot's own second reads as before it.
      */
     public static List<String> drop(String[] names, long[] modified, Set<String> wanted, long snapshot, long now) {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < names.length; i++) {
-            if (wanted == null || (names[i].endsWith(".part") ? now - modified[i] > COPY_MS : !wanted.contains(names[i]) && modified[i] <= snapshot))
+            if (wanted == null || (names[i].endsWith(".part") ? now - modified[i] > COPY_MS : !wanted.contains(names[i]) && modified[i] / 1000 < snapshot / 1000))
                 out.add(names[i]);
         }
         return out;

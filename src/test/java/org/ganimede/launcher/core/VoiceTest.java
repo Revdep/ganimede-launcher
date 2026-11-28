@@ -55,6 +55,12 @@ public class VoiceTest {
         eq("[old, fresh]", Voice.drop(names, modified, null, snap, snap + 20).toString(), "no access: still everything");
     }
 
+    public static void testSweepSparesACopyMadeInTheSnapshotSecondWhenTimesAreWholeSeconds() {
+        long snap = 1_000_700; // File.lastModified() on Android is whole seconds: a copy at 1_000_900 reads as 1_000_000
+        eq("[]", Voice.drop(new String[]{"fresh"}, new long[]{1_000_000}, Set.of(), snap, snap + 20).toString(), "same second: spared");
+        eq("[old]", Voice.drop(new String[]{"old"}, new long[]{999_000}, Set.of(), snap, snap + 20).toString(), "an earlier second goes");
+    }
+
     public static void testQueueOfCopiesHasARoof() {
         yes(Voice.admits(0), "empty");
         yes(Voice.admits(Voice.QUEUE_MAX - 1), "one place left");
