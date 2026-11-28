@@ -33,6 +33,7 @@ final class FolderDrag {
     private final Runnable lifted;                       // the finger is off the icons again (see busy)
     private float[] sx, sy;                              // top-left of each layout slot on screen
     private List<String> committed;                      // the keys as last saved
+    private final List<ViewGroup> unclipped = new ArrayList<>(); // parents that stopped clipping while an icon is carried
     private List<View> before;                         // the order when the drag began, to go back to on cancel
     private View touched, held; // the icon the last finger went down on; the one picked up by a long-press
     private int active; // the id of the finger that holds the icon (Android's "active pointer")
@@ -172,7 +173,8 @@ final class FolderDrag {
         measure();
         baseX = v.getTranslationX(); baseY = v.getTranslationY();
         for (ViewParent p = v.getParent(); p instanceof ViewGroup && !(p.getParent() instanceof ScrollView); p = p.getParent())
-            ((ViewGroup) p).setClipChildren(false); // the icon leaves its row while it moves; the card itself keeps clipping
+            unclipped.add((ViewGroup) p); // the icon leaves its row while it moves; the card itself keeps clipping
+        for (ViewGroup g : unclipped) g.setClipChildren(false);
         raise(v, ui.dp(8));
     }
 
@@ -188,6 +190,8 @@ final class FolderDrag {
 
     private void drop(View v, boolean commit) {
         raise(v, 0);
+        for (ViewGroup g : unclipped) g.setClipChildren(true);
+        unclipped.clear();
         if (!commit) { order.clear(); order.addAll(before); settle(null); return; }
         saved();
         v.post(this::reparent); // not while v is still dispatching its own touch event
