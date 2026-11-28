@@ -183,7 +183,7 @@ wait_until 10 plays 480044 \
 A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
 
-step "A transient audio focus gain (a notification sound) pauses the playing note: focus lost (fixture app)"
+step "A notification that sounds pauses the playing note: focus lost (fixture app)"
 wipe; wait_until 10 kept_is 0
 voice --es shape s; expect_popup "FIXTURE"
 wait_until 5 nplayers 2 || ko "players before playing: $(players)"
@@ -191,10 +191,9 @@ A shell input tap "$(play_at 2)"
 wait_until 10 plays 480044 || ko "note A did not play: $(copies)"
 mark=$(A logcat -d -s Ganimede:I | wc -l) # the log is not cleared: "voice plays" must stay for plays()
 since() { A logcat -d -s Ganimede:I | tail -n +$((mark + 1)); }
-# The fixture asks for focus itself: Android rate-limits a repeated alert of one app, so a notification's sound is not certain.
-voice --ez duck true   # the player ducks and, as for speech, pauses
+voice --es shape s   # a sounding re-post (run 46114401591 logged "voice stops: focus lost -3" for it); the fixture's own focus request did not reach the player in run 46117158022
 wait_until 10 eval 'since | grep -q "voice stops: focus lost -3"' && wait_until 5 eval '! plays 480044' \
-  && ok "a transient focus gain paused the note" || ko "the note did not pause on the focus loss: $(since | grep -o 'voice .*' | tail -3 | paste -sd'|')"
+  && ok "a sounding notification paused the note" || ko "the note did not pause on the sound: $(since | grep -o 'voice .*' | tail -3 | paste -sd'|')"
 A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
 
