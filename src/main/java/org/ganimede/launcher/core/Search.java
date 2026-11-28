@@ -34,8 +34,11 @@ public final class Search {
 
     /** The name begins with the typed text, ignoring case and accents. */
     public static boolean startsWith(String label, String query) {
-        String q = typed(query);
-        return !q.isEmpty() && plain(label).regionMatches(true, 0, q, 0, q.length());
+        return beginsWith(plain(label), typed(query));
+    }
+
+    private static boolean beginsWith(String plainLabel, String typedQuery) {
+        return !typedQuery.isEmpty() && plainLabel.regionMatches(true, 0, typedQuery, 0, typedQuery.length());
     }
 
     /**
@@ -43,7 +46,12 @@ public final class Search {
      * letters mid-word or scattered, case and accents ignored. 2: the name begins with the text; 1: a match; 0: none.
      */
     public static int score(String label, String query) {
-        String l = plain(label), q = typed(query);
+        return scoreTyped(label, typed(query));
+    }
+
+    /** As score, for a query already run through typed(). */
+    private static int scoreTyped(String label, String q) {
+        String l = plain(label);
         if (q.isEmpty()) return 0;
         List<Integer> starts = new ArrayList<>();
         for (int i = 0; i < l.length(); i++) if (wordStart(l, i)) starts.add(i);
@@ -57,15 +65,16 @@ public final class Search {
             if (j == starts.size()) return 0;
             starts.remove(j); // each word of the name begins one typed word only
         }
-        return startsWith(label, query) ? 2 : 1;
+        return beginsWith(l, q) ? 2 : 1;
     }
 
     /** The items whose name matches, best score first; ties go to the one opened most. Each scored once. */
     public static <T> List<T> rank(List<T> items, Function<T, String> name, ToIntFunction<T> uses, String query) {
         Map<T, Integer> scores = new HashMap<>();
         List<T> found = new ArrayList<>();
+        String q = typed(query); // once, not per name
         for (T it : items) {
-            int s = score(name.apply(it), query);
+            int s = scoreTyped(name.apply(it), q);
             if (s > 0) { found.add(it); scores.put(it, s); }
         }
         found.sort(best(scores, uses));
@@ -75,7 +84,8 @@ public final class Search {
     /** Items found some other way too (another language, their app's name): best name match first, each scored once. */
     public static <T> void sortByScore(List<T> items, Function<T, String> name, String query) {
         Map<T, Integer> scores = new HashMap<>();
-        for (T it : items) scores.put(it, score(name.apply(it), query));
+        String q = typed(query);
+        for (T it : items) scores.put(it, scoreTyped(name.apply(it), q));
         items.sort(best(scores, it -> 0));
     }
 
@@ -111,8 +121,10 @@ public final class Search {
         return false;
     }
 
+    private static final java.util.regex.Pattern NON_DIGITS = java.util.regex.Pattern.compile("[^0-9]");
+
     private static String digits(String s) {
-        return s.replaceAll("[^0-9]", "");
+        return NON_DIGITS.matcher(s).replaceAll("");
     }
 
     /** Section letter for the A–Z list. */
