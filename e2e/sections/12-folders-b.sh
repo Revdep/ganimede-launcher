@@ -191,3 +191,9 @@ wait_until 5 settled
 [ "$(scrolls)" = "$one" ] && ok "one pop-up card on screen after the new folder opened (as before: $one ScrollView)" || ko "ScrollViews: $(scrolls), with one pop-up open there were $one"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Clock"
 hasnt "Clock" && ok "Back closes the only pop-up, none is left under it" || ko "an older pop-up was left open under the new one"
+
+step "Folders: a tap on a shortcut closes the pop-up, as a tap on an app does (c3 M2)"
+seed classic string folder:sc '{"name":"Scorciatoie","where":"fav","apps":["com.google.android.deskclock/com.android.deskclock.DeskClock","s:org.ganimede.e2e|zz1|Zz Posta"]}' string fav 'f:sc' del grid
+tap Scorciatoie; expect "Zz Posta"; wait_until 5 settled
+tap "Zz Posta"
+wait_until 8 hasnt "Zz Posta" && ok "the pop-up closed on the shortcut's tap" || ko "the pop-up stayed open after tapping the shortcut"

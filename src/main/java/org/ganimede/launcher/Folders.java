@@ -385,16 +385,13 @@ final class Folders {
         return box;
     }
 
+    /** One entry of a pop-up: a tap closes the pop-up and opens it (an app or a shortcut alike). */
     private View folderEntry(String id, String key, boolean cell, Dialog[] dlg, FolderDrag drag) {
-        if (key.startsWith("s:")) {
-            View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP) : entries.shortcutRow(key, false);
-            drag.add(v, key);
-            return v;
-        }
-        Item app = apps.find(key);
-        if (app == null) return null;
-        View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP) : entries.appRow(app, false);
-        v.setOnClickListener(x -> { dlg[0].dismiss(); launcher.launch(app, x); });
+        boolean shortcut = key.startsWith("s:");
+        if (!shortcut && apps.find(key) == null) return null;
+        View v = cell ? entries.cell(key, ICON_DP, LABEL_SP, GAP_DP)
+                : shortcut ? entries.shortcutRow(key, false) : entries.appRow(apps.find(key), false);
+        v.setOnClickListener(x -> { dlg[0].dismiss(); entries.open(key, x); });
         drag.add(v, key);
         return v;
     }
