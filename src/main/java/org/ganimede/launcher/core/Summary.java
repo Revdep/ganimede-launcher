@@ -85,5 +85,10 @@ public final class Summary {
         return out;
     }
 
+    /** The hold count after key is held: one more only if it was not held already (a re-post inside the window). */
+    public static int counted(int count, java.util.Set<String> stored, String key) {
+        return due(stored, key) == null ? count + 1 : count;
+    }
+
     private Summary() {}
 }
