@@ -118,11 +118,11 @@ hasnt Clock && has Calendar && ok "drifting at the edge: turned to page 2, Calen
 step "Gestures: drawer follows the finger"
 for handed in false true; do
   seed classic; setp boolean left_handed "$handed"
-  [ "$handed" = true ] && edge=$((W - $(dp 29))) || edge=$(dp 29)
+  edge=$(dp 29) # Classic is never mirrored (c49f5d8): the alphabet stays on the right, for both hands
   A shell input swipe "$edge" $((H * 6 / 10)) "$edge" $((H / 5)) 1500 # slow enough that no fling fallback can open it
   wait_until 5 listed \
-    && ok "left-handed=$handed: a slow pull from the opposite edge opens the drawer" \
-    || ko "left-handed=$handed: the opposite edge blocked the slow drawer pull"
+    && ok "left-handed=$handed: a slow pull from the left edge opens the drawer" \
+    || ko "left-handed=$handed: the left edge blocked the slow drawer pull"
 done
 setp del left_handed
 seed classic

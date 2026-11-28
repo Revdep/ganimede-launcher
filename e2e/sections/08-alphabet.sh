@@ -24,11 +24,11 @@ gy() { _tb G && TB=${TB#*,} && echo "${TB%%]*}"; }
 at_g0() { local y; y=$(gy) && [ $((y - G0 < 0 ? G0 - y : y - G0)) -lt 60 ]; }
 alphabet_moved() { has "Cerca app" && ! at_g0; }
 open_browsing_at_start() {
-  local mode="$1" handed="$2" x n=0
+  local mode="$1" mirrored="$2" x n=0 # mirrored: left-hand use mirrors the List home only (c49f5d8), Classic keeps the right-hand sides
   wait_until 10 settled || return 1
   if [ "$mode" = list ]; then
     # Touch the drawn alphabet: unlike swipe-to-search this is browsing, so it opens without the keyboard.
-    [ "$handed" = true ] && x=$(dp 29) || x=$((W - $(dp 29)))
+    [ "$mirrored" = true ] && x=$(dp 29) || x=$((W - $(dp 29)))
     A shell input tap "$x" $((H * 6 / 10))
   else
     # Classic's drawer follows a slow pull and opens in browsing mode too.
@@ -58,13 +58,15 @@ wait_until 10 has "Cerca app" && hasnt Calendar \
 for mode in list classic; do
   for handed in false true; do
     seed "$mode"; setp boolean left_handed "$handed"
-    if ! open_browsing_at_start "$mode" "$handed"; then
+    # left-hand use mirrors the List home only: in Classic the alphabet and the gestures stay where the right hand has them
+    mirrored=false; [ "$mode" = list ] && [ "$handed" = true ] && mirrored=true
+    if ! open_browsing_at_start "$mode" "$mirrored"; then
       ko "$mode, left-handed=$handed: browsing didn't settle at Calendar without the keyboard"
       continue
     fi
     G0=$(gy) || { ko "$mode, left-handed=$handed: no G header at the start"; continue; }
     # Over the icons the drag belongs to the list: up can only be the list, never the alphabet (already at A).
-    if [ "$handed" = true ]; then icon=$((W - $(dp 60))); else icon=$(dp 60); fi
+    if [ "$mirrored" = true ]; then icon=$((W - $(dp 60))); else icon=$(dp 60); fi
     A shell input swipe "$icon" $((H * 8 / 10)) "$icon" $((H * 3 / 10)) 500
     wait_until 10 hasnt Calendar \
       && ok "$mode, left-handed=$handed: a vertical drag over an icon scrolls the list" \
@@ -80,7 +82,7 @@ for mode in list classic; do
     has "Cerca app" || ko "$mode, left-handed=$handed: the swipe back closed the app list"
     at_g0 || ko "$mode, left-handed=$handed: the list didn't come back to the start (G at $(gy), start $G0)" # a fling may stop short of the top
     # The opposite edge owns a fixed 32 dp strip, independent of where the rows begin.
-    if [ "$handed" = true ]; then edge=$((W - $(dp 20))); side=right
+    if [ "$mirrored" = true ]; then edge=$((W - $(dp 20))); side=right
     else edge=$(dp 20); side=left; fi
     A shell input swipe "$edge" $((H / 2)) "$edge" $((H * 8 / 10)) 500
     wait_until 10 alphabet_moved \
