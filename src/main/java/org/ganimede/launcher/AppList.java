@@ -104,6 +104,8 @@ final class AppList {
     private volatile String contactAsked = "";
     /** (contact id, digits of a number) of every phone number, read on the first number search and dropped when the search closes. */
     private volatile List<NumberRow> numberIndex;
+    /** Bumped each time the search closes: a scan that began before it must not store its index. */
+    private volatile int numberEpoch;
     /** The query whose contacts are all shown ("Show all" tapped); any other query shows the first few. */
     private String contactsAll = "";
 
@@ -178,7 +180,7 @@ final class AppList {
         rows.clear();
         String q = search.getText().toString().trim();
         String ql = q.toLowerCase(Locale.ROOT);
-        if (q.isEmpty()) numberIndex = null;
+        if (q.isEmpty()) { numberIndex = null; numberEpoch++; }
         if (!q.equals(contactsAll)) contactsAll = ""; // another text, or search closed: the first few again
         List<Item> visible = apps.visible();
         if (!ql.isEmpty()) {
@@ -347,11 +349,12 @@ final class AppList {
     private String numberContactIds(String q) {
         List<NumberRow> index = numberIndex;
         if (index == null) { // one scan of all the numbers while the search is open, not one per key
+            int epoch = numberEpoch;
             index = new ArrayList<>();
             try (Cursor p = ui.a.getContentResolver().query(Phone.CONTENT_URI, new String[]{Phone.CONTACT_ID, Phone.NUMBER}, null, null, null)) {
                 while (p != null && p.moveToNext()) if (p.getString(1) != null) index.add(new NumberRow(p.getLong(0), Search.digits(p.getString(1))));
             }
-            numberIndex = index;
+            if (epoch == numberEpoch) numberIndex = index; // not if the search closed meanwhile
         }
         StringBuilder ids = new StringBuilder();
         for (NumberRow n : index) if (Search.numberMatches(n.digits, q)) ids.append(ids.length() == 0 ? "" : ",").append(n.id);
