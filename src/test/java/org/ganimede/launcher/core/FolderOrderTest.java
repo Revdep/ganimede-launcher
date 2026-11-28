@@ -51,10 +51,13 @@ public class FolderOrderTest {
 
     public static void testChoosingAppsKeepsTheOrderAndCanDropAShortcut() {
         // stored: a shortcut between two apps; the dialog lists the shortcut first, then the apps alphabetically
-        List<String> stored = List.of("b", "s:pkg|id|Mail", "a");
-        eq(List.of("b", "a", "c"), FolderOrder.chosen(stored, List.of("a", "b", "c")),
+        List<String> stored = List.of("b", "s:pkg|id|Mail", "a"), listed = List.of("s:pkg|id|Mail", "a", "b", "c");
+        eq(List.of("b", "a", "c"), FolderOrder.chosen(stored, listed, List.of("a", "b", "c")),
                 "the unchecked shortcut leaves, the kept ones keep their order, a new one goes last");
-        eq(stored, FolderOrder.chosen(stored, List.of("s:pkg|id|Mail", "a", "b")), "nothing changed: the same order");
+        eq(stored, FolderOrder.chosen(stored, listed, List.of("s:pkg|id|Mail", "a", "b")), "nothing changed: the same order");
+        // "h" is stored but not listed (a hidden app): unchecking cannot reach it, so it stays
+        eq(List.of("b", "h", "a"), FolderOrder.chosen(List.of("b", "s:pkg|id|Mail", "h", "a"), listed, List.of("a", "b")),
+                "an entry the dialog did not list stays in the folder");
     }
 
     public static void testAPopUpLooksTheSameUnlessWhatItDrawsChanges() {

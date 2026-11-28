@@ -260,7 +260,7 @@ final class Folders {
                     for (int i = 0; i < on.length; i++) if (on[i]) checked.add(listed.get(i));
                     try {
                         if (!f.has("name")) f.put("name", defaultName(id));
-                        f.put("apps", new JSONArray(FolderOrder.chosen(inside, checked)));
+                        f.put("apps", new JSONArray(FolderOrder.chosen(inside, listed, checked)));
                     } catch (Exception ignored) { return; }
                     save(id, f);
                     show(id); // show the result right away

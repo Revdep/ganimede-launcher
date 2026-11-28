@@ -41,10 +41,13 @@ public final class FolderOrder {
         return out;
     }
 
-    /** The entries after "Choose apps": the stored ones still checked keep their order, newly checked ones go last. */
-    public static List<String> chosen(List<String> stored, List<String> checked) {
+    /**
+     * The entries after "Choose apps": the stored ones the dialog listed and the user unchecked leave; the others (also
+     * those it did not list, such as hidden apps) keep their order; newly checked ones go last.
+     */
+    public static List<String> chosen(List<String> stored, List<String> listed, List<String> checked) {
         List<String> out = new ArrayList<>(stored);
-        out.retainAll(checked);
+        out.removeIf(k -> listed.contains(k) && !checked.contains(k));
         for (String k : checked) if (!out.contains(k)) out.add(k);
         return out;
     }
