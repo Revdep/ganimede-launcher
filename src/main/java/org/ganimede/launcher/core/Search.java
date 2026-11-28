@@ -9,12 +9,13 @@ import java.util.function.ToIntFunction;
 
 /** The app search: how well a name matches what's typed, the A–Z sections, and the web engines. */
 public final class Search {
-    /** Word start: a letter/digit after a non-letter/digit, or an uppercase after a lowercase. */
+    /** Word start (Launcher3's breaks): after a non-letter/digit, lower to upper case, and letter to digit either way. */
     private static boolean wordStart(String s, int i) {
         if (i == 0) return true;
         char c = s.charAt(i), p = s.charAt(i - 1);
         if (!Character.isLetterOrDigit(c)) return false;
-        return !Character.isLetterOrDigit(p) || (Character.isUpperCase(c) && !Character.isUpperCase(p));
+        return !Character.isLetterOrDigit(p) || (Character.isUpperCase(c) && !Character.isUpperCase(p))
+                || Character.isDigit(c) != Character.isDigit(p);
     }
 
     private static final java.util.regex.Pattern MARKS = java.util.regex.Pattern.compile("\\p{M}");
@@ -26,51 +27,37 @@ public final class Search {
         return s;
     }
 
+    /** What's typed, without accents, extra spaces or spaces around it. */
+    private static String typed(String query) {
+        return plain(query).trim().replaceAll("\\s+", " ");
+    }
+
+    /** The name begins with the typed text, ignoring case and accents. */
+    public static boolean startsWith(String label, String query) {
+        String q = typed(query);
+        return !q.isEmpty() && plain(label).regionMatches(true, 0, q, 0, q.length());
+    }
+
     /**
-     * Search score. Every typed letter must
-     * appear in order in the name, word starts preferred. Each match scores 16 at the first position; at a later word
-     * start 16 minus the words passed (at least 8); inside a word 8 minus the words passed (at least 1). The longest run
-     * of consecutive matches counts double. 0 means no match.
+     * Search score, the Launcher3 way: every typed word must begin a different word of the name, in any order; no
+     * letters mid-word or scattered, case and accents ignored. 2: the name begins with the text; 1: a match; 0: none.
      */
     public static int score(String label, String query) {
-        String l = plain(label);
-        String q = plain(query).toLowerCase(java.util.Locale.ROOT).replace(" ", "");
-        String low = l.toLowerCase(java.util.Locale.ROOT);
-        if (q.isEmpty() || low.length() < q.length()) return 0;
-        int[] pos = new int[q.length()];
-        int from = 0;
-        for (int k = 0; k < q.length(); k++) {
-            char c = q.charAt(k);
-            int any = -1, start = -1;
-            for (int i = from; i < low.length(); i++) {
-                if (low.charAt(i) != c) continue;
-                if (any < 0) any = i;
-                if (wordStart(l, i)) { start = i; break; }
-            }
-            // Keep a run going when the letter follows the previous match; otherwise prefer the next word start.
-            int p = k > 0 && any == pos[k - 1] + 1 ? any : start >= 0 ? start : any;
-            if (p < 0) return 0;
-            pos[k] = p;
-            from = p + 1;
+        String l = plain(label), q = typed(query);
+        if (q.isEmpty()) return 0;
+        List<Integer> starts = new ArrayList<>();
+        for (int i = 0; i < l.length(); i++) if (wordStart(l, i)) starts.add(i);
+        String[] words = q.split(" ");
+        // Longest first: two typed words that fit one start are prefixes of each other, and the longer fits fewer
+        // starts, so it picks first and any start it takes would serve the shorter one just as well.
+        java.util.Arrays.sort(words, java.util.Comparator.comparingInt(String::length).reversed());
+        for (String w : words) {
+            int j = 0;
+            while (j < starts.size() && !l.regionMatches(true, starts.get(j), w, 0, w.length())) j++;
+            if (j == starts.size()) return 0;
+            starts.remove(j); // each word of the name begins one typed word only
         }
-        int[] pts = new int[q.length()];
-        int words = 0;
-        for (int i = 0, k = 0; i < l.length() && k < q.length(); i++) {
-            if (i > 0 && wordStart(l, i)) words++;
-            if (i != pos[k]) continue;
-            if (i == 0) pts[k] = 16;
-            else if (wordStart(l, i)) pts[k] = Math.max(8, 16 - words);
-            else pts[k] = Math.max(1, 8 - words);
-            k++;
-        }
-        int bestStart = 0, bestLen = 1;
-        for (int k = 1, run = 1; k < pos.length; k++) {
-            run = pos[k] == pos[k - 1] + 1 ? run + 1 : 1;
-            if (run > bestLen) { bestLen = run; bestStart = k - run + 1; }
-        }
-        int sum = 0;
-        for (int k = 0; k < pts.length; k++) sum += bestLen > 1 && k >= bestStart && k < bestStart + bestLen ? pts[k] * 2 : pts[k];
-        return sum;
+        return startsWith(label, query) ? 2 : 1;
     }
 
     /** The items whose name matches, best score first; ties go to the one opened most. Each scored once. */

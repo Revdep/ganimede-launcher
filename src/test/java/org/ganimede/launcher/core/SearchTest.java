@@ -8,10 +8,9 @@ import java.util.Map;
 
 public class SearchTest {
     public static void testScore() {
-        yes(Search.score("Calculator", "zz") == 0 && Search.score("Camera", "cmr") > 0, "letters in order");
-        yes(Search.score("Calculator", "calc") > Search.score("Contacts Calendar", "calc"), "the first word wins");
-        yes(Search.score("Organic Maps", "om") > Search.score("Zoom", "om"), "word starts win");
-        eq(16, Search.score("Calculator", "c"), "the first letter");
+        eq(0, Search.score("Calculator", "zz"), "letters not in the name");
+        yes(Search.score("Calculator", "cal") > Search.score("Contacts Calendar", "cal"), "the name's start wins over a later word");
+        eq(2, Search.score("Calculator", "c"), "the first letter is the name's start");
         yes(Search.score("Météo", "meteo") > 0, "accents ignored");
     }
 
@@ -31,8 +30,8 @@ public class SearchTest {
         List<String> apps = List.of("Zoom", "Camera", "Calendar", "Calculator", "Clock");
         eq(List.of("Calendar", "Calculator", "Camera"), Search.rank(apps, s -> s, s -> uses.getOrDefault(s, 0), "ca"),
                 "same score: most used first; no match left out");
-        eq(List.of("Clock", "Calendar", "Calculator"), Search.rank(apps, s -> s, s -> uses.getOrDefault(s, 0), "cl"),
-                "a better score first, however little used");
+        eq(List.of("Calendar", "Calculator", "My Calendar"), Search.rank(List.of("My Calendar", "Calendar", "Calculator"), s -> s,
+                s -> s.equals("My Calendar") ? 20 : uses.getOrDefault(s, 0), "cal"), "a better score first, however little used");
     }
 
     public static void testRankHandlesExtremeUseCounts() {
@@ -54,10 +53,10 @@ public class SearchTest {
         eq(Search.score("Meteo", "meteo"), Search.score("Météo", "meteo"), "accent in the name");
         eq(Search.score("Meteo", "meteo"), Search.score("Meteo", "méteo"), "accent in the query");
         yes(Search.score("Caffè", "caffe") > 0, "a grave accent");
-        eq(Search.score("Calc ulator", "calc"), Search.score("Calc ulator", "c a l c"), "spaces in the query are ignored");
         eq(Search.score("Cafe", "cafe"), Search.score("Cafe\u0301", "cafe"), "an accent already split off the letter");
-        yes(Search.score("Ølstue", "øl") > 0 && Search.score("日本語", "本") > 0, "letters with no accent to strip still match");
+        yes(Search.score("Ølstue", "øl") > 0 && Search.score("日本語", "日") > 0, "letters with no accent to strip still match");
         eq(0, Search.score("Ølstue", "ol"), "a letter that is not an accented o is not an o");
+        eq(Search.score("Calc ulator", "calc ul"), Search.score("Calc ulator", " calc   ul "), "extra spaces in the query are ignored");
         eq("E", Search.letter("élan"), "a lower-case accented first letter sorts under its base letter");
         eq("#", Search.letter(""), "an empty name sorts under #");
     }
@@ -81,15 +80,59 @@ public class SearchTest {
     }
 
     public static void testScoresAreExact() {
-        eq(16, Search.score("Calculator", "c"), "first letter");
-        eq(8, Search.score("Calculator", "a"), "inside the first word");
-        eq(80, Search.score("Calculator", "calc"), "a run of four doubles: 2 x (16 + 8 + 8 + 8)");
-        eq(31, Search.score("Organic Maps", "om"), "first letter 16, second word start 15");
-        eq(16, Search.score("Zoom", "om"), "inside a word: 8 + 8");
-        eq(31, Search.score("Contacts Calendar", "cal"), "16 + 8 + 7: the l is inside the second word");
-        eq(15, Search.score("One Two", "t"), "word start after one word passed");
-        eq(8, Search.score("a b c d e f g h i j k", "k"), "word-start points never fall under 8");
-        eq(1, Search.score("a b c d e f g h i j kz", "z"), "inside-word points never fall under 1");
+        eq(2, Search.score("Calculator", "calc"), "the name begins with the text");
+        eq(2, Search.score("Posta Italiana", "posta ita"), "the name begins with the whole text, spaces included");
+        eq(1, Search.score("Organic Maps", "maps"), "a later word begins with the text");
+        eq(1, Search.score("Posta Italiana", "ita pos"), "every typed word begins a word, not the name's start");
+        eq(1, Search.score("a b c d e f g h i j k", "k"), "the same however many words come before");
+        eq(0, Search.score("Calculator", "a"), "inside a word");
+    }
+
+    public static void testOnlyWordStartsMatch() {
+        eq(List.of("Teams"), Search.rank(List.of("Teams", "Streamflix", "Steam", "Telepass", "Fotocamera"), s -> s, s -> 0, "tea"),
+                "tea: only the name with a word starting tea");
+    }
+
+    public static void testScatteredLettersAndMidWordDoNotMatch() {
+        eq(0, Search.score("Ente Auth", "tea"), "te inside Ente, a starting Auth");
+        eq(0, Search.score("Steam", "tea"), "mid-word");
+        eq(0, Search.score("Calendar", "cl"), "scattered letters");
+        eq(0, Search.score("Organic Maps", "om"), "initials");
+        eq(0, Search.score("Camera", "cmr"), "letters in order, not together");
+    }
+
+    public static void testTeamFindsTeamsAndTeamViewer() {
+        Map<String, Integer> uses = Map.of("TeamViewer", 3, "Teams", 1);
+        eq(List.of("TeamViewer", "Teams"), Search.rank(List.of("Teams", "TeamViewer", "Steam", "Telepass"), s -> s,
+                s -> uses.getOrDefault(s, 0), "team"), "both start with team: most used first; Steam left out");
+    }
+
+    public static void testCamelCaseStartsAWord() {
+        yes(Search.score("TeamViewer", "viewer") > 0, "Viewer starts after the lower-to-upper change");
+    }
+
+    public static void testEveryTypedWordStartsADifferentWord() {
+        yes(Search.score("Posta Italiana", "pos ita") > 0, "in the name's order");
+        yes(Search.score("Posta Italiana", "ita pos") > 0, "in any order");
+        eq(0, Search.score("Posta Italiana", "pos pos"), "two typed words cannot share one word of the name");
+        yes(Search.score("Poste Pay", "p pos") > 0, "the short p takes Pay, leaving Poste to pos");
+    }
+
+    public static void testAccentsAndCaseIgnored() {
+        yes(Search.score("Café", "cafe") > 0, "accent in the name");
+        yes(Search.score("CAFÉ", "café") > 0, "case and accent on both sides");
+    }
+
+    public static void testDigitBoundaryStartsAWord() {
+        yes(Search.score("App2FA", "2fa") > 0, "a digit after a letter starts a word");
+        yes(Search.score("App2FA", "fa") > 0, "a letter after a digit starts a word");
+        eq(0, Search.score("App2FA", "p2"), "p is inside App");
+    }
+
+    public static void testNameStartFirstThenUsage() {
+        Map<String, Integer> uses = Map.of("A B C Tea", 5, "Mio Tea", 1, "Tea Shop", 0);
+        eq(List.of("Tea Shop", "A B C Tea", "Mio Tea"), Search.rank(List.of("A B C Tea", "Mio Tea", "Tea Shop"), s -> s, uses::get, "tea"),
+                "the name starting with tea first; the others by use, however many words come before");
     }
 
     public static void testAlphabetLettersAreTheSectionsOfTheNamesInOrder() {

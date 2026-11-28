@@ -6,6 +6,12 @@ typ "cal"
 wait_until 5 has "Calendar" && ok "search finds Calendar" || ko "search misses Calendar"
 shot 12-search
 
+step "Search: letters scattered in a name do not match"
+seed classic; A shell input swipe 540 1900 540 600 150; expect "Cerca app"
+A shell input text "cl"
+wait_until 5 has "Clock" && ok "cl finds Clock" || ko "cl misses Clock"
+hasnt "Calendar" && ok "cl leaves out Calendar (c and l scattered)" || ko "cl still finds Calendar"
+
 step "Back with text: the first hides the keyboard, the results stay; the second goes home (both modes)"
 for m in classic list; do
   seed $m; A shell input swipe 540 1900 540 600 150; expect "Cerca app"
@@ -79,6 +85,15 @@ wait_until 5 has "Mostra tutti (8)" && ok "another text and back: five again, wi
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"' # keyboard, then search
 open_drawer; typ "Zz Prova"
 wait_until 5 has "Mostra tutti (8)" && ok "search reopened: five again, with Show all" || ko "search reopened: still all, no Show all"
+
+step "Search: contacts follow the same rule"
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'Zz Prova"'
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "pro"
+wait_until 5 has "Zz Prova A" && ok "pro finds Zz Prova (a word start)" || ko "pro misses Zz Prova"
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'pro"' # keyboard, then search
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; A shell input text "rova"
+wait_until 5 has 'rova"' || ko "rova not typed"
+wait_until 3 has "Zz Prova A" && ko "rova finds Zz Prova (mid-word)" || ok "rova leaves out Zz Prova (mid-word)"
 
 step "Search: a chat contact (WhatsApp, Telegram) that did not merge with the phone contact is not a second row"
 # the same person twice: the phone contact, and a raw contact of a messenger account with a name and no number or email
