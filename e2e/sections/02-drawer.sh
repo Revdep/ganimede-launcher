@@ -95,6 +95,9 @@ A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_u
 A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "pro"
 wait_until 5 has "Zz Prova A" && ok "pro finds Zz Prova (a word start)" || ko "pro misses Zz Prova"
 A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'pro"' # keyboard, then search
+A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "example"
+wait_until 5 has "Zz Prova C" && ok "example finds Zz Prova C by its email" || ko "example misses Zz Prova C (email word)"
+A shell input keyevent KEYCODE_BACK; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt 'example"'
 A shell input swipe 540 1900 540 600 150; expect "Cerca app"; typ "pro pro"
 wait_until 5 has 'pro pro"' || ko "pro pro not typed"
 # the provider matches each typed word to a name token, the same token twice too; the rule wants two different words
