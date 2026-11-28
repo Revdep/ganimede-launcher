@@ -6,7 +6,7 @@ A shell input motionevent DOWN $ax $ay; sleep 0.3; A shell input motionevent MOV
 A exec-out screencap -p > "$OUT/wave-held.png"
 A shell input motionevent UP $ax $((ay + 40))
 crop="$(dp 160)x900+$((W - $(dp 160)))+$((ay - 450))"
-diff=$(compare -metric AE -fuzz 10% "$OUT/wave-rest.png[$crop]" "$OUT/wave-held.png[$crop]" null: 2>&1 | grep -oE '^[0-9]+' | head -1)
+diff=$(FUZZ=10% fdiff "$OUT/wave-rest.png" "$OUT/wave-held.png" "$crop")
 [ "${diff:-0}" -gt 2000 ] && ok "holding the letters bends them into the wave ($diff px changed)" || ko "the alphabet wave didn't move (${diff:-0} px changed)"
 wait_until 3 settled
 has "Impostazioni Ganimede" && { ko "a hold on the letters opened the home menu"; A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Impostazioni Ganimede"; } || ok "a hold on the letters stays with the letters"

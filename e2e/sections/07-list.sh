@@ -122,7 +122,8 @@ seed list
 BW='nodomain.freeyourgadget.gadgetbridge.ACTION_GENERIC_WEATHER'
 wx_place() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -c 'Zz Prova'; }
 A shell am force-stop $PK
-A shell "am broadcast -f 32 -n $PK/.BreezyReceiver -a nodomain.example.OTHER --es WeatherJson '{\"location\":\"Zz Prova\",\"currentTemp\":293}'" >/dev/null
-sleep 2; [ "$(wx_place)" = 0 ] && ok "another action with the same extras is ignored" || ko "a foreign action changed the weather"
+# am broadcast returns when the receiver is done ("Broadcast completed"): that is the signal, then the check that nothing was stored
+out=$(A shell "am broadcast -f 32 -n $PK/.BreezyReceiver -a nodomain.example.OTHER --es WeatherJson '{\"location\":\"Zz Prova\",\"currentTemp\":293}'")
+[[ $out == *"Broadcast completed"* ]] && [ "$(wx_place)" = 0 ] && ok "another action with the same extras is ignored" || ko "a foreign action changed the weather"
 A shell "am broadcast -f 32 -a $BW -p $PK --es WeatherJson '{\"location\":\"Zz Prova\",\"currentTemp\":293}'" >/dev/null
 wait_until 10 eval '[ "$(wx_place)" != 0 ]' && ok "the Breezy action stores the weather" || ko "the Breezy broadcast was not stored"

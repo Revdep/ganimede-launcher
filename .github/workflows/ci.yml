@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
+permissions: { contents: read }
 jobs:
   # the core tests alone (plain javac, no emulator): a logic error is red here minutes before the build job gets to its own coreTest
   core:

@@ -16,7 +16,7 @@ hold_drag() {
   wait_until 5 has "Rinomina" || echo "  WARN: long press lost (hold_drag): no menu before the glide"
   for i in 1 2 3 4 5 6 7 8; do A shell input motionevent MOVE $((x1 + (x2 - x1) * i / 8)) $((y1 + (y2 - y1) * i / 8)); done
   for i in 1 2 3 4; do [ "$drift" = 0 ] || A shell input motionevent MOVE "$x2" $((y2 + drift * i / 4)); done
-  sleep "$hold"
+  sleep "$hold" # a gesture hold, not a wait: the finger stays down
   A shell input motionevent MOVE "$x2" $((y2 + drift)); A shell input motionevent UP "$x2" $((y2 + drift))
 }
 # the app list (drawer) is open: its search field is on screen

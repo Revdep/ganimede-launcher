@@ -68,8 +68,7 @@ A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Nessuna notifica"
 # be posted from the shell. Covered by the core test of Safe.notice. Left out here.
 
 step "Summary on: a non-urgent post of a chosen app is held back, other apps are not"
-A shell am force-stop $PK; A exec-out run-as $PK sh -c "sed -i '/name=\"summary_held\" *\/>/d; /name=\"summary_held\">/,/<\/set>/d' shared_prefs/ganimede.xml" # no key held by an earlier run
-setp boolean summary true; setp set summary_apps com.android.shell
+setp del summary_held boolean summary true set summary_apps com.android.shell # del: no key held by an earlier run
 wait_until 10 listening; wait_until 10 bound
 c0=$(pref summary_count); c0=${c0:-0}
 SUM=sum$(date +%s) # a fresh key: Android keeps an earlier run's snoozed key silent for hours, so a repeated tag is never seen
@@ -214,8 +213,7 @@ wait_until 20 eval 'voice; kept_is 2' && ok "re-posted until its open returned: 
 
 step "Summary holds a chat with voice notes: they are kept before it is snoozed (fixture app)"
 wipe; wait_until 10 kept_is 0
-A shell am force-stop $PK; A exec-out run-as $PK sh -c "sed -i '/name=\"summary_held\" *\/>/d; /name=\"summary_held\">/,/<\/set>/d' shared_prefs/ganimede.xml"
-setp boolean summary true; setp boolean summary_skip_chats false; setp set summary_apps $FIX
+setp del summary_held boolean summary true boolean summary_skip_chats false set summary_apps $FIX
 wait_until 10 listening; wait_until 10 bound
 c0=$(pref summary_count); c0=${c0:-0}
 NID=$((RANDOM + 2)) # a fresh id: Android keeps a snoozed key silent for hours
