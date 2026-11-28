@@ -12,8 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
 
-import org.ganimede.launcher.core.IconSet.Cap;
-import org.ganimede.launcher.core.IconSet.Join;
 import org.ganimede.launcher.core.IconSet.Op;
 import org.ganimede.launcher.core.IconSet.PathData;
 
@@ -71,7 +69,6 @@ public class IconSetTest {
         eq(new Op[]{Op.MOVE_CLOSED, Op.LINE, Op.LINE, Op.CLOSE}, p.ops(), "M L L Z, a closed outline");
         near(new float[]{4, 4, 44, 4, 44, 44}, p.points(), "M(4,4) L(44,4) L(44,44)");
         yes(p.stroke() && !p.fill() && !p.evenOdd(), "stroked, not filled");
-        eq(1f, p.width(), "stroke width 1");
         eq(1f, p.alpha(), "opaque");
     }
 
@@ -84,7 +81,6 @@ public class IconSetTest {
         PathData p = icon("transform").get(0);
         eq(new Op[]{Op.MOVE, Op.LINE}, p.ops(), "an open line");
         near(new float[]{4, 5, 12, 5}, p.points(), "translate(2,3) scale(2) applied to M1 1 L5 1");
-        eq(2f, p.width(), "scale(2) doubles the stroke too");
     }
 
     public static void testArcBecomesCubicsWithSameEnds() {
@@ -178,17 +174,6 @@ public class IconSetTest {
         near(new float[]{4, 4, 8, 4}, subpaths(stroke).get(0), "dashed from the outline's start");
     }
 
-    public static void testCapsAndJoinsAsDeclared() {
-        List<PathData> paths = icon("caps");
-        eq(Cap.BUTT, paths.get(0).cap(), "no stroke-linecap declared: SVG's default butt");
-        eq(Join.MITER, paths.get(0).join(), "no stroke-linejoin declared: SVG's default miter");
-        eq(Cap.ROUND, paths.get(1).cap(), "round declared");
-        eq(Join.ROUND, paths.get(1).join(), "round declared");
-        eq(Cap.SQUARE, paths.get(2).cap(), "square declared");
-        eq(Join.BEVEL, paths.get(2).join(), "bevel declared");
-        eq(Cap.ROUND, icon("dots").get(0).cap(), "the dots keep their round caps, which draw them");
-    }
-
     public static void testRealAssetDecodesAll() {
         IconSet set = load("src/main/assets/icons.bin");
         eq(15459, set.count(), "one icon per SVG in Arcticons icons/white at the pinned commit");
@@ -201,8 +186,11 @@ public class IconSetTest {
         yes(paths > set.count(), "every icon decodes, most into several paths: " + paths);
     }
 
-    public static void testRealAssetCarriesTheArcticonsCommit() {
-        eq("da2fa5694ccfea800a9b88f556131a20908e95c1", load("src/main/assets/icons.bin").version(),
+    public static void testRealAssetCarriesTheArcticonsCommit() throws IOException {
+        byte[] bytes = Files.readAllBytes(Path.of("src/main/assets/icons.bin"));
+        StringBuilder hex = new StringBuilder();
+        for (int i = 4; i < 24; i++) hex.append(String.format("%02x", bytes[i]));
+        eq("da2fa5694ccfea800a9b88f556131a20908e95c1", hex.toString(),
                 "the asset says which Arcticons commit it was packed from (README, pack.py)");
     }
 
@@ -292,13 +280,11 @@ public class IconSetTest {
         eq(OptionalInt.of(id(set, "square")), set.categoryGlyph("com.example.shop"), "the curated table's category");
         eq(OptionalInt.empty(), set.categoryGlyph("com.example.none"), "a package nobody knows");
         eq(OptionalInt.empty(), set.categoryGlyph("pkgA"), "an app with an Arcticons icon never gets a category");
-        eq(AppCategory.valueOf("FINANCE").name(), set.categoryNames().get(AppCategory.FINANCE.ordinal()), "names in the enum's order");
     }
 
     public static void testFormatOneHasNoCategories() {
         IconSet set = fixture();
         eq(OptionalInt.empty(), set.categoryGlyph("com.example.bank"), "no section, no category");
-        eq(List.of(), set.categoryNames(), "no table");
     }
 
     public static void testDamagedCategorySectionRefused() throws IOException {
@@ -322,11 +308,10 @@ public class IconSetTest {
 
     public static void testRealAssetCategoriesTotal() {
         IconSet set = load("src/main/assets/icons.bin");
-        AppCategory[] all = AppCategory.values();
-        eq(all.length, set.categoryNames().size(), "the same 49 categories");
-        for (AppCategory c : all) {
-            eq(c.name(), set.categoryNames().get(c.ordinal()), "name at " + c.ordinal());
-            eq(set.name(set.categoryGlyphIds().get(c.ordinal())), c.glyph(), c + ": the glyph the packer chose is the one Java names");
+        // the table is in the enum's order: what the manifest names reaches the glyph the enum names
+        for (int manifest = 0; manifest <= 8; manifest++) {
+            AppCategory c = AppCategory.fromManifest(manifest).orElseThrow();
+            eq(c.glyph(), set.name(set.categoryGlyph("com.example.unknown", manifest).orElseThrow()), c + ": the glyph the packer chose is the one Java names");
         }
         eq("emoji_classical_building", set.name(set.categoryGlyph("it.bnl.apps.banking").orElseThrow()), "from the curated table");
     }

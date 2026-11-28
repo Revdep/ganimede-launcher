@@ -19,18 +19,18 @@ public final class IconSet {
     /** The file's op codes are the ordinals of the first five; MOVE_CLOSED is a MOVE whose subpath closes. */
     public enum Op { MOVE, LINE, CUBIC, CLOSE, OVAL, MOVE_CLOSED }
 
-    /** Stroke ends and corners as the SVG declares them; the names are Android's Paint.Cap and Paint.Join. */
+    /** Stroke ends and corners of a look (IconLook); the names are Android's Paint.Cap and Paint.Join. */
     public enum Cap { ROUND, BUTT, SQUARE }
     public enum Join { ROUND, MITER, BEVEL }
 
-    /** One SVG shape; {@code points} holds x, y pairs in grid units: 1 per move or line, 3 per cubic, 2 per oval (its box). */
-    public record PathData(boolean stroke, boolean fill, boolean evenOdd, Cap cap, Join join, float width, float alpha,
-                           Op[] ops, float[] points) {}
+    /**
+     * One SVG shape; {@code points} holds x, y pairs in grid units: 1 per move or line, 3 per cubic, 2 per oval (its box).
+     * Width, cap and join are the look's (IconLook), not the SVG's.
+     */
+    public record PathData(boolean stroke, boolean fill, boolean evenOdd, float alpha, Op[] ops, float[] points) {}
 
     private static final int MAGIC1 = 'I' | 'C' << 8 | 'N' << 16 | '1' << 24, MAGIC2 = 'I' | 'C' << 8 | 'N' << 16 | '2' << 24, Q = 32;
     private static final Op[] OPS = Op.values();
-    private static final Cap[] CAPS = Cap.values();
-    private static final Join[] JOINS = Join.values();
     private static final int[] POINTS = {1, 1, 3, 0, 2};
 
     /** How many x, y points an op takes: 1 per move or line, 3 per cubic, 2 per oval (its box), none for close. */
@@ -45,7 +45,6 @@ public final class IconSet {
     private final int header; // 40 B in format 1, 52 B in format 2 (the category section's three numbers)
     private final IconIndex categoryIndex; // null in format 1
     private final List<Integer> categoryGlyphs = new ArrayList<>();
-    private final List<String> categoryNames = new ArrayList<>();
 
     /** Every count and offset is checked against the bytes here or in {@link Reader}: a damaged file is refused, not read past. */
     private IconSet(ByteBuffer data, int header) {
@@ -85,12 +84,6 @@ public final class IconSet {
             if (glyph >= count) throw bad("category glyph " + i);
             categoryGlyphs.add(glyph);
         }
-        Reader labels = new Reader(tableAt + 2 + 2 * n, length);
-        for (int i = 0; i < n; i++) {
-            int len = labels.varint(), at = labels.pos;
-            labels.skip(len);
-            categoryNames.add(new String(data.array(), at, len, StandardCharsets.UTF_8));
-        }
     }
 
     private static IllegalArgumentException bad(String what) {
@@ -103,13 +96,6 @@ public final class IconSet {
         int header = bytes.length < 4 ? 0 : b.getInt(0) == MAGIC1 ? 40 : b.getInt(0) == MAGIC2 ? 52 : 0;
         if (header == 0 || bytes.length < header) throw new IllegalArgumentException("not an ICN1 or ICN2 icon set");
         return new IconSet(b, header);
-    }
-
-    /** The Arcticons commit the set was packed from, in hex. */
-    public String version() {
-        StringBuilder s = new StringBuilder(40);
-        for (int i = 4; i < 24; i++) s.append(String.format("%02x", data.get(i)));
-        return s.toString();
     }
 
     public int count() {
@@ -173,11 +159,6 @@ public final class IconSet {
         return AppCategory.fromManifest(manifestCategory).filter(c -> c.ordinal() < categoryGlyphs.size()).map(c -> OptionalInt.of(categoryGlyphs.get(c.ordinal()))).orElse(OptionalInt.empty());
     }
 
-    /** The categories' names and glyph icon ids, in the order of {@link AppCategory} (empty in format 1). */
-    public List<String> categoryNames() { return categoryNames; }
-
-    public List<Integer> categoryGlyphIds() { return categoryGlyphs; }
-
     public IconIndex index() {
         return index;
     }
@@ -190,8 +171,7 @@ public final class IconSet {
         int x = 0, y = 0;
         for (int n = r.count(); n > 0; n--) {
             int style = r.u8();
-            float width = r.u8() / 16f, alpha = r.u8() / 255f;
-            if ((style >> 3 & 3) >= CAPS.length || (style >> 5 & 3) >= JOINS.length) throw bad("style");
+            float alpha = r.u8() / 255f;
             Op[] ops = new Op[r.count()];
             int[] q = new int[ops.length * 6];
             int used = 0, move = -1, first = 0;
@@ -215,8 +195,7 @@ public final class IconSet {
             if (move >= 0 && closes(q, first, used, z)) ops[move] = Op.MOVE_CLOSED;
             float[] points = new float[used];
             for (int i = 0; i < used; i++) points[i] = q[i] / (float) Q;
-            paths.add(new PathData((style & 1) != 0, (style & 2) != 0, (style & 4) != 0, CAPS[style >> 3 & 3],
-                    JOINS[style >> 5 & 3], width, alpha, ops, points));
+            paths.add(new PathData((style & 1) != 0, (style & 2) != 0, (style & 4) != 0, alpha, ops, points));
         }
         return paths;
     }

@@ -25,21 +25,15 @@ def fixture_bytes(categories=None, glyphs=pack.GLYPHS):
 
 
 def category_of(blob, package):
-    """What a reader finds: (category name, glyph icon id) of a package in an ICN2 asset, or None."""
+    """What a reader finds: (category, glyph icon id) of a package in an ICN2 asset, or None; categories are in GLYPHS' order."""
     n, index_at, table_at = struct.unpack_from("<III", blob, 40)
     keys = {int.from_bytes(blob[o:o + 6], "little"): struct.unpack_from("<H", blob, o + 6)[0]
             for o in range(index_at, index_at + 8 * n, 8)}
     cat = keys.get(pack.fnv48(package))
     if cat is None:
         return None
-    count = struct.unpack_from("<H", blob, table_at)[0]
     glyph = struct.unpack_from("<H", blob, table_at + 2 + 2 * cat)[0]
-    at = table_at + 2 + 2 * count
-    for i in range(cat + 1):
-        length = blob[at]
-        name = blob[at + 1:at + 1 + length].decode()
-        at += 1 + length
-    return name, glyph
+    return list(pack.GLYPHS)[cat], glyph
 
 
 def rounded(ops):

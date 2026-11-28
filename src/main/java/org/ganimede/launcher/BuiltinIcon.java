@@ -61,7 +61,7 @@ final class BuiltinIcon extends Drawable {
             if (o == null) s = s.fallback(); // no outline to be had: Bold
             else shapes = o;
         }
-        GlyphFit fit = look.plated() ? GlyphFit.onContainer(GlyphFit.bounds(data), s.extent(), px) : GlyphFit.grid(s.extent(), px);
+        GlyphFit fit = look.plated() ? GlyphFit.onContainer(GlyphFit.bounds(data), s.extent(), px) : GlyphFit.grid(px);
         Matrix m = new Matrix();
         m.setScale(fit.scale(), fit.scale());
         m.postTranslate(fit.dx(), fit.dy());

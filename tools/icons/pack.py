@@ -6,8 +6,7 @@ It reads <checkout>/icons/white/*.svg and <checkout>/app/src/main/assets/appfilt
 Format (little endian), all geometry on Arcticons' 48x48 grid:
   header   'ICN1' (format 1), 20 B Arcticons commit (SHA-1), u32 iconCount, u32 indexCount, u32 namesOff, u32 indexOff
   offsets  u32[iconCount + 1], icon i is data[off[i]:off[i+1]], data starts right after this table
-  icon     varint pathCount; per path: u8 style (1 stroke, 2 fill, 4 evenodd, bits 3-4 cap 0 round 1 butt 2 square,
-           bits 5-6 join 0 round 1 miter 2 bevel), u8 stroke width * 16, u8 alpha * 255,
+  icon     varint pathCount; per path: u8 style (1 stroke, 2 fill, 4 evenodd), u8 alpha * 255,
            varint opCount, then ops: u8 op (0 M, 1 L, 2 C, 3 Z, 4 OVAL x0 y0 x1 y1) followed by its points, each
            x and y a zigzag varint delta from the previous point of the icon, in 1/32 of a unit
   names    per icon, ids in name order: varint length + UTF-8
@@ -15,7 +14,8 @@ Format (little endian), all geometry on Arcticons' 48x48 grid:
            when every component of it in the appfilter draws one icon, otherwise "package/full.ClassName"
 Format 2 ('ICN2', issue 087) adds the app categories after the icon index: the header grows by u32 categoryKeys, u32 categoryIndexOff,
 u32 categoryTableOff (52 B in all). The category index has the icon index's layout (u48 hash of the package, u16 category id =
-position in the table); the table is u16 n, n * u16 glyph icon id, then n category names (varint length + UTF-8).
+position in the table); the table is u16 n, n * u16 glyph icon id, in the order of core/AppCategory.
+Stroke width, caps and joins are not stored: the look (core/IconLook) decides them, whatever the SVG says.
 Arcs become cubics, dashes become subpaths (a zero-length dash is a zero-length line, drawn by its cap), transforms,
 CSS classes and the viewBox are applied here, so the reader only draws.
 Whether a subpath is closed (for fills, issue 080) is read from the geometry by the decoder, not stored.
@@ -34,7 +34,6 @@ NS = "{http://www.w3.org/2000/svg}"
 Q = 32  # coordinates are stored in 1/32 of a unit
 OPS = {"M": 0, "L": 1, "C": 2, "Z": 3, "O": 4}
 STROKE, FILL, EVEN_ODD = 1, 2, 4
-CAPS, JOINS = {"round": 0, "butt": 1, "square": 2}, {"round": 0, "miter": 1, "bevel": 2}  # style bits 3-4 and 5-6
 NUMBER = r"-?[\d.]+(?:e-?\d+)?"
 
 
@@ -67,8 +66,8 @@ def style_of(el, classes, inherited):
     opacity is not inherited: collect multiplies it down the tree.
     """
     s = {k: v for k, v in inherited.items() if k != "opacity"}
-    for k in ("fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity", "stroke-linecap",
-              "stroke-linejoin", "stroke-dasharray", "stroke-dashoffset"):
+    for k in ("fill", "stroke", "stroke-width", "fill-rule", "opacity", "fill-opacity", "stroke-opacity",
+              "stroke-dasharray", "stroke-dashoffset"):
         if el.get(k) is not None:
             s[k] = el.get(k)
     for c in (el.get("class") or "").split():
@@ -428,7 +427,7 @@ def dashed(ops, pattern, offset):
 
 
 def collect(el, classes, inherited, m, alpha, out):
-    """Appends (style, width, alpha, ops) for each painted shape under el, in document order, transforms applied.
+    """Appends (style, alpha, ops) for each painted shape under el, in document order, transforms applied.
 
     alpha is the product of the ancestors' opacity; a shape whose fill and stroke differ in opacity becomes two paths.
     """
@@ -449,14 +448,10 @@ def collect(el, classes, inherited, m, alpha, out):
         return
     if st.get("fill-rule") == "evenodd":
         style |= EVEN_ODD
-    ends = 0
-    if stroked:  # SVG's defaults are butt and miter; unknown values (miter-clip, arcs) draw as miter
-        ends = CAPS.get(st.get("stroke-linecap"), 1) << 3 | JOINS.get(st.get("stroke-linejoin"), 1) << 5
-    style |= ends
     pattern = dash_pattern(st) if stroked else None
     fill_alpha, stroke_alpha = alpha * num(st.get("fill-opacity"), 1.0), alpha * num(st.get("stroke-opacity"), 1.0)
     if style & FILL and stroked and (fill_alpha != stroke_alpha or pattern):
-        parts = [(style & (FILL | EVEN_ODD), fill_alpha), (STROKE | ends, stroke_alpha)]  # SVG paints the fill, then the stroke
+        parts = [(style & (FILL | EVEN_ODD), fill_alpha), (STROKE, stroke_alpha)]  # SVG paints the fill, then the stroke
     else:
         parts = [(style, stroke_alpha if stroked else fill_alpha)]
     rigid = abs(m[1]) < 1e-9 and abs(m[2]) < 1e-9
@@ -468,7 +463,7 @@ def collect(el, classes, inherited, m, alpha, out):
         if rx > 0 and ry > 0:
             box = (m[0] * (cx - rx) + m[4], m[3] * (cy - ry) + m[5], m[0] * (cx + rx) + m[4], m[3] * (cy + ry) + m[5])
             box = (min(box[0], box[2]), min(box[1], box[3]), max(box[0], box[2]), max(box[1], box[3]))
-            out += [(paint, width * math.sqrt(abs(m[0] * m[3])), a, [("O",) + box]) for paint, a in parts]
+            out += [(paint, a, [("O",) + box]) for paint, a in parts]
         return
     d = shape_path(tag, el.attrib)
     if not d:
@@ -485,7 +480,7 @@ def collect(el, classes, inherited, m, alpha, out):
             for k in range(0, len(pts), 2):
                 tp += [m[0] * pts[k] + m[2] * pts[k + 1] + m[4], m[1] * pts[k] + m[3] * pts[k + 1] + m[5]]
             ops.append((op[0],) + tuple(tp))
-        out.append((paint, width * math.sqrt(abs(m[0] * m[3] - m[1] * m[2])), a, ops))
+        out.append((paint, a, ops))
 
 
 def icon_paths(svg_file):
@@ -511,8 +506,8 @@ def encode_icon(paths):
     b = bytearray()
     varint(b, len(paths))
     lx = ly = 0
-    for style, width, alpha, ops in paths:
-        b += bytes((style, min(255, round(width * 16)), max(0, min(255, round(alpha * 255)))))
+    for style, alpha, ops in paths:
+        b += bytes((style, max(0, min(255, round(alpha * 255)))))
         varint(b, len(ops))
         for op in ops:
             b.append(OPS[op[0]])
@@ -675,9 +670,6 @@ def pack(svg_dir, appfilter, commit, categories=None, glyphs=GLYPHS):
         for h, v in cat_entries:
             out += struct.pack("<Q", h)[:6] + struct.pack("<H", v)
         out += struct.pack("<H", len(glyph_ids)) + struct.pack("<%dH" % len(glyph_ids), *glyph_ids)
-        for c in glyphs:
-            varint(out, len(c))
-            out += c.encode()
     return bytes(out), ("icons %d, index %d keys, %d category keys, geometry %d B, names %d B, total %d B"
                         % (len(names), len(entries), len(cat_entries) if categories else 0, len(data), len(namesec), len(out)))
 
