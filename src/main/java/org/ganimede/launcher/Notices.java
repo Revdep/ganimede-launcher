@@ -47,6 +47,9 @@ final class Notices {
     private final View root;
     private final BiConsumer<Item, View> launch;
     private final VoicePlayer voice;
+    private static final int BIND_WAIT_MS = 2000, BIND_STEP_MS = 100;
+    /** Waiting for the listener to bind (right after the grant or a cold start); cleared by pause(), which comes before any destroy. */
+    private Runnable binding;
 
     Notices(Ui ui, Apps apps, View root, BiConsumer<Item, View> launch) {
         this.ui = ui;
@@ -59,6 +62,8 @@ final class Notices {
     /** The home is leaving the screen: a voice note stops and its copy is deleted. */
     void pause() {
         voice.stop();
+        if (binding != null) root.removeCallbacks(binding); // also on destroy: no tick reaches a closed screen
+        binding = null;
     }
 
     /**
@@ -171,15 +176,37 @@ final class Notices {
     }
 
     /**
+     * Access is on but the listener has not bound yet: the bind usually lands within moments, so wait for it (main thread, not
+     * blocking) and open the pop-up then; only if it never comes, say how to bind it again. pause() cancels the wait, so a tick
+     * runs only while the home is resumed (hasWindowFocus is false just after a sheet closes, which dropped a pop-up before: 091).
+     */
+    private void awaitBind(String onlyPkg, int leftMs) {
+        binding = () -> {
+            binding = null;
+            if (ui.a.isDestroyed()) return;
+            if (NotifService.connected) show(onlyPkg);
+            else if (leftMs > 0) awaitBind(onlyPkg, leftMs - BIND_STEP_MS);
+            else {
+                // Access on but never bound: only switching it off and on binds it again (requestRebind cannot)
+                ui.toast(ui.tr("Notifications are not connected: switch access off and on again for Ganimede"));
+                ui.settings();
+            }
+        };
+        root.postDelayed(binding, BIND_STEP_MS);
+    }
+
+    /**
      * All notifications (or one app's), grouped by app: a header with the app's icon and name, then one card per
      * message (title, text, how long ago) with its own dismiss button, so each message clearly starts and ends.
      */
     void show(String onlyPkg) {
         if (!NotifService.connected) {
-            // Access already on but the listener unbound: only switching it off and on binds it again (requestRebind cannot)
-            ui.toast(ui.tr(Ui.notifAllowed(ui.a) ? "Notifications are not connected: switch access off and on again for Ganimede"
-                    : "Allow notification access in settings first"));
-            ui.settings();
+            if (binding != null) return; // already waiting for this tap's bind
+            if (Ui.notifAllowed(ui.a)) awaitBind(onlyPkg, BIND_WAIT_MS);
+            else {
+                ui.toast(ui.tr("Allow notification access in settings first"));
+                ui.settings();
+            }
             return;
         }
         List<StatusBarNotification> all = NotifService.all();
