@@ -65,7 +65,14 @@ for mode in list classic; do
       && ok "$mode, left-handed=$handed: a vertical drag over an icon scrolls the list" \
       || ko "$mode, left-handed=$handed: a vertical drag over an icon didn't scroll the list"
     # A pull down from the top would close classic's drawer: judge each fling only once it has settled.
-    for _ in 1 2 3; do A shell input swipe "$icon" $((H * 3 / 10)) "$icon" $((H * 8 / 10)) 500; wait_until 10 settled; at_g0 && break; done
+    # Swiping down on a list already at the top closes it: each retry covers only the gap left to G0 (all of it while G is off screen), and stops once the list is closed.
+    for _ in 1 2 3; do
+      at_g0 && break
+      has "Cerca app" || break
+      gap=$((H * 5 / 10)); y=$(gy) && [ $((G0 - y)) -gt 0 ] && gap=$((G0 - y))
+      A shell input swipe "$icon" $((H * 3 / 10)) "$icon" $((H * 3 / 10 + gap)) 500; wait_until 10 settled
+    done
+    has "Cerca app" || ko "$mode, left-handed=$handed: the swipe back closed the app list"
     at_g0 || ko "$mode, left-handed=$handed: the list didn't come back to the start (G at $(gy), start $G0)" # a fling may stop short of the top
     # The opposite edge owns a fixed 32 dp strip, independent of where the rows begin.
     if [ "$handed" = true ]; then edge=$((W - $(dp 20))); side=right
