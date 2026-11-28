@@ -210,23 +210,23 @@ final class SettingsLook {
         SharedPreferences p = kit.prefs();
         IconLook l = IconLook.read(k -> p.getString(key.apply(k), p.getString(k, null)));
         kit.sub(c, kit.ui.tr("Icon style"));
-        iconRow(c, "Icon style", IconLook.GLYPHS, Icons.GLYPH_NAMES, l.glyph(), "icon_glyph", key,
+        iconRow(c, "Icon style", IconLook.GLYPHS, IconLook.GLYPH_NAMES, l.glyph(), "icon_glyph", key,
                 v -> IconLook.of(v, l.container(), l.fill(), l.color()));
         kit.para(c, kit.ui.tr("Line, Bold, Sharp, Duotone and Hollow change the stroke only for Arcticons (built-in) icons; the others take the same colour and plate."),
                 13, SettingsKit.SUB);
         if (!l.glyph().equals("dot")) { // Dots replace the icon: no plate
             kit.sub(c, kit.ui.tr("Plate"));
-            iconRow(c, "Plate", IconLook.CONTAINERS, Icons.CONTAINER_NAMES, l.container(), "icon_container", key,
+            iconRow(c, "Plate", IconLook.CONTAINERS, IconLook.CONTAINER_NAMES, l.container(), "icon_container", key,
                     v -> IconLook.of(l.glyph(), v, l.fill(), l.color()));
         }
         if (!l.tinted(IconSet.PACK.equals(p.getString("icon_pack", "")))) return; // the apps' own colours: no fill, no colour
         if (l.plated()) {
             kit.sub(c, kit.ui.tr("Fill"));
-            iconRow(c, "Fill", IconLook.FILLS, Icons.FILL_NAMES, l.fill(), "icon_fill", key,
+            iconRow(c, "Fill", IconLook.FILLS, IconLook.FILL_NAMES, l.fill(), "icon_fill", key,
                     v -> IconLook.of(l.glyph(), l.container(), v, l.color()));
         }
         kit.sub(c, kit.ui.tr("Colour"));
-        iconRow(c, "Colour", IconLook.COLORS, Icons.COLOR_NAMES, l.color(), "icon_color", key,
+        iconRow(c, "Colour", IconLook.COLORS, IconLook.COLOR_NAMES, l.color(), "icon_color", key,
                 v -> IconLook.of(l.glyph(), l.container(), l.fill(), v));
     }
 

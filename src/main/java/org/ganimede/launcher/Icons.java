@@ -48,11 +48,6 @@ import java.util.function.BiPredicate;
 
 /** Icon packs (the common appfilter.xml format, or the built-in set of core/IconSet) and icon shapes. */
 final class Icons {
-    /** The names of IconLook.GLYPHS, CONTAINERS, FILLS and COLORS, in their order. */
-    static final String[] GLYPH_NAMES = {"Original", "Line", "Bold", "Sharp", "Duotone", "Hollow", "Dots (minimal)"};
-    static final String[] CONTAINER_NAMES = {"No plate", "Squircle", "Circle", "Rounded square", "Teardrop"};
-    static final String[] FILL_NAMES = {"Solid", "Soft"};
-    static final String[] COLOR_NAMES = {"Theme colour", "Text colour"};
     /**
      * A number for each icon object, never reused (identity hash codes can repeat, and a freed icon's code can come
      * back for another one): the cache below can't hand out the wrong app's picture.
