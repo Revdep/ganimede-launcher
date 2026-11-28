@@ -15,7 +15,7 @@ A() {
   "$ADB" -s "$SERIAL" "$@"
 }
 ADB=$(command -v adb || echo "${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb")
-command -v magick >/dev/null || { echo "ImageMagick (magick) is missing: the wallpaper checks need it." >&2; exit 2; }
+command -v magick >/dev/null && command -v compare >/dev/null || { echo "ImageMagick (magick, compare) is missing: the wallpaper and pixel checks need it." >&2; exit 2; }
 # The fixture app (e2e/fixture), built only when its APK is missing or older than its sources (CI builds it once, in the build job), then installed.
 fixture_install() {
   local apk="$HERE/fixture/build/outputs/apk/debug/fixture-debug.apk"
@@ -267,11 +267,12 @@ pg_settings() {
 # one node (the dialog message is one) whose text holds all the fragments in order (the dump wraps a text holding " in single quotes)
 shows() { local f re='text=["'"'"'][^>]*'; for f in "$@"; do re="$re$f[^>]*"; done; screen | grep -q "$re"; }
 noshows() { ! shows "$@"; }
-# fdiff a.png b.png [WxH+X+Y]: how many pixels differ (inside the crop, if given). Pixels, never file bytes: a PNG
+# fdiff a.png b.png [WxH+X+Y]: how many pixels differ (inside the crop, if given; FUZZ=10% fdiff ... forgives small colour differences). Pixels, never file bytes: a PNG
 # written by magick carries its dates, so cmp calls two identical pictures different (issue 086).
+# compare prints a big count as 1.04858e+06: awk turns it into an integer
+fdiff() { compare -metric AE ${FUZZ:+-fuzz "$FUZZ"} "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | awk 'match($0, /^[0-9.]+(e[+-]?[0-9]+)?/) { printf "%d\n", substr($0, RSTART, RLENGTH); exit }'; }
 hold() { A shell input draganddrop "$1" "$2" "$1" "$2" 1500; }  # long-press in place and release: opens the item's menu (home or pop-up)
 clear_text() { A shell input keyevent KEYCODE_MOVE_END; A shell input keyevent $(printf 'KEYCODE_DEL %.0s' $(seq 24)); }
-fdiff() { compare -metric AE "$1${3:+[$3]}" "$2${3:+[$3]}" null: 2>&1 | grep -oE '^[0-9]+' | head -1; }
 # seed classic|list [setp's settings ...]: a configured app without the wizard: onboarded, mode, favourites, Italian, the
 # home role, and the settings given, all in one start (the APK must be installed). Leaves the home screen in front.
 SEED_FAV="com.google.android.calendar/com.android.calendar.AllInOneActivity&#10;com.google.android.deskclock/com.android.deskclock.DeskClock&#10;com.google.android.contacts/com.android.contacts.activities.PeopleActivity" # seed's favourites
