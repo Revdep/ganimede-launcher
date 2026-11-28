@@ -73,8 +73,14 @@ public class NotifService extends NotificationListenerService {
     public void onNotificationPosted(StatusBarNotification s, RankingMap rank) {
         try {
             VoicePlayer.keep(this, s); // now, held for the summary or not: a chat app may withdraw the audio when it re-posts
-            if (maybeBatch(s, rank)) return;
-            update();
+            // summary_held is read and written on the worker only: the hold below posts back to it, so no write is lost
+            worker.post(() -> {
+                try {
+                    if (!maybeBatch(s, rank)) update();
+                } catch (RuntimeException e) {
+                    Log.w("Ganimede", "Notification skipped: " + e.getClass().getName());
+                }
+            });
         } catch (RuntimeException e) { // runs in the home's process: one odd notification must not take it down
             Log.w("Ganimede", "Notification skipped: " + e.getClass().getName());
         }
@@ -124,8 +130,8 @@ public class NotifService extends NotificationListenerService {
             if (!connected) return;
             try {
                 snoozeNotification(key, wait);
-                p.edit().putStringSet("summary_held", Summary.hold(p.getStringSet("summary_held", Set.of()), key, now + wait, now))
-                        .putInt("summary_count", p.getInt("summary_count", 0) + 1).apply();
+                worker.post(() -> p.edit().putStringSet("summary_held", Summary.hold(p.getStringSet("summary_held", Set.of()), key, now + wait, now))
+                        .putInt("summary_count", p.getInt("summary_count", 0) + 1).apply());
             } catch (RuntimeException e) { // access just lost: shown, not held
                 Log.w("Ganimede", "Summary hold failed: " + e.getClass().getName());
                 update();
