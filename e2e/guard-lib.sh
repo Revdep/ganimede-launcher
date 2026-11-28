@@ -20,12 +20,13 @@ case "$*" in
   "shell pidof system_server") echo "${FAKE_SS:-}" ;;
   "shell service check "*) echo "Service $4: found" ;;
   "shell ps -o STIME -p "*) printf 'STIME\n04:30:08\n' ;;
-  "shell input text "*) printf %s "${4//%s/ }" >> "$FAKE_FIELD" ;;
+  "get-state") if [ -e "$FAKE_OFFLINE" ]; then rm -f "$FAKE_OFFLINE"; echo offline; else echo device; fi ;;
+  "shell input text "*) [ -e "$FAKE_OFFLINE" ] || printf %s "${4//%s/ }" >> "$FAKE_FIELD" ;;
   "exec-out uiautomator dump /dev/tty") printf '<hierarchy><node class="android.widget.EditText" text="%s" focused="true" bounds="[0,0][1,1]" /></hierarchy>\n' "$(cat "$FAKE_FIELD")" ;;
 esac
 FAKE
 chmod +x "$T/bin/adb"
-export PATH="$T/bin:$PATH" FAKE_FIELD="$T/field"; : > "$FAKE_FIELD"
+export PATH="$T/bin:$PATH" FAKE_FIELD="$T/field" FAKE_OFFLINE="$T/offline"; : > "$FAKE_FIELD"
 fails=0
 n() { ! "$@"; } # n command…: it must fail (t's command is a function of lib.sh, which a bash -c would not see)
 t() { # t description command…: the command must succeed
@@ -75,6 +76,10 @@ typ "cal bar"
 t "typ: empty field holds the text" test "$(field)" = "cal bar"
 typ "zz"
 t "typ: a field with text takes more" test "$(field)" = "cal barzz"
+
+# typ: a device offline when the text is sent (run 46121849360) is waited for, and the text is not lost
+: > "$FAKE_FIELD"; : > "$FAKE_OFFLINE"; typ "back on"
+t "typ: an offline device is waited for, then the text arrives" test "$(field)" = "back on"
 
 # differ: two pictures that differ, two that don't, a missing file ("no", not "differ")
 magick -size 4x4 xc:red "$T/r.png"; magick -size 4x4 xc:blue "$T/b.png"; cp "$T/r.png" "$T/r2.png"

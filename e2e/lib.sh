@@ -163,12 +163,15 @@ close_search() { A shell input keyevent KEYCODE_BACK; wait_until 5 eval '! kbd';
 # keyboard is still coming up arrive out of order ("cal" typed as "cla", run 46083578007, drawer), and Gboard reorders keys
 # with the keyboard up too ("pro pro" came out "por pro", run 46107202244, shard 9). A wrong field is emptied (what it held
 # before is lost then) and typed again, 3 tries, then a ko with the text found. The text is the precondition of the check
-# that follows, not a gesture to retry.
+# that follows, not a gesture to retry. A device that went offline loses the keys and every dump (run 46121849360, shard 16: 3 tries
+# on an offline adb, a field read as empty): each try first waits for the device and the keyboard, the field's own preconditions.
+online() { [ "$(A get-state 2>/dev/null | tr -d '\r')" = device ]; }
 field() { screen | grep -o '<node [^>]*class="android.widget.EditText"[^>]*focused="true"[^>]*>' | head -1 | sed -n 's/.* text="\([^"]*\)".*/\1/p'; }
 typ() { # %s is the space of "input text": a bare space cuts the text there
   local want="$1" before got n=0
-  wait_until 5 kbd; before=$(field)
+  wait_until 60 online; wait_until 5 kbd; before=$(field)
   while :; do
+    wait_until 60 online || { ko "typ: the device is offline"; return 1; }
     A shell input text "${want// /%s}"
     got=$(field)
     [ "$got" = "$before$want" ] || [ "$got" = "$want" ] && return 0
