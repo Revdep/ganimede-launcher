@@ -41,8 +41,13 @@ public class PreferencesTest {
 
     public static void testKeysTheHomeDoesNotDrawDoNotRebuildIt() {
         for (String k : new String[]{"summary_held", "summary_last", "summary_count", "icon_pack_loaded", "return_to_settings",
-                "pending_widget", "pending_widget_for", "fab_left", "fab_y"})
+                "pending_widget", "pending_widget_for"})
             org.ganimede.launcher.Expect.yes(!Preferences.rebuildsHome(k, true, true), k + " alone never rebuilds the home");
+    }
+
+    public static void testTheQuickButtonPositionRebuildsTheHome() {
+        for (String k : new String[]{"fab_left", "fab_y"})
+            org.ganimede.launcher.Expect.yes(Preferences.rebuildsHome(k, false, false), k + " is drawn by QuickButton.style");
     }
 
     public static void testOpeningAnAppRebuildsOnlyWhenUsageIsShown() {
