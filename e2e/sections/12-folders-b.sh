@@ -138,6 +138,8 @@ tap Ordine; expect "Contacts"; wait_until 5 settled
 wins=$(popwin) # (not "before": run.sh counts checks in that name)
 update_other
 wait_until 10 reloaded || reload_ko "the update"
+indexed() { A logcat -d -b main -s Ganimede:I | grep -q 'shortcuts indexed in'; }
+wait_until 10 indexed && ok "the reload logs its timings and indexes shortcuts after the app list" || ko "no \"shortcuts indexed in\" line after the update"
 [ -n "$wins" ] && [ "$(popwin)" = "$wins" ] && ok "the pop-up is the same window after another app's update" || ko "the pop-up was rebuilt: windows $(popwin), were $wins"
 has "Contacts" && ok "the pop-up is still open" || ko "the pop-up closed"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Contacts"

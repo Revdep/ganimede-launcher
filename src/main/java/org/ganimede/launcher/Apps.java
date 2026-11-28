@@ -13,6 +13,7 @@ import android.content.pm.ShortcutInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Process;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
@@ -158,12 +159,13 @@ final class Apps {
         String pack = prefs.getString("icon_pack", "");
         int mine = ++loads;
         new Thread(() -> {
-            try { Sunflower.reindex(c); } catch (RuntimeException e) { /* fewer results */ }
+            long t0 = SystemClock.elapsedRealtime();
             UserManager um = c.getSystemService(UserManager.class);
             List<Item> out = new ArrayList<>();
             List<UserHandle> users;
             try { users = launcherApps.getProfiles(); } catch (RuntimeException e) { users = List.of(Process.myUserHandle()); }
             Icons.load(c, pack);
+            long t1 = SystemClock.elapsedRealtime();
             Icons.preload(c, prefs); // a folder's or shortcut's picked built-in icon: drawn on the main thread at refreshAll
             for (UserHandle user : users) {
                     // Paused work profiles and a locked private space stay out of the list.
@@ -179,6 +181,7 @@ final class Apps {
                         if (it != null) out.add(it);
                     }
             }
+            long t2 = SystemClock.elapsedRealtime();
             Map<String, Item> keys = new HashMap<>(), pkgs = new HashMap<>(), groups = new HashMap<>();
             for (Item it : out) { keys.putIfAbsent(it.key, it); pkgs.putIfAbsent(it.pkg, it); groups.putIfAbsent(it.notifGroup, it); }
             ui.post(() -> {
@@ -188,9 +191,13 @@ final class Apps {
                 byPkg = pkgs;
                 byGroup = groups;
                 shortcutIcons.clear();
-                Log.i("Ganimede", "apps loaded " + out.size()); // the e2e suite waits on it (12-folders-b)
+                // the e2e suite waits on "apps loaded" (12-folders-b)
+                Log.i("Ganimede", "apps loaded " + out.size() + " in " + (t2 - t0) + " ms (pack " + (t1 - t0) + ", apps " + (t2 - t1) + ")");
                 done.run();
             });
+            // Only search needs the shortcut index: the home's icons don't wait for it.
+            try { Sunflower.reindex(c); } catch (RuntimeException e) { /* fewer results */ }
+            Log.i("Ganimede", "shortcuts indexed in " + (SystemClock.elapsedRealtime() - t2) + " ms");
         }).start();
     }
 
