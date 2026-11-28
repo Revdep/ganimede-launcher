@@ -24,6 +24,7 @@ import java.io.IOException;
  * (h) one note whose stream never ends (Notes "hang.wav"); (s) a note sent slowly (Notes "slow.wav"), then note A;
  * (x) one note whose provider takes 20 s to fail its open (Notes "block.wav").
  * `--ei id n` posts under another id (default 1); `--ez cancel true` cancels that id instead of posting.
+ * `--ez quiet true` updates a shown notification without sounding again (setOnlyAlertOnce), as a chat app does.
  * The notes are silent WAVs of 30 and 40 s: their sizes tell which one plays, and they last long enough to be checked
  * while playing.
  */
@@ -63,7 +64,7 @@ public final class Post extends BroadcastReceiver {
             style.addMessage(m);
         }
         nm.notify(id, new Notification.Builder(c, "chat").setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setStyle(style).setCategory(Notification.CATEGORY_MESSAGE)
+                .setStyle(style).setOnlyAlertOnce(i.getBooleanExtra("quiet", false)).setCategory(Notification.CATEGORY_MESSAGE)
                 .setVisibility(i.getBooleanExtra("secret", false) ? Notification.VISIBILITY_SECRET : Notification.VISIBILITY_PRIVATE)
                 .build());
     }

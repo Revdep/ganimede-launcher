@@ -177,9 +177,22 @@ wait_until 5 nplayers 2 || ko "players before playing: $(players)"
 A shell input tap "$(play_at 2)"
 wait_until 10 plays 480044 || ko "note A did not play (copied from the chat app): $(copies)"
 wait_until 15 kept_is 2 || ko "the chat's notes were not kept while A plays: $(kept)"
-voice --es shape s   # the re-post rebuilds the rows, now with kept copies
+voice --es shape s --ez quiet true   # silent, as a chat app updating a shown notification; the re-post rebuilds the rows, now with kept copies
 wait_until 10 plays 480044 \
   && ok "A is still playing after the re-post" || ko "the note stopped with the re-post: $(A logcat -d -s Ganimede:I | grep -o 'voice .*' | tail -3 | paste -sd'|')"
+A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
+A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
+
+step "A notification that sounds pauses the playing note: focus lost (fixture app)"
+wipe; wait_until 10 kept_is 0
+voice --es shape s; expect_popup "FIXTURE"
+wait_until 5 nplayers 2 || ko "players before playing: $(players)"
+A shell input tap "$(play_at 2)"
+wait_until 10 plays 480044 || ko "note A did not play: $(copies)"
+A logcat -c
+voice --es shape s   # the re-post sounds: the player ducks and, as for speech, pauses
+wait_until 10 eval '! plays 480044' && A logcat -d -s Ganimede:I | grep -q 'voice stops: focus lost' \
+  && ok "a sounding notification paused the note" || ko "the note did not pause on the sound: $(A logcat -d -s Ganimede:I | grep -o 'voice .*' | tail -3 | paste -sd'|')"
 A shell input keyevent KEYCODE_BACK; wait_until 5 has "Cancella tutte"
 A shell input keyevent KEYCODE_BACK; wait_until 5 hasnt "Notifiche"
 
