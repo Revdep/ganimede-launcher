@@ -392,8 +392,13 @@ final class Icons {
                 return b;
             });
         } else if (look.glyph().equals("original")) { // the app's own icon, cut to the container if there is one
-            v.setImageDrawable(look.container().equals("none") || !(icon instanceof AdaptiveIconDrawable) ? badged(c, copy(icon), user)
-                    : clip(c, (AdaptiveIconDrawable) icon, look.container(), px, user));
+            if (!look.container().equals("none") && icon instanceof AdaptiveIconDrawable) v.setImageDrawable(clip(c, (AdaptiveIconDrawable) icon, look.container(), px, user));
+            else if (user == null || user.equals(Process.myUserHandle())) v.setImageDrawable(copy(icon));
+            else renderInto(v, copy(icon), 0xFF, user, idOf(icon) + "|" + user + "|own|" + px, () -> { // the badge once, in the cache, not at every bind
+                Bitmap b = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888);
+                draw(new Canvas(b), icon, px, false);
+                return b;
+            });
             return;
         } else { // a glyph from the app's own icon: its monochrome layer, silhouette or greys (the same for every stroke)
             boolean tintGreys = look.plated() || look.color().equals("accent"); // today's Monochrome kept plain greys

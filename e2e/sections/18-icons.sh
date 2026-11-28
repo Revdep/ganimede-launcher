@@ -499,6 +499,8 @@ if emu_only "icons: a work profile is created on the emulator"; then
     badge_of Fixture "$FIXTURE/$FIXTURE.Open" "$BUILTIN" dot none solid accent # Fable c1-icons 13: a dot had no badge
     # no pack: Calendar's own adaptive icon cut to the circle (Fable c1-icons 1: the badge went into the cached cut, at 160 dpi)
     badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" "" original circle solid accent
+    # original without a container: the badge is drawn once into the cache, not on every bind (Fable c2-icons P2-1)
+    badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" "" original none solid accent
     # a folder thumbnail goes through the same render: the folder with the work copy differs from the one with the own app
     seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
     look line circle solid accent
