@@ -76,6 +76,16 @@ tapn "Settings" 30; tap "Salva"
 wait_until 5 hasnt "Settings" && ok "unchecked favourite is neither a favourite nor a suggestion" \
   || ko "unchecked favourite came back as a suggestion"
 
+step "List mode: a cold start never shows the \"no favourites\" hint while the apps load"
+seed list                                                  # favourites saved; the process starts cold with an empty app list
+A logcat -b main -c; A shell am force-stop $PK; A shell input keyevent KEYCODE_HOME
+loaded() { A logcat -d -b main -s Ganimede:I | grep -q 'apps loaded'; }
+wait_until 15 loaded && ok "the apps loaded" || ko "Ganimede never logged \"apps loaded\""
+# the app logs a line when it adds the hint: it must not come before the apps are loaded (no screen polling: the log is the proof)
+A logcat -d -b main -s Ganimede:I | sed '/apps loaded/q' | grep -q 'fav hint shown' \
+  && ko "the hint showed while the app list was still empty" || ok "no hint before the apps are loaded"
+expect "Calendar"
+
 step "List mode: hidden alphabet keeps its touch column clear"
 alpha_offset=12
 seed list boolean alpha_home false int alpha_offset "$alpha_offset" boolean left_handed false

@@ -339,6 +339,7 @@ public class MainActivity extends Activity implements Actions.Home {
             }
         }
         if (screen.favBox.getChildCount() == 0) {
+            android.util.Log.i("Ganimede", "fav hint shown"); // the e2e checks it never comes before "apps loaded"
             TextView hint = ui.text(15, false);
             hint.setText(ui.tr("Long-press any app in the list to add it here.\nSwipe up or touch the letters to see all apps."));
             hint.setAlpha(0.8f);
