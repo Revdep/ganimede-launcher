@@ -42,7 +42,7 @@ wait_until 5 has Calendar && ok "swipes right come back to page 1" || ko "no way
 step "Gestures: drawer off, swipe up opens no drawer"
 A shell input swipe $((W / 2)) $((H * 6 / 10)) $((W / 2)) $((H / 5)) 300
 wait_until 5 settled
-listed && ko "swipe up opened the drawer with it switched off" || ok "swipe up opens nothing"
+valid && ! listed && ok "swipe up opens nothing" || ko "swipe up opened the drawer with it switched off (or no screen read)"
 has Calendar && ok "home screen still in front" || ko "home screen gone after the swipe up"
 
 step "Gestures: Home on a side page goes to page 1, back from an app keeps the page"
@@ -140,7 +140,7 @@ wait_until 5 settled
 swipe_up $((H * 6 / 10)) $((H * 6 / 10 - $(dp 120))) 400 # short, below the flick speed: springs back to home
 wait_until 5 settled
 has Calendar && ok "short slow drag up: the drawer springs back shut" || ko "short drag up opened the drawer"
-listed && ko "drawer shows after a short drag" || ok "no drawer after the short drag"
+valid && ! listed && ok "no drawer after the short drag" || ko "drawer shows after a short drag (or no screen read)"
 
 step "Gestures: swipe down shows the shade"
 seed classic

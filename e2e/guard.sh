@@ -18,6 +18,7 @@ check 'input text' 'use typ (lib.sh)'
 check 'exec-in' 'use put_prefs (lib.sh)'
 check 'sed +(-[a-zA-Z]*i|--in-place)' 'use edit_prefs (lib.sh), or comment guard-ok'
 check 'sleep[^;&|]*[;&] *(hasnt|noshows|! *has)' 'wait for a positive signal, then check the negative (wait_until)'
+check "pref[^|]*\\| *grep +-q[^;]*&& *ko|bpref [a-z_]+ *&& *ko|shared_prefs.*grep.*&& *ko" 'use pref_lacks/set_lacks (lib.sh): an empty prefs file passes a negative check'
 check '(has|hasd|shows|exact) +"[^"]*"[^;]*&& *ko' 'use hasnt/nod: a negative check on a dump that failed to load passes'
 bash "$HERE/guard-lib.sh" || bad=1 # lib.sh's helpers under set -u, on made-up data
 [ $bad = 0 ] || { echo "e2e guard: see e2e/guard.sh" >&2; exit 1; }
