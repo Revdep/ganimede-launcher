@@ -283,10 +283,10 @@ final class AppList {
         } catch (Exception unavailable) { // provider busy or gone
             return null;
         }
-        Set<Long> mailed = phoneless.isEmpty() ? Set.of() : idsWithEmail();
         // the provider also matches mid-word and on other entries: each contact passes the search rule on its name or
         // on its email, company or nickname
-        Map<Long, List<String>> others = byNumber ? Map.of() : otherEntries(found);
+        Set<Long> mailed = new HashSet<>();
+        Map<Long, List<String>> others = byNumber ? Map.of() : otherEntries(found, mailed);
         List<Long> ids = new ArrayList<>();
         List<Uri> looks = new ArrayList<>();
         List<String> names = new ArrayList<>();
@@ -317,19 +317,8 @@ final class AppList {
         return new ContactHits(count, people);
     }
 
-    /** Ids of the contacts with an email address (the public Email table, not the provider's internal views). */
-    private Set<Long> idsWithEmail() {
-        Set<Long> ids = new HashSet<>();
-        try (Cursor e = ui.a.getContentResolver().query(Email.CONTENT_URI, new String[]{Email.CONTACT_ID}, null, null, null)) {
-            while (e != null && e.moveToNext()) ids.add(e.getLong(0));
-        } catch (Exception unavailable) {
-            // no emails known: only the ones with a number show
-        }
-        return ids;
-    }
-
-    /** The email addresses, companies and nicknames of each contact, by contact id. */
-    private Map<Long, List<String>> otherEntries(List<Long> all) {
+    /** The email addresses, companies and nicknames of each contact, by contact id; the ids of those with an email go into mailed. */
+    private Map<Long, List<String>> otherEntries(List<Long> all, Set<Long> mailed) {
         Map<Long, List<String>> out = new HashMap<>();
         for (int from = 0; from < all.size(); from += 500) {
             List<Long> ids = all.subList(from, Math.min(all.size(), from + 500));
@@ -340,10 +329,13 @@ final class AppList {
             args[ids.size() + 1] = ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE;
             args[ids.size() + 2] = ContactsContract.CommonDataKinds.Nickname.CONTENT_ITEM_TYPE;
             try (Cursor d = ui.a.getContentResolver().query(ContactsContract.Data.CONTENT_URI,
-                    new String[]{ContactsContract.Data.CONTACT_ID, ContactsContract.Data.DATA1},
+                    new String[]{ContactsContract.Data.CONTACT_ID, ContactsContract.Data.DATA1, ContactsContract.Data.MIMETYPE},
                     ContactsContract.Data.CONTACT_ID + " IN (" + in + ") AND " + ContactsContract.Data.MIMETYPE + " IN (?,?,?)",
                     args, null)) {
-                while (d != null && d.moveToNext()) out.computeIfAbsent(d.getLong(0), k -> new ArrayList<>()).add(d.getString(1));
+                while (d != null && d.moveToNext()) {
+                    out.computeIfAbsent(d.getLong(0), k -> new ArrayList<>()).add(d.getString(1));
+                    if (Email.CONTENT_ITEM_TYPE.equals(d.getString(2))) mailed.add(d.getLong(0));
+                }
             } catch (Exception e) {
                 // the name alone decides
             }
