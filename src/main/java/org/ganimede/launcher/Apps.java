@@ -61,6 +61,19 @@ final class Apps {
         return out;
     }
 
+    /**
+     * The icon an item shows, for the home and the settings preview alike: the one picked for this app, else the pack's,
+     * else its category's glyph, else its own (unbadged: Icons.apply badges what it draws).
+     */
+    static void resolveIcon(Context c, SharedPreferences prefs, Item it) {
+        Drawable packed = Icons.picked(c, prefs, it.key);
+        it.picked = prefs.getString("icon:" + it.key, "");
+        if (packed == null) packed = Icons.fromPack(it.info.getComponentName());
+        it.fromPack = packed != null;
+        it.category = packed == null ? Icons.category(prefs, it.info) : null;
+        it.icon = packed != null ? packed : it.info.getIcon(0);
+    }
+
     /** The same list read off the main thread (a label each, from the system), then handed over on it while a is open. */
     static void named(Activity a, Consumer<List<Item>> then) {
         if (!LOADING.compareAndSet(false, true)) return; // a second tap while loading would open a second dialog
@@ -120,13 +133,7 @@ final class Apps {
                         if (info.getComponentName().getPackageName().equals(c.getPackageName())) continue;
                         Item it = new Item(info, info.getComponentName().flattenToString()
                                 + (user.equals(Process.myUserHandle()) ? "" : "#" + um.getSerialNumberForUser(user)));
-                        // An icon picked for this one app wins over the pack's and the app's own.
-                        Drawable packed = Icons.picked(c, prefs, it.key);
-                        it.picked = prefs.getString("icon:" + it.key, "");
-                        if (packed == null) packed = Icons.fromPack(info.getComponentName());
-                        it.fromPack = packed != null;
-                        if (packed == null) it.category = Icons.category(prefs, info);
-                        it.icon = packed != null ? packed : info.getIcon(0); // unbadged: Icons.apply badges what it draws
+                        resolveIcon(c, prefs, it);
                         out.add(it);
                     } catch (RuntimeException oneApp) { // one app being updated can't take the whole list down
                         // left out until the next load

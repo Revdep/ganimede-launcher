@@ -443,9 +443,8 @@ final class SettingsPreview extends FrameLayout {
     private ImageView iconView(Apps.Item a, IconLook look, int fg, int accent, int size) {
         ImageView icon = new ImageView(getContext());
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        Drawable packed = Icons.fromPack(a.info.getComponentName()); // once: it decodes the built-in icon
-        Icons.apply(icon, packed != null ? packed : a.info.getIcon(0), packed != null, packed == null ? Icons.category(p, a.info) : null,
-                a.info.getUser(), look, fg, accent, size);
+        Apps.resolveIcon(getContext(), p, a); // the pack, a picked icon or "Category icons" may have just changed
+        Icons.apply(icon, a.icon, a.fromPack, a.category, a.info.getUser(), look, fg, accent, size);
         return icon;
     }
 
