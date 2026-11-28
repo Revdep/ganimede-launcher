@@ -104,6 +104,7 @@ for mode in list classic; do
   A shell input keyevent KEYCODE_HOME; wait_until 5 focus
 done
 
+one_row() { pref blocks | grep -q 'rowSpan&quot;:1'; }
 step "Blocchi: ridimensionare con un lettore di schermo"
 BOTTOM_HANDLE="Ridimensiona bordo inferiore"
 seed classic
@@ -115,7 +116,7 @@ a11y list . "$BOTTOM_HANDLE"
 A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Allarga' && A logcat -d -s $A11Y_TAG:I | grep -q 'action label=Restringi' \
   && ok "la maniglia espone Allarga e Restringi" || ko "la maniglia non espone Allarga/Restringi (solo: $(A logcat -d -s $A11Y_TAG:I | tr '\n' ' '))"
 a11y label Restringi "$BOTTOM_HANDLE"
-a11y_performed && wait_until 5 test -n "$(pref blocks | grep -o 'rowSpan&quot;:1')" \
+a11y_performed && wait_until 5 one_row \
   && ok "Restringi salva il blocco più basso di una cella" || ko "Restringi non cambia la misura (blocks: $(pref blocks))"
 wait_until 5 hasd "$BOTTOM_HANDLE" && ok "il ridimensionamento resta attivo dopo l'azione" || ko "il ridimensionamento si è chiuso dopo l'azione"
 wait_until 5 a11y_said "Larghezza" && ok "dopo Restringi l'app annuncia la misura" || ko "nessun annuncio «Larghezza…» dopo Restringi"
@@ -124,7 +125,7 @@ a11y label Restringi "$BOTTOM_HANDLE" # already one cell high: the minimum
 wait_until 5 a11y_said "Limite raggiunto" && ok "al minimo Restringi annuncia «Limite raggiunto»" || ko "nessun annuncio «Limite raggiunto» al minimo"
 [ -n "$(pref blocks | grep -o 'rowSpan&quot;:1')" ] && ok "al minimo la misura salvata non cambia" || ko "Restringi al minimo ha cambiato la misura (blocks: $(pref blocks))"
 a11y label Allarga "$BOTTOM_HANDLE"
-a11y_performed && wait_until 5 test -z "$(pref blocks | grep -o 'rowSpan&quot;:1')" \
+a11y_performed && wait_until 5 pref_lacks blocks 'rowSpan&quot;:1' \
   && ok "Allarga salva il blocco più alto di una cella" || ko "Allarga non cambia la misura (blocks: $(pref blocks))"
 grown() { read -r _ y1 _ y2 <<<"$(clock_bounds)"; [ $((y2 - y1)) -gt "$small" ]; }
 wait_until 5 grown && ok "Allarga: il blocco sullo schermo è più alto" || ko "Allarga: il blocco sullo schermo non è cresciuto"
@@ -141,7 +142,6 @@ tap "Ridimensiona"; wait_until 5 hasd "$BOTTOM_HANDLE"
 handle_focused() { screen | grep -q "content-desc=\"$BOTTOM_HANDLE\"[^>]*focused=\"true\"\|focused=\"true\"[^>]*content-desc=\"$BOTTOM_HANDLE\""; }
 for _ in $(seq 20); do handle_focused && break; A shell input keyevent KEYCODE_TAB; rm -f "$SCR"; done
 handle_focused && ok "il Tab arriva alla maniglia inferiore" || ko "la maniglia inferiore non prende il focus con il Tab"
-one_row() { pref blocks | grep -q 'rowSpan&quot;:1'; } # a function: wait_until must re-read the pref each try
 A shell input keyevent KEYCODE_DPAD_UP # the bottom edge up: one row less
 wait_until 5 one_row \
   && ok "freccia su sulla maniglia inferiore accorcia il blocco di una cella" || ko "la freccia non ha cambiato la misura (blocks: $(pref blocks))"

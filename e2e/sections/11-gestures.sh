@@ -190,22 +190,35 @@ else
 fi
 setp del fab_tap
 
-step "Gestures: a side key past the last column settles the pager on a page (c2-4)"
+step "Gestures: a side key past the last column turns the pager to page 2 (c2-4)"
 seed classic boolean drawer false; wait_until 10 pages_ge2; wait_until 5 has Calendar
-read -r cx0 _ <<<"$(cx Calendar)"
 A shell input keyevent KEYCODE_DPAD_DOWN # a key leaves touch mode: the home hands the focus to a view
 for _ in 1 2 3 4 5 6 7 8; do A shell input keyevent KEYCODE_DPAD_RIGHT; done
 wait_until 5 settled
-# a pager stuck between two pages shows Calendar shifted sideways; settled it is on page 1 (same x) or gone (page 2)
-aligned() { hasnt Calendar || { read -r cx1 _ <<<"$(cx Calendar)"; [ -n "$cx1" ] && [ "$((cx1 - cx0))" -ge -3 ] && [ "$((cx1 - cx0))" -le 3 ]; }; }
-wait_until 5 aligned && ok "DPAD_RIGHT past the last column: the pager rests on a page" || ko "DPAD_RIGHT left the pager between pages (Calendar at x ${cx1:-?}, was $cx0)"
+# the apps overflow onto page 2 (drawer off): the pager must rest on it, Calendar (page 1) off screen. A pager stuck between two
+# pages, or never moved, still shows Calendar.
+wait_until 5 hasnt Calendar && ok "DPAD_RIGHT past the last column: the pager rests on page 2" || ko "DPAD_RIGHT did not turn the pager to page 2 (Calendar still on screen)"
+A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar
 
 step "Gestures: a side key towards an empty page turns the whole page, never half (c3 P2-2)"
 seed classic int grid_pages 2 boolean drawer true; wait_until 5 has Calendar # page 2 holds nothing to focus
-A shell input keyevent KEYCODE_DPAD_DOWN # a key leaves touch mode: the home hands the focus to a view
-for _ in 1 2 3 4 5 6 7 8; do A shell input keyevent KEYCODE_DPAD_RIGHT; done
-wait_until 5 settled
-wait_until 5 hasnt Calendar && ok "DPAD_RIGHT towards an empty page 2: the pager is on page 2, not half way" || ko "the pager stopped between the pages (Calendar still on screen; focus: $(screen | grep -o '<node [^>]*focused="true"[^>]*>' | head -2 | tr '\n' ' '))"
+# the focus goes to Contacts, the icon in page 1's last occupied column (Calendar, Clock, Contacts share the row): Tab until the dump says so
+icon_focused() { # the focused node's bounds contain the centre of the icon named $1
+  local x y x1 y1 x2 y2; read -r x y <<<"$(cx "$1")"; [ -n "$x" ] || return 1
+  while read -r x1 y1 x2 y2; do
+    [ -n "$x2" ] && [ "$x" -ge "$x1" ] && [ "$x" -le "$x2" ] && [ "$y" -ge "$y1" ] && [ "$y" -le "$y2" ] && return 0
+  done < <(screen | grep -o '<node [^>]*focused="true"[^>]*>' | grep -o 'bounds="[^"]*"' | tr -c '0-9\n' ' ')
+  return 1
+}
+for _ in $(seq 20); do icon_focused Contacts && break; A shell input keyevent KEYCODE_TAB; rm -f "$SCR"; done
+if icon_focused Contacts; then
+  ok "precondition: Contacts, the last occupied column of page 1, has the focus"
+  for _ in 1 2 3; do A shell input keyevent KEYCODE_DPAD_RIGHT; done
+  wait_until 5 settled
+  wait_until 5 hasnt Calendar && ok "DPAD_RIGHT towards an empty page 2: the pager is on page 2, not half way" || ko "the pager did not turn to page 2 (Calendar still on screen; focus: $(screen | grep -o '<node [^>]*focused="true"[^>]*>' | head -2 | tr '\n' ' '))"
+else
+  ko "precondition: Contacts did not take the focus with Tab (focus: $(screen | grep -o '<node [^>]*focused="true"[^>]*>' | head -2 | tr '\n' ' '))"
+fi
 A shell input keyevent KEYCODE_HOME; wait_until 5 has Calendar
 
 step "Gestures: left-hand Classic mirrors nothing, the dock's first slot is on the left (c3 M13)"
