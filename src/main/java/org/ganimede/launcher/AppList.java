@@ -363,7 +363,8 @@ final class AppList {
             if (epoch == numberEpoch) numberIndex = index; // not if the search closed meanwhile
         }
         StringBuilder ids = new StringBuilder();
-        for (NumberRow n : index) if (Search.numberMatches(n.digits, q)) ids.append(ids.length() == 0 ? "" : ",").append(n.id);
+        Search.NumberQuery typed = Search.numberQuery(q); // read once, not per number
+        for (NumberRow n : index) if (typed.matches(n.digits)) ids.append(ids.length() == 0 ? "" : ",").append(n.id);
         return ids.toString();
     }
 

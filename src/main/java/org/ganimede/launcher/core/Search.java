@@ -126,21 +126,38 @@ public final class Search {
 
     /** The number holds the typed digits, whatever the spaces, dashes or international prefix (+39, 0039) around them. */
     public static boolean numberMatches(String number, String query) {
-        if (number == null) return false;
-        String saved = digits(number), typed = digits(query), q = query.trim();
-        if (saved.contains(typed)) return true;
-        if (!q.startsWith("+") && !q.startsWith("00")) return false;
-        // 0039 typed, +39 saved (its plus is gone from the digits): the saved number begins with what follows the 00
-        if (q.startsWith("00") && typed.length() >= 5 && saved.startsWith(typed.substring(2))) return true;
-        // typed with a prefix the saved number may lack: the country code is 1 to 3 digits, the rest must still be 3+
-        // and begin the saved number (its leading zeros dropped), not sit anywhere in it
-        String local = saved.replaceFirst("^0+", "");
-        int from = q.startsWith("+") ? 0 : 2;
-        for (int cc = 1; cc <= 3; cc++) {
-            String rest = typed.substring(Math.min(typed.length(), from + cc));
-            if (rest.length() >= 3 && local.startsWith(rest)) return true;
+        return number != null && numberQuery(query).matches(digits(number));
+    }
+
+    /** A typed number, read once for all the numbers it is tried on: its digits, and where a country code would begin (-1: none typed). */
+    public record NumberQuery(String typed, int from) {
+        /** saved: the digits of a saved number. */
+        public boolean matches(String saved) {
+            if (saved.contains(typed)) return true;
+            if (from < 0 || typed.length() <= from) return false;
+            // 0039 typed, +39 saved (its plus is gone from the digits): the saved number begins with what follows the 00
+            if (from == 2 && typed.length() >= 5 && saved.startsWith(typed.substring(2))) return true;
+            // typed with a prefix the saved number may lack: the rest must still be 3+ digits and begin the saved number,
+            // not sit anywhere in it; the leading zeros (trunk prefix) of both are dropped
+            String local = withoutZeros(saved);
+            for (int cc = 1; cc <= 3; cc++) {
+                if (cc == 1 && typed.charAt(from) != '1' && typed.charAt(from) != '7') continue; // no other one-digit country code exists
+                String rest = withoutZeros(typed.substring(Math.min(typed.length(), from + cc)));
+                if (rest.length() >= 3 && local.startsWith(rest)) return true;
+            }
+            return false;
         }
-        return false;
+    }
+
+    public static NumberQuery numberQuery(String query) {
+        String q = query.trim(), typed = digits(q);
+        return new NumberQuery(typed, q.startsWith("+") ? 0 : q.startsWith("00") && !typed.isEmpty() ? 2 : -1);
+    }
+
+    private static String withoutZeros(String digits) {
+        int i = 0;
+        while (i < digits.length() && digits.charAt(i) == '0') i++;
+        return digits.substring(i);
     }
 
     private static final java.util.regex.Pattern NON_DIGITS = java.util.regex.Pattern.compile("[^0-9]");

@@ -189,6 +189,9 @@ public class SearchTest {
         yes(!Search.numberMatches("02 5471 000", "+39 3471"), "after a prefix the rest starts the number, not any place in it");
         yes(!Search.numberMatches("02 5471 000", "0039 471"), "same with 0039");
         yes(Search.numberMatches("02 5471 000", "+39 254"), "the rest at the start of the number");
+        yes(Search.numberMatches("01 234 5678", "+353 01 234"), "the zero typed after the prefix is the trunk prefix, as in the saved number");
+        yes(Search.numberMatches("933 123 456", "+1 933"), "a one-digit country code: only 1 and 7 are");
+        yes(!Search.numberMatches("933 123 456", "+3933"), "3 starts no one-digit country code: +3933 is not 933");
         yes(!Search.numberMatches("+39 347 1234567", "348"), "other digits");
         yes(!Search.numberMatches(null, "347"), "no number");
     }
