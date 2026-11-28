@@ -238,6 +238,13 @@ final class Icons {
         }
     }
 
+    /** Icon pickers open: they read the built-in set on the main thread, so a trim must not release it under them. */
+    private static final java.util.concurrent.atomic.AtomicInteger PICKERS = new java.util.concurrent.atomic.AtomicInteger();
+
+    static void pickerOpen(boolean open) {
+        PICKERS.addAndGet(open ? 1 : -1);
+    }
+
     /**
      * Memory is short: fewer drawn icons; with no screen of ours showing, none, and the 4 MB set too unless the pack or a
      * picked icon uses it (read again when needed). Hiding the home alone frees nothing: it comes back at once.
@@ -248,7 +255,7 @@ final class Icons {
         boolean background = level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
         CACHE.trimToSize(background ? 0 : CACHE.size() / 2);
         if (background) GLYPHS.evictAll();
-        if (background && loaded.set == null && !IconSet.needed(p.getAll())) builtin = null;
+        if (background && loaded.set == null && PICKERS.get() == 0 && !IconSet.needed(p.getAll())) builtin = null;
     }
 
     /** An app was installed or updated: if it's an icon pack, it's read again on the next load. */

@@ -124,6 +124,8 @@ final class IconPicker {
             apply(entry, shown.get(i));
             dlg.dismiss();
         });
+        Icons.pickerOpen(true);
+        dlg.setOnDismissListener(d -> Icons.pickerOpen(false));
         dlg.show();
         new Thread(() -> {
             List<String> got = new ArrayList<>();
