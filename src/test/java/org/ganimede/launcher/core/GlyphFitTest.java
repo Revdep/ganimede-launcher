@@ -40,6 +40,12 @@ public class GlyphFitTest {
         fit(GlyphFit.onContainer(new float[]{2, 20, 46, 28}, 1, 96), 50 / 44.0, 20.727273, 20.727273, 2);
     }
 
+    public static void testHollowOutset() {
+        // contours: 2.6/2 + 0.6/2 = 1.6 units a side, 3.2 in all = 6.4 px at 96; scale (52 - 6.4)/24
+        float extent = IconLook.of("hollow", "circle", "solid", "accent").stroke().extent();
+        fit(GlyphFit.onContainer(new float[]{8, 12, 28, 36}, extent, 96), 1.9, 13.8, 2.4, 6.4);
+    }
+
     public static void testNoContainerKeepsNativeGrid() {
         fit(GlyphFit.grid(1, 96), 2, 0, 0, 2);
     }
@@ -62,6 +68,30 @@ public class GlyphFitTest {
     public static void testSharpKeepsDotsRound() {
         eq(Cap.ROUND, IconLook.of("sharp", "none", "solid", "accent").stroke().dotCap(), "Sharp's dots stay round");
         eq(Cap.ROUND, IconLook.of("line", "none", "solid", "accent").stroke().dotCap(), "Line's dots are round anyway");
+    }
+
+    /** 96x96, alpha 255 in x 10..29, y 20..59: bounds (10,20)-(30,60), 20x40. */
+    private static int[] block() {
+        int[] p = new int[96 * 96];
+        for (int y = 20; y < 60; y++) for (int x = 10; x < 30; x++) p[y * 96 + x] = 0xFF000000;
+        return p;
+    }
+
+    public static void testPixelBoundsCentred() {
+        // a bitmap glyph (issue 079): its longer side 40 -> 52 = 26/48 of 96; centre (20, 40) -> (48, 48); no stroke
+        fit(GlyphFit.onContainer(GlyphFit.bounds(block(), 96), 0, 96), 1.3, 22, -4, 0);
+    }
+
+    public static void testPixelBoundsIgnoreFaintAlpha() {
+        // the threshold is IconMask's 0x20: anti-aliasing noise under it (alpha 8 here) is not part of the glyph
+        int[] p = block();
+        p[0] = 0x08000000;
+        fit(GlyphFit.onContainer(GlyphFit.bounds(p, 96), 0, 96), 1.3, 22, -4, 0);
+    }
+
+    public static void testPixelBoundsEmpty() {
+        // nothing at or above the threshold: the whole square, so an empty bitmap centres as it is
+        fit(GlyphFit.onContainer(GlyphFit.bounds(new int[96 * 96], 96), 0, 96), 52 / 96.0, 22, 22, 0);
     }
 
     private static List<Float> toList(float[] a) {

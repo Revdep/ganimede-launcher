@@ -119,11 +119,13 @@ final class ItSettings {
         it("Solid", "Pieno");
         it("Soft", "Tenue");
         it("Colour", "Colore");
-        it("Line, Bold and Sharp change the stroke only for Arcticons (built-in) icons; the others take the same colour and plate.",
-                "Linea, Marcato e Spigoloso cambiano il tratto solo per le icone di Arcticons (integrate); le altre prendono lo stesso colore e la stessa piastra.");
+        it("Line, Bold, Sharp, Duotone and Hollow change the stroke only for Arcticons (built-in) icons; the others take the same colour and plate.",
+                "Linea, Marcato, Spigoloso, Bicolore e Contorno cambiano il tratto solo per le icone di Arcticons (integrate); le altre prendono lo stesso colore e la stessa piastra.");
         it("Hide app names of favourites", "Nascondi i nomi delle app preferite");
         it("None (apps' own icons)", "Nessuno (icone delle app)");
         it("Arcticons (built-in)", "Arcticons (integrato)");
+        it("Category icons", "Icone per categoria");
+        it("A glyph for apps that have no icon in the set", "Un glifo per le app che non hanno un'icona nel set");
         it("Change wallpaper", "Cambia sfondo");
         it("Pick one that suits your theme", "Scegline uno adatto al tuo tema");
 

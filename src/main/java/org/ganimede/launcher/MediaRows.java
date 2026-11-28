@@ -149,7 +149,7 @@ final class MediaRows {
             for (String k : ui.prefs.getStringSet("music_apps", Set.of())) {
                 Item it = apps.find(k);
                 if (it == null) continue;
-                ImageView iv = ui.icon(it.icon, it.fromPack, size);
+                ImageView iv = ui.icon(it, size, ui.look);
                 iv.setContentDescription(apps.label(it));
                 iv.setOnClickListener(v -> launcher.launch(it, v));
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);

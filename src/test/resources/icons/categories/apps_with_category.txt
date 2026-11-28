@@ -1,0 +1,6 @@
+{"apps": [
+ {"appname": "Bank", "packagename": "com.example.bank", "type": "Finance"},
+ {"appname": "Shop", "packagename": "com.example.shop", "type": "Lifestyle"},
+ {"appname": "A", "packagename": "pkgA", "type": "Finance"},
+ {"appname": "Nothing", "packagename": "com.example.nothing", "type": ""}
+]}

@@ -255,7 +255,7 @@ final class AppList {
 
     /**
      * How many contacts match, starred first then by name, with the details (number, email) of only the rows shown:
-     * the first few, or all of them after "Show all". The count comes from the cursor; the rest are not read.
+     * the first few, or all of them after "Show all". Only names the search rule matches are counted and shown.
      */
     private ContactHits queryContacts(String q, boolean all) {
         return queryContacts(q, all, REACHABLE);
@@ -270,8 +270,10 @@ final class AppList {
         try (Cursor c = ui.a.getContentResolver().query(u, new String[]{ContactsContract.Contacts._ID,
                 ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY}, where, null,
                 ContactsContract.Contacts.STARRED + " DESC, " + ContactsContract.Contacts.SORT_KEY_PRIMARY)) {
-            if (c != null) count = c.getCount();
-            while (c != null && ids.size() < Search.shownContacts(count, all) && c.moveToNext()) {
+            while (c != null && c.moveToNext()) {
+                // the provider also matches mid-word: each name passes the app search's own rule
+                if (c.getString(2) == null || Search.score(c.getString(2), q) == 0) continue;
+                if (ids.size() >= Search.shownContacts(++count, all)) continue;
                 ids.add(c.getLong(0));
                 looks.add(ContactsContract.Contacts.getLookupUri(c.getLong(0), c.getString(1)));
                 names.add(c.getString(2));
@@ -332,7 +334,7 @@ final class AppList {
         if (space > 0 && space < q.length() - 1) {
             String name = q.substring(0, space), terms = q.substring(space + 1).trim();
             for (Item it : visible) {
-                if (Search.score(apps.label(it), name) < 16 * name.length()) continue; // typed from the name's start
+                if (!Search.startsWith(apps.label(it), name)) continue; // typed from the name's start
                 Intent si = new Intent(Intent.ACTION_SEARCH).setPackage(it.pkg);
                 if (!Sunflower.opens(ui.a, si)) continue; // asked without the words, so the answer is kept
                 si.putExtra(SearchManager.QUERY, terms);

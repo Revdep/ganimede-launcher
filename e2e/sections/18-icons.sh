@@ -171,8 +171,12 @@ original_kept && ok "choosing the built-in set keeps the icon style Original" ||
 reach "${S}Originale" >/dev/null && ok "with the built-in set the Icons card still offers Original" || ko "no Original tile with the built-in set"
 reach "${C}Colore del testo" >/dev/null && exact "Colore" && exact "Riempimento" \
   && ok "Original over the built-in set: the Fill and Colour rows show (its glyphs use them)" || ko "Original over the built-in set: no Fill or Colour row"
+flag() { A exec-out run-as $PK cat shared_prefs/ganimede.xml | grep -q "<boolean name=\"$1\" value=\"$2\" />"; }
+exact "Icone per categoria" && ok "the built-in set: the Icons card offers Category icons" || ko "the built-in set: no Category icons row"
+tapn "Icone per categoria" 60 && wait_until 5 flag icon_category false && ok "a tap on Category icons saves icon_category = false" || ko "Category icons saved nothing"
 tapn "Nessuno (icone delle app)" 60 && wait_until 5 stored icon_pack "" && original_kept && ok "back to no pack: the icon style is still Original" \
   || ko "back to no pack: the pack did not change, or icon_glyph did"
+valid && ! exact "Icone per categoria" && ok "no pack: no Category icons row" || ko "no pack: the Category icons row is still there"
 
 for mode in list classic; do
   step "Built-in Arcticons pack draws Calendar in the accent: $mode mode"
@@ -256,13 +260,13 @@ for mode in list classic; do
   size=icon_size; [ "$mode" = classic ] && size=grid_icon
   seed "$mode" int accent -2093040 string icon_pack "$BUILTIN" boolean hide_labels true int $size 64 # hide_labels: only the icon in the crop
   sums=""
-  for g in original line bold sharp; do
+  for g in original line bold sharp duotone hollow; do
     look $g circle solid accent
     capture_calendar "$OUT/icons-$mode-builtin-$g.png" || ko "$mode: no Calendar with $g"
     sums="$sums$(magick "$OUT/icons-$mode-builtin-$g.png" -format %# info:)"$'\n'
   done
   n=$(printf %s "$sums" | sort -u | grep -c .)
-  [ "$n" = 3 ] && ok "$mode: Line, Bold and Sharp differ" || ko "$mode: $n different of Line, Bold, Sharp"
+  [ "$n" = 5 ] && ok "$mode: Line, Bold, Sharp, Duotone and Hollow differ" || ko "$mode: $n different of Line, Bold, Sharp, Duotone, Hollow (expected 5)"
   same "$OUT/icons-$mode-builtin-original.png" "$OUT/icons-$mode-builtin-line.png" \
     && ok "$mode: Original draws a built-in icon as Line (it has no colours of its own)" || ko "$mode: built-in Original differs from Line"
   img="$OUT/icons-$mode-builtin-line.png"
@@ -273,15 +277,50 @@ for mode in list classic; do
   else ko "$mode: no white glyph or red plate in the built-in Line icon"; fi
 done
 
+step "Duotone fills the closed shapes at 32%; Hollow is centred on its plate"
+seed classic
+setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true; setp int grid_icon 64
+look line none solid accent
+capture_calendar "$OUT/icons-d-line.png"
+look duotone none solid accent
+capture_calendar "$OUT/icons-d-duo.png"
+stroke_duo=$(colour_pixels "$OUT/icons-d-duo.png" "$RED")
+# the fill: pixels that are neither the accent nor what Line shows at the same spot (the wallpaper beside the stroke)
+magick "$OUT/icons-d-duo.png" "$OUT/icons-d-line.png" -compose difference -composite -alpha off -colorspace gray -threshold 3% "$OUT/icons-d-differs.png"
+magick "$OUT/icons-d-duo.png" -alpha off -fuzz 4% -fill white +opaque "$RED" -fill black -opaque "$RED" -colorspace gray "$OUT/icons-d-notred.png"
+fillpx=$(magick "$OUT/icons-d-differs.png" "$OUT/icons-d-notred.png" -compose multiply -composite -format "%[fx:round(mean*w*h)]" info:)
+linepx=$(colour_pixels "$OUT/icons-d-line.png" "$RED")
+[ "$stroke_duo" -gt 20 ] && [ "$linepx" -gt 20 ] && ok "Duotone: $stroke_duo stroke pixels in the accent" || ko "Duotone: $stroke_duo accent pixels (Line $linepx), expected more than 20"
+[ "$fillpx" -gt 20 ] && ok "Duotone: $fillpx translucent fill pixels Line does not have" || ko "Duotone: $fillpx fill pixels, expected more than 20"
+look duotone squircle soft accent
+capture_calendar "$OUT/icons-d-soft.png"
+look line squircle solid accent
+capture_calendar "$OUT/icons-d-solid.png"
+if read -r px py pw ph <<<"$(box "$OUT/icons-d-solid.png" "$RED")" && [ -n "$px" ]; then
+  edge=$(pixel "$OUT/icons-d-soft.png" $((px + 1)) $((py + ph / 2)))
+  alike "$edge" E01010 && ok "Duotone + squircle + soft: a red border at the plate's left edge" || ko "Duotone soft: left edge is #$edge"
+  magick "$OUT/icons-d-soft.png" -crop "${pw}x${ph}+$px+$py" +repage "$OUT/icons-d-soft-plate.png"
+  white=$(colour_pixels "$OUT/icons-d-soft-plate.png" "#FFFFFF")
+  [ "${white:-0}" -eq 0 ] && ok "Duotone + squircle + soft: no white pixel" || ko "Duotone soft: $white white pixels on the plate"
+else ko "Duotone soft: no red plate found"; fi
+look hollow circle solid accent
+capture_calendar "$OUT/icons-d-hollow.png"
+if read -r gx gy gw gh <<<"$(box "$OUT/icons-d-hollow.png" "#FFFFFF")" && [ -n "$gx" ] && read -r qx qy qw qh <<<"$(box "$OUT/icons-d-hollow.png" "$RED")" && [ -n "$qx" ]; then
+  dx=$(( (2 * gx + gw) - (2 * qx + qw) )); dy=$(( (2 * gy + gh) - (2 * qy + qh) ))
+  [ ${dx#-} -le 4 ] && [ ${dy#-} -le 4 ] && ok "Hollow glyph centred on its plate (offset $dx/2, $dy/2 px)" \
+    || ko "Hollow glyph off centre by $dx/2, $dy/2 px"
+else ko "Hollow: no white glyph or red plate"; fi
+
 step "Icons card: Line, Bold, Sharp on a built-in glyph; rows shown only where they mean something"
 seed classic int accent -2093040 $(model original circle solid accent)
 pg_settings; stap "Personalizza"
 pill "Temi"; tap "Temi"
 find_desc "${S}Spigoloso" >/dev/null || ko "no Sharp tile"
-for tile in Linea Marcato Spigoloso; do hasd "$S$tile" && ok "sees the $tile tile" || ko "no $tile tile"; done
+for tile in Linea Marcato Spigoloso Bicolore Contorno; do hasd "$S$tile" && ok "sees the $tile tile" || ko "no $tile tile"; done
+! screen | grep -qiE 'text="[^"]*(Cutout|Ritaglio)' && ok "Icon style: no Cutout tile" || ko "a Cutout tile is still offered"
 A exec-out screencap -p > "$OUT/icons-screen.png"
 sums=""
-for tile in Originale Linea Marcato Spigoloso; do # the icon part of each tile: 10 dp padding, then the 44 dp icon
+for tile in Originale Linea Marcato Spigoloso Bicolore Contorno; do # the icon part of each tile: 10 dp padding, then the 44 dp icon
   if read -r x1 y1 x2 y2 <<<"$(bounds "desc:$S$tile")" && [ -n "$x1" ]; then
     s=$(dp 44)
     magick "$OUT/icons-screen.png" -crop "${s}x${s}+$(( (x1 + x2 - s) / 2 ))+$((y1 + $(dp 10)))" +repage "$OUT/icons-tile-$tile.png"
@@ -289,7 +328,7 @@ for tile in Originale Linea Marcato Spigoloso; do # the icon part of each tile: 
   fi
 done
 n=$(printf %s "$sums" | sort -u | grep -c .)
-[ "$n" = 4 ] && ok "Original, Line, Bold, Sharp tiles all differ" || ko "$n different tiles of 4"
+[ "$n" = 6 ] && ok "Original, Line, Bold, Sharp, Duotone, Hollow tiles all differ" || ko "$n different tiles of 6"
 tile="$OUT/icons-tile-Linea.png"
 if read -r gx gy gw gh <<<"$(box "$tile" "#FFFFFF")" && [ -n "$gx" ] && read -r qx qy qw qh <<<"$(box "$tile" "$RED")" && [ -n "$qx" ]; then
   dx=$(( (2 * gx + gw) - (2 * qx + qw) )); dy=$(( (2 * gy + gh) - (2 * qy + qh) )) # twice the offset of the centres
@@ -343,6 +382,129 @@ white=$(colour_pixels "$OUT/icons-original-builtin-text.png" "#FFFFFF"); red=$(c
 [ "${white:-0}" -gt 20 ] && [ "${red:-0}" -eq 0 ] && ok "Original + built-in set + Text colour: Calendar's glyph is white ($white px), no red" \
   || ko "Original + built-in set + Text colour: white $white, red $red px"
 
+# Issue 079: an app with no Arcticons entry takes its glyph from its own icon (here the fixture's alpha silhouette): same
+# colours as the Arcticons glyph, fitted to 26/48 of the plate and centred on its own pixels.
+centre_box() { # png: "x y w h" of the white glyph, centred on the red plate within 2 px, or nothing
+  local gx gy gw gh qx qy qw qh dx dy
+  read -r gx gy gw gh <<<"$(box "$1" "#FFFFFF")" && [ -n "$gx" ] && read -r qx qy qw qh <<<"$(box "$1" "$RED")" && [ -n "$qx" ] || return 1
+  dx=$(( (2 * gx + gw) - (2 * qx + qw) )); dy=$(( (2 * gy + gh) - (2 * qy + qh) )) # twice the offset of the centres
+  echo "$gx $gy $gw $gh $dx $dy $qx $qy $qw $qh"
+}
+for mode in list classic; do
+  step "Fallback glyph matches Arcticons on the plate: $mode mode"
+  seed "$mode"
+  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open"
+  setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp boolean hide_labels true
+  setp boolean icon_category false # the fixture declares a category (issue 087): these steps are about its silhouette
+  if [ "$mode" = classic ]; then setp int grid_icon 64; else setp int icon_size 64; fi # at 80 dp the cell cuts the plate's sides
+  look line circle solid accent
+  cal="$OUT/icons-$mode-fallback-calendar.png" fix="$OUT/icons-$mode-fallback-fixture.png"
+  capture Calendar "$cal" || ko "$mode: no Calendar"
+  capture Fixture "$fix" || ko "$mode: no fixture app"
+  if read -r gx gy gw gh dx dy qx qy qw qh <<<"$(centre_box "$fix")" && [ -n "$gx" ] && read -r cx_ cy_ cw ch _ <<<"$(centre_box "$cal")" && [ -n "$cx_" ]; then
+    ok "$mode: the fixture has a red plate and a white glyph, as Calendar"
+    [ ${dx#-} -le 4 ] && [ ${dy#-} -le 4 ] && ok "$mode: fallback glyph centred on its plate (offset $dx/2, $dy/2 px)" \
+      || ko "$mode: fallback glyph off centre by $dx/2, $dy/2 px (glyph $gx $gy $gw $gh, plate $qx $qy $qw $qh)"
+    long=$gw; [ "$gh" -gt "$long" ] && long=$gh; clong=$cw; [ "$ch" -gt "$clong" ] && clong=$ch
+    near "$long" "$clong" 3 && ok "$mode: fallback glyph's longer side $long px, Calendar's $clong px" \
+      || ko "$mode: fallback glyph's longer side $long px, Calendar's $clong px (more than 3 apart)"
+  else ko "$mode: no white glyph on a red plate (fixture: '$(centre_box "$fix")', Calendar: '$(centre_box "$cal")')"; fi
+
+  step "Fallback glyph on a soft plate: $mode mode"
+  look line circle soft accent
+  capture Calendar "$OUT/icons-$mode-fallback-calendar-soft.png" || ko "$mode: no Calendar (soft)"
+  capture Fixture "$OUT/icons-$mode-fallback-fixture-soft.png" || ko "$mode: no fixture app (soft)"
+  edges=""
+  for a in calendar fixture; do
+    img="$OUT/icons-$mode-fallback-$a-soft.png"
+    read -r rx ry rw rh <<<"$(box "$img" "$RED")"
+    [ -n "$rx" ] && alike "$(pixel "$img" $((rx + 1)) $((ry + rh / 2)))" E01010 && edges="$edges $a"
+  done
+  [ "$edges" = " calendar fixture" ] && ok "$mode: soft: a red border on both plates" || ko "$mode: soft: red border only on:$edges"
+  white=$(colour_pixels "$OUT/icons-$mode-fallback-fixture-soft.png" "#FFFFFF"); red=$(colour_pixels "$OUT/icons-$mode-fallback-fixture-soft.png" "$RED")
+  [ "${white:-0}" -eq 0 ] && [ "${red:-0}" -gt 20 ] && ok "$mode: soft: the fallback glyph is red ($red px), no white" \
+    || ko "$mode: soft: fixture white $white, red $red px"
+
+  step "Fallback glyph with no plate: $mode mode"
+  look original none solid accent
+  capture Fixture "$OUT/icons-$mode-fallback-fixture-own.png" || ko "$mode: no fixture app (Original)"
+  look line none solid accent
+  capture Fixture "$OUT/icons-$mode-fallback-fixture-nop.png" || ko "$mode: no fixture app (no plate)"
+  f="$OUT/icons-$mode-fallback-fixture-nop.png" o="$OUT/icons-$mode-fallback-fixture-own.png"
+  red=$(colour_pixels "$f" "$RED")
+  read -r w h <<<"$(magick "$f" -format "%w %h" info:)"
+  # the frame reaches the crop's corners, so the wallpaper shows only through its hole: the same in its own icon
+  [ "${red:-0}" -gt 20 ] && alike "$(pixel "$f" $((w / 2)) $((h / 2)))" "$(pixel "$o" $((w / 2)) $((h / 2)))" \
+    && ok "$mode: no plate: a red fallback glyph ($red px), the wallpaper through its middle" \
+    || ko "$mode: no plate: fixture red $red px, middle #$(pixel "$f" $((w / 2)) $((h / 2))) against its own icon's #$(pixel "$o" $((w / 2)) $((h / 2)))"
+
+  step "Monochrome-layer fallback matches Arcticons on the plate: $mode mode"
+  setp string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Mono"
+  look line circle solid accent
+  mono="$OUT/icons-$mode-fallback-mono.png"
+  capture "Fixture mono" "$mono" || ko "$mode: no Fixture mono"
+  if read -r gx gy gw gh dx dy qx qy qw qh <<<"$(centre_box "$mono")" && [ -n "$gx" ] && read -r cx_ cy_ cw ch _ <<<"$(centre_box "$cal")" && [ -n "$cx_" ]; then
+    [ ${dx#-} -le 4 ] && [ ${dy#-} -le 4 ] && ok "$mode: monochrome glyph centred on its plate (offset $dx/2, $dy/2 px)" \
+      || ko "$mode: monochrome glyph off centre by $dx/2, $dy/2 px (glyph $gx $gy $gw $gh, plate $qx $qy $qw $qh)"
+    long=$gw; [ "$gh" -gt "$long" ] && long=$gh; clong=$cw; [ "$ch" -gt "$clong" ] && clong=$ch
+    near "$long" "$clong" 3 && ok "$mode: monochrome glyph's longer side $long px, Calendar's $clong px" \
+      || ko "$mode: monochrome glyph's longer side $long px, Calendar's $clong px (more than 3 apart)"
+  else ko "$mode: no white monochrome glyph on a red plate ('$(centre_box "$mono")')"; fi
+done
+
+step "Folder thumbnails draw a fallback app's glyph, not its own colours (Classic)"
+seed classic
+setp string folder:fb "{\"name\":\"Fb\",\"where\":\"fav\",\"apps\":[\"$FIXTURE/$FIXTURE.Open\",\"com.google.android.calendar/com.android.calendar.AllInOneActivity\"]}"
+setp string fav 'f:fb'
+setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
+setp boolean icon_category false # the fixture declares a category (issue 087): this step is about its silhouette
+look line circle solid accent
+if capture Fb "$OUT/icons-folder-fallback.png"; then
+  green=$(colour_pixels "$OUT/icons-folder-fallback.png" "#2E7D32"); red=$(colour_pixels "$OUT/icons-folder-fallback.png" "$RED")
+  [ "${green:-0}" -eq 0 ] && [ "${red:-0}" -gt 20 ] && ok "folder: the fixture is a red glyph as Calendar ($red px), not its green" \
+    || ko "folder: fixture green $green, red $red px (expected no green, red glyphs)"
+else ko "folder Fb not found"; fi
+
+# Issue 079: another profile's app keeps its badge (the briefcase) with the original icon, a glyph and in a folder thumbnail.
+# A managed profile from the shell needs the emulator and a build that lets `pm create-user --managed` run without a DPC:
+# when the system refuses, the step says so and is skipped (the badge then stays checked by hand).
+step "Work-profile app keeps its badge: original, fallback glyph, Arcticons, folder thumbnail (Classic)"
+if emu_only "icons: a work profile is created on the emulator"; then
+  wuid=$(A shell pm create-user --profileOf 0 --managed ganimede-work 2>&1 | grep -oE 'id [0-9]+' | grep -oE '[0-9]+')
+  if [ -z "$wuid" ]; then
+    SKIPS=$((SKIPS + 1)); echo "  SKIP: this system refuses 'pm create-user --profileOf 0 --managed' (no work profile to badge)"
+  else
+    defer "A shell pm remove-user $wuid"
+    A shell am start-user -w "$wuid" >/dev/null 2>&1
+    for pk in $FIXTURE com.google.android.calendar; do A shell pm install-existing --user "$wuid" "$pk" >/dev/null 2>&1; done
+    serial=$(A shell dumpsys user | grep -E "UserInfo\{$wuid:" | grep -oE 'serialNo=[0-9]+' | head -1 | cut -d= -f2)
+    corner() { magick "$1" -gravity SouthEast -crop "40%x40%+0+0" +repage "$2"; } # where the badge sits
+    badge_of() { # badge_of label component look...: the cell as the user's own app and as the work copy; the work copy's corner differs
+      local label="$1" comp="$2"; shift 2
+      seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 64; setp boolean hide_labels true
+      look "$@"
+      setp string fav "$comp"; capture "$label" "$OUT/icons-badge-own.png" || { ko "badge: no own $label"; return; }
+      setp string fav "$comp#$serial"; capture "$label" "$OUT/icons-badge-work.png" || { ko "badge: no work $label (serial '$serial')"; return; }
+      corner "$OUT/icons-badge-own.png" "$OUT/icons-badge-own-c.png"; corner "$OUT/icons-badge-work.png" "$OUT/icons-badge-work-c.png"
+      ! same "$OUT/icons-badge-own-c.png" "$OUT/icons-badge-work-c.png" \
+        && ok "badge: the work $label has a badge in its corner ($*)" || ko "badge: the work $label has no badge ($*)"
+    }
+    badge_of Fixture "$FIXTURE/$FIXTURE.Open" original circle solid accent
+    badge_of Fixture "$FIXTURE/$FIXTURE.Open" line circle solid accent
+    badge_of Calendar "com.google.android.calendar/com.android.calendar.AllInOneActivity" line circle solid accent
+    # a folder thumbnail goes through the same render: the folder with the work copy differs from the one with the own app
+    seed classic; setp int accent -2093040; setp string icon_pack "$BUILTIN"; setp int grid_icon 80; setp boolean hide_labels true
+    look line circle solid accent
+    for who in own work; do
+      k="$FIXTURE/$FIXTURE.Open"; [ $who = work ] && k="$k#$serial"
+      setp string folder:bw "{\"name\":\"Bw\",\"where\":\"fav\",\"apps\":[\"$k\"]}"; setp string fav 'f:bw'
+      capture Bw "$OUT/icons-badge-folder-$who.png" || ko "badge: no folder Bw ($who)"
+    done
+    [ -f "$OUT/icons-badge-folder-own.png" ] && [ -f "$OUT/icons-badge-folder-work.png" ] && ! same "$OUT/icons-badge-folder-own.png" "$OUT/icons-badge-folder-work.png" \
+      && ok "badge: the folder thumbnail of the work copy differs from the own app's (its badge)" || ko "badge: folder thumbnails of the own and the work app look alike"
+  fi
+fi
+
 step "App pages with their own icons (Classic, drawer off)"
 seed classic boolean drawer false $(model original circle solid accent)
 chrome_cell() { # chrome_cell out.png: the Chrome cell on the app pages
@@ -389,3 +551,26 @@ wait_until 5 find_box && wait_until 5 has "Annulla" && ok "landscape: the search
   || ko "landscape: the picker's search or Annulla is off the screen"
 A shell settings put system user_rotation 0; A shell settings put system accelerometer_rotation 1
 tap "Annulla"
+
+# Issue 087: an app with no Arcticons entry and no monochrome layer shows the glyph of its category (the fixture declares
+# android:appCategory="news"): the same as Calendar picked to show the newspaper icon by hand; off, the silhouette.
+for mode in list classic; do
+  step "Category glyph for an app without an Arcticons icon: $mode mode"
+  size=icon_size; [ "$mode" = classic ] && size=grid_icon
+  seed "$mode" string fav "com.google.android.calendar/com.android.calendar.AllInOneActivity\&#10;$FIXTURE/$FIXTURE.Open" \
+    int accent -2093040 string icon_pack "$BUILTIN" boolean hide_labels true int $size 64 \
+    string "icon:$CAL" "$BUILTIN|emoji_newspaper" $(model line circle solid accent)
+  cal="$OUT/icons-$mode-category-calendar.png" fix="$OUT/icons-$mode-category-fixture.png"
+  capture Calendar "$cal" || ko "$mode: no Calendar"
+  capture Fixture "$fix" || ko "$mode: no fixture app"
+  wc=$(colour_pixels "$cal" "#FFFFFF"); wf=$(colour_pixels "$fix" "#FFFFFF"); red=$(colour_pixels "$fix" "$RED")
+  [ "${wc:-0}" -gt 20 ] && [ "${red:-0}" -gt 20 ] && near "${wf:-0}" "${wc:-0}" $((wc / 20 + 3)) \
+    && ok "$mode: the fixture shows the news glyph like Calendar's picked newspaper (white $wf and $wc px, red plate)" \
+    || ko "$mode: fixture white $wf px, Calendar white $wc px, fixture red $red px (expected the same glyph on a red plate)"
+  setp boolean icon_category false
+  capture Fixture "$OUT/icons-$mode-category-off.png" || ko "$mode: no fixture app (category icons off)"
+  wo=$(colour_pixels "$OUT/icons-$mode-category-off.png" "#FFFFFF"); red=$(colour_pixels "$OUT/icons-$mode-category-off.png" "$RED")
+  [ "${red:-0}" -gt 20 ] && ! near "${wo:-0}" "${wc:-0}" $((wc / 20 + 3)) \
+    && ok "$mode: Category icons off: the silhouette, not the newspaper (white $wo px), the plate still red" \
+    || ko "$mode: Category icons off: white $wo px against the newspaper's $wc, red $red px"
+done

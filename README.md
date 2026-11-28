@@ -59,9 +59,14 @@ I test del nucleo (`coreTest`) girano prima di ogni build. Gli APK finiscono nel
 Arcticons a quel commit:
 
 ```
-python3 -I tools/icons/pack.py <Arcticons> src/main/assets/icons.bin
+python3 -I tools/icons/pack.py <Arcticons> src/main/assets/icons.bin <android-app-categories>
 python3 -I tools/icons/test_pack.py
 ```
+
+Lo stesso file contiene le categorie delle app (un glifo per le app senza icona Arcticons): la tabella curata
+`tools/icons/categories/curated.tsv` e il file di
+[heysupratim/android-app-categories](https://github.com/heysupratim/android-app-categories) al commit
+`05ba4fb166ae3e5dd66ee50645ac8a6186259216` (pubblico dominio, [Unlicense](https://unlicense.org/); dati del 2017).
 
 ## Licenza
 

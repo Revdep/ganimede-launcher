@@ -160,7 +160,7 @@ final class Sunflower {
                 CharSequence l = s.getLongLabel() != null ? s.getLongLabel() : s.getShortLabel();
                 if (l == null || !s.isEnabled()) continue;
                 String app = appName.apply(s.getPackage());
-                if (Search.score(l.toString(), q) > 0 || (app != null && Search.score(app, q) >= 16 * q.length()))
+                if (Search.score(l.toString(), q) > 0 || (app != null && Search.startsWith(app, q)))
                     out.add(new Hit(l.toString(), app, s, null));
                 if (out.size() >= 8) break;
             }

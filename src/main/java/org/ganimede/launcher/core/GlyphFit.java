@@ -9,10 +9,13 @@ import org.ganimede.launcher.core.IconSet.PathData;
 /**
  * Where a built-in glyph (48x48 grid) goes in an icon of px: on a container it is centred on its drawn bounds with
  * its longer side 26/48 of the container; the stroke keeps its px width (width x px/48): the geometry scales, not the
- * stroke. Without a container it stays on its own grid.
+ * stroke. Without a container it stays on its own grid. A bitmap glyph (issue 079) fits the same way: its pixels' bounds
+ * in px for a grid of px, stroke 0.
  */
 public record GlyphFit(float scale, float dx, float dy, float strokePx) {
     private static final float GRID = 48, SHARE = 26 / GRID;
+    /** The alpha from which a pixel is part of a glyph or logo: below it, anti-aliasing noise (IconMask uses it too). */
+    static final int SEEN = 0x20;
 
     /** {@code bounds} is left, top, right, bottom of the paths in grid units; {@code stroke} the width in grid units. */
     public static GlyphFit onContainer(float[] bounds, float stroke, int px) {
@@ -37,6 +40,21 @@ public record GlyphFit(float scale, float dx, float dy, float strokePx) {
                 b[3] = Math.max(b[3], p.points()[i + 1]);
             }
         return b;
+    }
+
+    /**
+     * The box around a bitmap's pixels of alpha SEEN or more (ARGB, row by row), right and bottom exclusive; an empty
+     * bitmap is its whole square.
+     */
+    public static float[] bounds(int[] pixels, int width) {
+        int minX = width, minY = Integer.MAX_VALUE, maxX = -1, maxY = -1;
+        for (int i = 0; i < pixels.length; i++) {
+            if ((pixels[i] >>> 24) < SEEN) continue;
+            int x = i % width, y = i / width;
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        }
+        return maxX < 0 ? new float[]{0, 0, width, pixels.length / width} : new float[]{minX, minY, maxX + 1, maxY + 1};
     }
 
     /** x, y of each subpath made only of lines back to its start ("M p L p"): a dot, drawn by the cap alone. */

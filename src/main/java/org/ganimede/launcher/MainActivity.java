@@ -194,6 +194,7 @@ public class MainActivity extends Activity implements Actions.Home {
     protected void onStart() {
         super.onStart();
         started = true;
+        if (!Ui.notifAllowed(this)) VoicePlayer.sweep(this, null); // access was switched off while the home wasn't running
         if (notificationsStale) { notificationsStale = false; refreshNotifications(); }
         widgets.start();
     }
@@ -489,7 +490,7 @@ public class MainActivity extends Activity implements Actions.Home {
         f.addAction(Intent.ACTION_BATTERY_CHANGED);
         registerReceiver(tick, f);
         media.resume();
-        String pack = prefs.getString("icon_pack", "");
+        String pack = Icons.loadKey(prefs); // the pack and "Category icons": either one changes what Apps.load makes
         if (!pack.equals(prefs.getString("icon_pack_loaded", ""))) {
             prefs.edit().putString("icon_pack_loaded", pack).apply();
             loadApps();

@@ -108,6 +108,7 @@ final class SettingsWizard {
                 look.iconChoices(c);
                 kit.sub(c, kit.ui.tr("Icon pack"));
                 look.iconPacks(c);
+                look.categoryIcons(c);
                 break;
             case W_FONT:
                 hero(page, kit.ui.tr("Font"), kit.ui.tr("Each one is shown in its own letters."));

@@ -38,6 +38,8 @@ final class Apps {
          * directory; 8 to 10 alternate /data/app/<pkg>-1 and -2, which still differs from the install before.
          */
         final String installed;
+        /** The glyph of the app's category when it has no icon in the built-in set (issue 087), else null. */
+        BuiltinIcon category;
 
         Item(LauncherActivityInfo info, String key) {
             this.info = info;
@@ -115,7 +117,8 @@ final class Apps {
                         it.picked = prefs.getString("icon:" + it.key, "");
                         if (packed == null) packed = Icons.fromPack(info.getComponentName());
                         it.fromPack = packed != null;
-                        it.icon = packed != null ? packed : info.getBadgedIcon(0);
+                        if (packed == null) it.category = Icons.category(prefs, info);
+                        it.icon = packed != null ? packed : info.getIcon(0); // unbadged: Icons.apply badges what it draws
                         out.add(it);
                     } catch (RuntimeException oneApp) { // one app being updated can't take the whole list down
                         // left out until the next load
